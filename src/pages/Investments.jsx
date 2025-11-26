@@ -115,20 +115,26 @@ export default function Investments() {
       for (const inv of investments) {
         if (inv.ticker && quotes[inv.ticker.toUpperCase()]) {
           const quote = quotes[inv.ticker.toUpperCase()];
-          let cotacao = quote.price;
+          let cotacaoBRL = quote.price;
+          let cotacaoUSD = null;
+          let valorAtualUSD = null;
 
-          // Converter USD para BRL se necessário
+          // Se é ativo internacional ou crypto, guardar valor em USD e converter para BRL
           if (quote.currency === 'USD' && ['renda_variavel_int', 'crypto'].includes(inv.categoria)) {
-            cotacao = quote.price * usdBrl;
+            cotacaoUSD = quote.price;
+            cotacaoBRL = quote.price * usdBrl;
+            valorAtualUSD = inv.quantidade ? inv.quantidade * cotacaoUSD : cotacaoUSD;
           }
 
-          const valorAtual = inv.quantidade ? inv.quantidade * cotacao : cotacao;
+          const valorAtual = inv.quantidade ? inv.quantidade * cotacaoBRL : cotacaoBRL;
           const rentabilidadeValor = valorAtual - (inv.valor_investido || 0);
           const rentabilidadePercent = inv.valor_investido ? ((valorAtual / inv.valor_investido) - 1) * 100 : 0;
 
           await base44.entities.Investment.update(inv.id, {
-            cotacao_atual: cotacao,
+            cotacao_atual: cotacaoBRL,
+            cotacao_atual_usd: cotacaoUSD,
             valor_atual: valorAtual,
+            valor_atual_usd: valorAtualUSD,
             rentabilidade_valor: rentabilidadeValor,
             rentabilidade_percentual: rentabilidadePercent,
             ultima_atualizacao: new Date().toISOString()
@@ -201,11 +207,24 @@ export default function Investments() {
     },
     {
       header: 'Valor Atual',
-      render: (row) => (
-        <span className="font-medium text-slate-900">
-          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_atual || row.valor_investido || 0)}
-        </span>
-      )
+      render: (row) => {
+        const isInternational = ['renda_variavel_int', 'crypto'].includes(row.categoria);
+        const cotacaoUSD = row.cotacao_atual_usd;
+        const valorAtualUSD = row.valor_atual_usd;
+        
+        return (
+          <div>
+            <span className="font-medium text-slate-900">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_atual || row.valor_investido || 0)}
+            </span>
+            {isInternational && valorAtualUSD > 0 && (
+              <p className="text-xs text-slate-500">
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(valorAtualUSD)}
+              </p>
+            )}
+          </div>
+        );
+      }
     },
     {
       header: 'Rentabilidade',

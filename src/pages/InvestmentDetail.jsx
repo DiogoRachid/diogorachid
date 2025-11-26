@@ -105,22 +105,37 @@ export default function InvestmentDetail() {
     try {
       const quote = await fetchSingleQuote(investment.ticker, investment.categoria);
       if (quote?.price) {
-        let cotacao = quote.price;
+        let cotacaoBRL = quote.price;
+        let cotacaoUSD = null;
+        let valorAtualUSD = null;
         
-        // Converter USD para BRL se necessário (estimativa com taxa fixa, ideal seria buscar taxa real)
+        // Se é ativo internacional ou crypto, guardar valor em USD e converter para BRL
         if (quote.currency === 'USD' && ['renda_variavel_int', 'crypto'].includes(investment.categoria)) {
-          // Buscar taxa de câmbio
-          const usdBrl = 5.0; // Fallback, idealmente buscar da API
-          cotacao = quote.price * usdBrl;
+          // Buscar taxa de câmbio atual
+          const indicatorsRes = await base44.integrations.Core.InvokeLLM({
+            prompt: 'Qual a cotação atual do dólar (USD/BRL)?',
+            add_context_from_internet: true,
+            response_json_schema: {
+              type: "object",
+              properties: { dolar: { type: "number" } }
+            }
+          });
+          const usdBrl = indicatorsRes?.dolar || 5.0;
+          
+          cotacaoUSD = quote.price;
+          cotacaoBRL = quote.price * usdBrl;
+          valorAtualUSD = investment.quantidade ? investment.quantidade * cotacaoUSD : cotacaoUSD;
         }
 
-        const valorAtual = investment.quantidade ? investment.quantidade * cotacao : cotacao;
+        const valorAtual = investment.quantidade ? investment.quantidade * cotacaoBRL : cotacaoBRL;
         const rentabilidadeValor = valorAtual - (investment.valor_investido || 0);
         const rentabilidadePercent = investment.valor_investido ? ((valorAtual / investment.valor_investido) - 1) * 100 : 0;
 
         await base44.entities.Investment.update(investmentId, {
-          cotacao_atual: cotacao,
+          cotacao_atual: cotacaoBRL,
+          cotacao_atual_usd: cotacaoUSD,
           valor_atual: valorAtual,
+          valor_atual_usd: valorAtualUSD,
           rentabilidade_valor: rentabilidadeValor,
           rentabilidade_percentual: rentabilidadePercent,
           ultima_atualizacao: new Date().toISOString()
@@ -297,6 +312,11 @@ export default function InvestmentDetail() {
                 <p className="text-xl font-bold text-slate-900">
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(investment.valor_atual || investment.valor_investido || 0)}
                 </p>
+                {['renda_variavel_int', 'crypto'].includes(investment.categoria) && investment.valor_atual_usd > 0 && (
+                  <p className="text-sm text-slate-500">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(investment.valor_atual_usd)}
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
@@ -385,6 +405,11 @@ export default function InvestmentDetail() {
                     <p className="font-medium">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(investment.cotacao_atual)}
                     </p>
+                    {['renda_variavel_int', 'crypto'].includes(investment.categoria) && investment.cotacao_atual_usd > 0 && (
+                      <p className="text-sm text-slate-500">
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(investment.cotacao_atual_usd)}
+                      </p>
+                    )}
                   </div>
                 )}
                 {investment.ultima_atualizacao && (
