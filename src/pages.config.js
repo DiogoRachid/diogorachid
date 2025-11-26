@@ -1,10 +1,23 @@
+import Suppliers from './pages/Suppliers';
+import SupplierForm from './pages/SupplierForm';
+import SupplierDetail from './pages/SupplierDetail';
+import Clients from './pages/Clients';
+import ClientForm from './pages/ClientForm';
+import ClientDetail from './pages/ClientDetail';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "Suppliers": Suppliers,
+    "SupplierForm": SupplierForm,
+    "SupplierDetail": SupplierDetail,
+    "Clients": Clients,
+    "ClientForm": ClientForm,
+    "ClientDetail": ClientDetail,
 }
 
 export const pagesConfig = {
+    mainPage: "Suppliers",
     Pages: PAGES,
     Layout: __Layout,
 };
