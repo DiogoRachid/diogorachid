@@ -36,6 +36,7 @@ import ContractForm from './pages/ContractForm';
 import Benefits from './pages/Benefits';
 import BenefitAssignment from './pages/BenefitAssignment';
 import HRReports from './pages/HRReports';
+import AdminPortal from './pages/AdminPortal';
 import __Layout from './Layout.jsx';
 
 
@@ -78,6 +79,7 @@ export const PAGES = {
     "Benefits": Benefits,
     "BenefitAssignment": BenefitAssignment,
     "HRReports": HRReports,
+    "AdminPortal": AdminPortal,
 }
 
 export const pagesConfig = {
