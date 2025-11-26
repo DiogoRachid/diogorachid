@@ -208,13 +208,14 @@ export default function Layout({ children, currentPageName }) {
         >
           <Menu className="h-6 w-6" />
         </Button>
-        <div className={`p-1.5 rounded-lg ${darkMode ? 'bg-slate-200' : ''}`}>
-          <img 
-            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_690c7efb29582ad524a0ff3e/fb3eac426_logofundoclaro.jpg" 
-            alt="Virtual Construções" 
-            className="h-7 object-contain"
-          />
-        </div>
+        <img 
+          src={darkMode 
+            ? "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6926eb0b6c1242bf806695a4/4053fb920_logofundoescuro.png"
+            : "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_690c7efb29582ad524a0ff3e/fb3eac426_logofundoclaro.jpg"
+          } 
+          alt="Virtual Construções" 
+          className="h-7 object-contain"
+        />
         <Button
           variant="ghost"
           size="icon"
@@ -243,13 +244,14 @@ export default function Layout({ children, currentPageName }) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className={`h-20 flex items-center justify-between px-6 border-b ${darkMode ? 'border-[#2d4a6f]' : 'border-slate-100'}`}>
-            <div className={`p-2 rounded-lg ${darkMode ? 'bg-slate-200' : ''}`}>
-              <img 
-                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_690c7efb29582ad524a0ff3e/fb3eac426_logofundoclaro.jpg" 
-                alt="Virtual Construções" 
-                className="h-10 object-contain"
-              />
-            </div>
+            <img 
+              src={darkMode 
+                ? "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6926eb0b6c1242bf806695a4/4053fb920_logofundoescuro.png"
+                : "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_690c7efb29582ad524a0ff3e/fb3eac426_logofundoclaro.jpg"
+              } 
+              alt="Virtual Construções" 
+              className="h-10 object-contain"
+            />
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
