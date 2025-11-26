@@ -22,7 +22,11 @@ import {
   FolderKanban,
   TrendingUp,
   Moon,
-  Sun
+  Sun,
+  UsersRound,
+  Clock,
+  FileSignature,
+  Gift
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +65,18 @@ const menuItems = [
     ]
   },
   {
+    title: 'RH',
+    icon: UsersRound,
+    submenu: [
+      { title: 'Colaboradores', page: 'Employees', icon: Users },
+      { title: 'Equipes', page: 'Teams', icon: UsersRound },
+      { title: 'Frequência', page: 'TimeRecords', icon: Clock },
+      { title: 'Contratos', page: 'EmployeeContracts', icon: FileSignature },
+      { title: 'Benefícios', page: 'Benefits', icon: Gift },
+      { title: 'Relatórios RH', page: 'HRReports', icon: FileText }
+    ]
+  },
+  {
     title: 'Investimentos',
     icon: TrendingUp,
     page: 'Investments'
@@ -74,7 +90,7 @@ const menuItems = [
 
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState(['Cadastros', 'Financeiro']);
+  const [expandedMenus, setExpandedMenus] = useState(['Cadastros', 'Financeiro', 'RH']);
   const [user, setUser] = useState(null);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
