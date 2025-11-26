@@ -19,7 +19,8 @@ import {
   LogOut,
   HardHat,
   Landmark,
-  FolderKanban
+  FolderKanban,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +57,11 @@ const menuItems = [
       { title: 'Contas a Receber', page: 'AccountsReceivable', icon: ArrowUpCircle },
       { title: 'Transações', page: 'Transactions', icon: Receipt }
     ]
+  },
+  {
+    title: 'Investimentos',
+    icon: TrendingUp,
+    page: 'Investments'
   },
   {
     title: 'Relatórios',
