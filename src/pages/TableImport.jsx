@@ -41,6 +41,8 @@ const processBatches = async (items, batchSize, fn) => {
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     await Promise.all(batch.map(fn));
+    // Add a small delay between batches
+    if (i + batchSize < items.length) await new Promise(r => setTimeout(r, 200)); 
   }
 };
 
@@ -247,7 +249,7 @@ export default function TableImport() {
         // Batch Update
         if (toUpdate.length > 0) {
           setProgress(`Atualizando ${toUpdate.length} insumos existentes...`);
-          await processBatches(toUpdate, 20, async (item) => {
+          await processBatches(toUpdate, 10, async (item) => {
             await base44.entities.Input.update(item.id, item.data);
             updated++;
           });
@@ -296,7 +298,7 @@ export default function TableImport() {
         let count = 0;
         
         // Batch process services to respect rate limits
-        await processBatches(serviceCodes, 5, async (codServ) => {
+        await processBatches(serviceCodes, 1, async (codServ) => {
           count++;
           if (count % 10 === 0) setProgress(`Processando serviços... ${count}/${serviceCodes.length}`);
           
@@ -329,8 +331,8 @@ export default function TableImport() {
           // Clean existing items
           const oldComps = await base44.entities.ServiceComposition.filter({ servico_id: service.id });
           if (oldComps.length > 0) {
-             // Batch delete in chunks of 20
-             await processBatches(oldComps, 20, async (c) => base44.entities.ServiceComposition.delete(c.id));
+             // Batch delete in chunks of 10
+             await processBatches(oldComps, 10, async (c) => base44.entities.ServiceComposition.delete(c.id));
           }
 
           let totalMat = 0;
