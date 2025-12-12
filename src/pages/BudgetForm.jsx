@@ -12,7 +12,11 @@ import {
   Download,
   Loader2,
   Calculator,
-  RefreshCw
+  RefreshCw,
+  GripVertical,
+  ChevronDown,
+  ChevronRight,
+  FolderPlus
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +38,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { format } from 'date-fns';
 import {
@@ -52,15 +61,14 @@ import {
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
 export default function BudgetForm() {
   const urlParams = new URLSearchParams(window.location.search);
   const budgetId = urlParams.get('id');
-  const queryClient = useQueryClient();
   const reportRef = useRef(null);
 
-  // Estados do Orçamento
+  // States
   const [header, setHeader] = useState({
     descricao: '',
     obra_id: '',
@@ -71,54 +79,71 @@ export default function BudgetForm() {
     observacoes: ''
   });
 
-  const [items, setItems] = useState([]);
-  const [serviceToAdd, setServiceToAdd] = useState('');
+  const [stages, setStages] = useState([]);
+  const [items, setItems] = useState([]); // All items flat
+  const [newStageName, setNewStageName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [collapsedStages, setCollapsedStages] = useState({});
 
-  // Dados Auxiliares
+  // Aux Data
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: () => base44.entities.Project.list() });
   const { data: costCenters = [] } = useQuery({ queryKey: ['costCenters'], queryFn: () => base44.entities.CostCenter.list() });
   const { data: services = [] } = useQuery({ queryKey: ['services'], queryFn: () => base44.entities.Service.list() });
 
-  // Carregar Orçamento Existente
+  // Load Budget
   useEffect(() => {
     if (budgetId) {
-      const loadBudget = async () => {
-        const budget = await base44.entities.Budget.filter({ id: budgetId }).then(res => res[0]);
-        if (budget) {
+      const load = async () => {
+        const b = await base44.entities.Budget.filter({ id: budgetId }).then(r => r[0]);
+        if (b) {
           setHeader({
-            descricao: budget.descricao,
-            obra_id: budget.obra_id,
-            centro_custo_id: budget.centro_custo_id,
-            bdi_padrao: budget.bdi_padrao,
-            status: budget.status,
-            versao: budget.versao,
-            observacoes: budget.observacoes
+            descricao: b.descricao,
+            obra_id: b.obra_id,
+            centro_custo_id: b.centro_custo_id,
+            bdi_padrao: b.bdi_padrao,
+            status: b.status,
+            versao: b.versao,
+            observacoes: b.observacoes
           });
-          const budgetItems = await base44.entities.BudgetItem.filter({ orcamento_id: budgetId });
-          setItems(budgetItems);
+          const bs = await base44.entities.BudgetStage.filter({ orcamento_id: budgetId });
+          setStages(bs.sort((a, b) => a.ordem - b.ordem));
+          const bi = await base44.entities.BudgetItem.filter({ orcamento_id: budgetId });
+          setItems(bi);
         }
       };
-      loadBudget();
+      load();
     }
   }, [budgetId]);
 
-  // Cálculos Gerais (Totais)
-  const totals = items.reduce((acc, item) => {
-    acc.material += (item.custo_unitario_material || 0) * item.quantidade;
-    acc.mao_obra += (item.custo_unitario_mao_obra || 0) * item.quantidade;
-    acc.direto += (item.custo_direto_total || 0);
-    acc.final += (item.subtotal || 0);
-    return acc;
-  }, { material: 0, mao_obra: 0, direto: 0, final: 0 });
-  
-  const totalBDI = totals.final - totals.direto;
-  const bdiRealPercent = totals.direto > 0 ? (totalBDI / totals.direto) * 100 : 0;
+  // Stage Management
+  const handleAddStage = () => {
+    if (!newStageName) return;
+    const newStage = {
+      tempId: `stage-${Date.now()}`,
+      nome: newStageName,
+      ordem: stages.length + 1,
+      orcamento_id: budgetId || ''
+    };
+    setStages([...stages, newStage]);
+    setNewStageName('');
+  };
 
-  // Funções de Manipulação
-  const handleAddService = () => {
-    if (!serviceToAdd) return;
-    const service = services.find(s => s.id === serviceToAdd);
+  const handleRemoveStage = (stageId) => {
+    // Move items to 'uncategorized' (null stage)
+    const newItems = items.map(i => i.stage_id === stageId ? { ...i, stage_id: null } : i);
+    setItems(newItems);
+    setStages(stages.filter(s => (s.id || s.tempId) !== stageId));
+  };
+
+  const moveItemToStage = (itemIndex, stageId) => {
+    const newItems = [...items];
+    newItems[itemIndex].stage_id = stageId === 'null' ? null : stageId;
+    setItems(newItems);
+  };
+
+  // Item Management
+  const handleAddService = (serviceId, stageId) => {
+    const service = services.find(s => s.id === serviceId);
     if (!service) return;
 
     const bdi = header.bdi_padrao;
@@ -126,8 +151,8 @@ export default function BudgetForm() {
     const custoComBDI = custoDireto * (1 + bdi / 100);
 
     const newItem = {
-      // id: tempId (será gerado pelo banco depois, mas aqui usamos timestamp para key)
-      tempId: Date.now(),
+      tempId: `item-${Date.now()}`,
+      stage_id: stageId === 'uncategorized' ? null : stageId,
       servico_id: service.id,
       codigo: service.codigo,
       descricao: service.descricao,
@@ -143,15 +168,16 @@ export default function BudgetForm() {
     };
 
     setItems([...items, newItem]);
-    setServiceToAdd('');
     toast.success('Serviço adicionado!');
   };
 
-  const updateItem = (index, field, value) => {
+  const updateItem = (itemTempIdOrId, field, value) => {
+    const index = items.findIndex(i => (i.id || i.tempId) === itemTempIdOrId);
+    if (index === -1) return;
+
     const newItems = [...items];
     const item = { ...newItems[index], [field]: parseFloat(value) || 0 };
 
-    // Recalcular linha
     if (field === 'quantidade' || field === 'bdi_percentual') {
       item.custo_direto_total = item.custo_unitario_total * item.quantidade;
       const bdiMult = 1 + (item.bdi_percentual / 100);
@@ -163,69 +189,102 @@ export default function BudgetForm() {
     setItems(newItems);
   };
 
-  const removeItem = (index) => {
-    const newItems = [...items];
-    newItems.splice(index, 1);
-    setItems(newItems);
+  const removeItem = (itemTempIdOrId) => {
+    setItems(items.filter(i => (i.id || i.tempId) !== itemTempIdOrId));
   };
 
-  const updateGlobalBDI = () => {
-    const newItems = items.map(item => {
-      const bdiMult = 1 + (header.bdi_padrao / 100);
-      return {
-        ...item,
-        bdi_percentual: header.bdi_padrao,
-        custo_com_bdi_unitario: item.custo_unitario_total * bdiMult,
-        subtotal: item.custo_unitario_total * bdiMult * item.quantidade
-      };
-    });
-    setItems(newItems);
-    toast.success(`BDI de ${header.bdi_padrao}% aplicado a todos os itens.`);
+  // Global Calculations
+  const calculateTotals = (itemList) => {
+    return itemList.reduce((acc, item) => {
+      acc.material += (item.custo_unitario_material || 0) * item.quantidade;
+      acc.mao_obra += (item.custo_unitario_mao_obra || 0) * item.quantidade;
+      acc.direto += (item.custo_direto_total || 0);
+      acc.final += (item.subtotal || 0);
+      return acc;
+    }, { material: 0, mao_obra: 0, direto: 0, final: 0 });
   };
 
+  const globalTotals = calculateTotals(items);
+  const globalBDI = globalTotals.final - globalTotals.direto;
+
+  // Save
   const handleSave = async () => {
     if (!header.descricao || !header.obra_id) {
       toast.error('Preencha a descrição e selecione a obra.');
       return;
     }
-
     setIsSaving(true);
     try {
+      let savedBudgetId = budgetId;
+      
       const budgetData = {
         ...header,
         obra_nome: projects.find(p => p.id === header.obra_id)?.nome,
         centro_custo_nome: costCenters.find(c => c.id === header.centro_custo_id)?.nome,
-        total_material: totals.material,
-        total_mao_obra: totals.mao_obra,
-        total_direto: totals.direto,
-        total_bdi: totalBDI,
-        total_final: totals.final,
-        data_referencia: new Date().toISOString() // ou manter a original
+        total_material: globalTotals.material,
+        total_mao_obra: globalTotals.mao_obra,
+        total_direto: globalTotals.direto,
+        total_bdi: globalBDI,
+        total_final: globalTotals.final,
+        data_referencia: new Date().toISOString()
       };
-
-      let savedBudgetId = budgetId;
 
       if (budgetId) {
         await base44.entities.Budget.update(budgetId, budgetData);
-        // Delete all items and recreate (simpler for now to ensure consistency)
-        // In a real app with huge lists, we would do diffing.
-        const currentItems = await base44.entities.BudgetItem.filter({ orcamento_id: budgetId });
-        await Promise.all(currentItems.map(i => base44.entities.BudgetItem.delete(i.id)));
+        // Clean existing stages and items to recreate (simplest consistency strategy)
+        // Optimization: In real world, use diff.
+        const existingStages = await base44.entities.BudgetStage.filter({ orcamento_id: budgetId });
+        await Promise.all(existingStages.map(s => base44.entities.BudgetStage.delete(s.id)));
+        
+        const existingItems = await base44.entities.BudgetItem.filter({ orcamento_id: budgetId });
+        await Promise.all(existingItems.map(i => base44.entities.BudgetItem.delete(i.id)));
       } else {
         const newBudget = await base44.entities.Budget.create({
-          ...budgetData,
-          data_criacao: new Date().toISOString()
+           ...budgetData,
+           data_criacao: new Date().toISOString()
         });
         savedBudgetId = newBudget.id;
       }
 
-      // Create items
+      // Create Stages and Map IDs
+      const stageMap = {}; // tempId -> realId
+      
+      // Sort stages to keep order
+      const sortedStages = [...stages].sort((a, b) => a.ordem - b.ordem);
+      
+      for (const stage of sortedStages) {
+        const createdStage = await base44.entities.BudgetStage.create({
+          orcamento_id: savedBudgetId,
+          nome: stage.nome,
+          ordem: stage.ordem,
+          descricao: stage.descricao || ''
+        });
+        stageMap[stage.id || stage.tempId] = createdStage.id;
+      }
+
+      // Create Items with new Stage IDs
       if (items.length > 0) {
-        // Batch creation if supported, or loop
-        // Base44 might limit concurrency, so let's do chunks or Promise.all
-        await Promise.all(items.map(item => 
-          base44.entities.BudgetItem.create({
+        await Promise.all(items.map(item => {
+           const realStageId = item.stage_id ? (stageMap[item.stage_id] || item.stage_id) : null;
+           // If stage_id was null (uncategorized), it stays null.
+           // If stage_id was a tempId from new stage, it gets mapped.
+           // If stage_id was an old ID from deleted stage (if we didn't recreate), we would need care.
+           // Since we recreated everything, we assume item.stage_id refers to one of the objects in `stages` state.
+           // If user added item to "Existing Stage A", item.stage_id is "ID_A".
+           // But we deleted "ID_A" and created new "ID_New_A".
+           // Problem: item.stage_id points to old ID.
+           // Fix: We need to map old IDs to new IDs too?
+           // Easier: Map by index? Or name?
+           // Let's rely on the fact that `stages` state contains the IDs we are mapping.
+           
+           // Actually, since we deleted old stages, we must map EVERYTHING.
+           // But `stageMap` only has mapping for stages in `stages` array.
+           // If `stages` contains objects with old IDs, `stageMap` will have `oldID -> newID`.
+           // So `stageMap[item.stage_id]` should work for both tempIds and oldIds.
+           
+           return base44.entities.BudgetItem.create({
             orcamento_id: savedBudgetId,
+            stage_id: realStageId,
             servico_id: item.servico_id,
             codigo: item.codigo,
             descricao: item.descricao,
@@ -238,17 +297,19 @@ export default function BudgetForm() {
             bdi_percentual: item.bdi_percentual,
             custo_com_bdi_unitario: item.custo_com_bdi_unitario,
             subtotal: item.subtotal
-          })
-        ));
+          });
+        }));
       }
 
       toast.success('Orçamento salvo com sucesso!');
-      if (!budgetId) {
-        window.location.href = createPageUrl('Budgets');
+      if (!budgetId) window.location.href = createPageUrl('Budgets');
+      else {
+         // Reload page to refresh IDs
+         window.location.reload();
       }
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro ao salvar orçamento.');
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao salvar');
     }
     setIsSaving(false);
   };
@@ -256,27 +317,163 @@ export default function BudgetForm() {
   const exportPDF = () => {
     const input = reportRef.current;
     if (!input) return;
-
     html2canvas(input).then((canvas) => {
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`orcamento_${header.descricao}.pdf`);
     });
   };
 
-  // Gráficos Data
-  const pieData = [
-    { name: 'Material', value: totals.material },
-    { name: 'Mão de Obra', value: totals.mao_obra },
-    { name: 'BDI', value: totalBDI }
-  ].filter(d => d.value > 0);
+  // Rendering Helpers
+  const renderStageTable = (stageId, stageName, stageItems) => {
+    const stageTotals = calculateTotals(stageItems);
+    const isUncategorized = stageId === 'uncategorized';
+
+    return (
+      <Card key={stageId || 'uncategorized'} className="mb-6 border-l-4 border-l-blue-500">
+        <Collapsible 
+          open={!collapsedStages[stageId]} 
+          onOpenChange={v => setCollapsedStages({...collapsedStages, [stageId]: !v})}
+        >
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-t-lg">
+            <div className="flex items-center gap-2">
+               <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
+                     {collapsedStages[stageId] ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+               </CollapsibleTrigger>
+               <h3 className="font-bold text-lg uppercase flex items-center gap-2">
+                 {stageName}
+                 <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-normal normal-case">
+                   {stageItems.length} itens
+                 </span>
+               </h3>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right text-sm hidden sm:block">
+                <span className="text-slate-500 mr-2">Total Etapa:</span>
+                <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stageTotals.final)}</span>
+              </div>
+              {!isUncategorized && (
+                 <Button variant="ghost" size="icon" onClick={() => handleRemoveStage(stageId)} className="text-red-400 hover:text-red-600 h-6 w-6">
+                   <Trash2 className="h-4 w-4" />
+                 </Button>
+              )}
+            </div>
+          </div>
+          
+          <CollapsibleContent>
+             <CardContent className="p-0">
+               <Table>
+                 <TableHeader>
+                   <TableRow>
+                     <TableHead className="w-20">Código</TableHead>
+                     <TableHead className="min-w-[200px]">Descrição</TableHead>
+                     <TableHead className="w-16">Unid</TableHead>
+                     <TableHead className="w-20 text-right">Qtd</TableHead>
+                     <TableHead className="w-28 text-right">Custo Unit</TableHead>
+                     <TableHead className="w-20 text-right">BDI%</TableHead>
+                     <TableHead className="w-28 text-right">Preço Unit</TableHead>
+                     <TableHead className="w-28 text-right">Subtotal</TableHead>
+                     <TableHead className="w-24 text-center">Etapa</TableHead>
+                     <TableHead className="w-10"></TableHead>
+                   </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                   {stageItems.map((item) => (
+                     <TableRow key={item.id || item.tempId}>
+                       <TableCell className="text-xs font-medium">{item.codigo}</TableCell>
+                       <TableCell className="text-sm">{item.descricao}</TableCell>
+                       <TableCell className="text-xs text-slate-500">{item.unidade}</TableCell>
+                       <TableCell>
+                         <Input 
+                           type="number" 
+                           className="h-7 w-20 text-right text-xs" 
+                           value={item.quantidade} 
+                           onChange={e => updateItem(item.id || item.tempId, 'quantidade', e.target.value)} 
+                         />
+                       </TableCell>
+                       <TableCell className="text-right text-xs">
+                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_unitario_total)}
+                       </TableCell>
+                       <TableCell>
+                          <Input 
+                           type="number" 
+                           className="h-7 w-16 text-right text-xs" 
+                           value={item.bdi_percentual} 
+                           onChange={e => updateItem(item.id || item.tempId, 'bdi_percentual', e.target.value)} 
+                         />
+                       </TableCell>
+                       <TableCell className="text-right text-xs">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_com_bdi_unitario)}
+                       </TableCell>
+                       <TableCell className="text-right font-medium text-xs">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.subtotal)}
+                       </TableCell>
+                       <TableCell>
+                         <Select 
+                           value={item.stage_id || 'null'} 
+                           onValueChange={(v) => {
+                              // We need to find index in main items array
+                              const idx = items.findIndex(i => (i.id || i.tempId) === (item.id || item.tempId));
+                              moveItemToStage(idx, v);
+                           }}
+                         >
+                           <SelectTrigger className="h-7 text-xs w-full"><SelectValue /></SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="null">Sem Etapa</SelectItem>
+                             {stages.map(s => <SelectItem key={s.id || s.tempId} value={s.id || s.tempId}>{s.nome}</SelectItem>)}
+                           </SelectContent>
+                         </Select>
+                       </TableCell>
+                       <TableCell>
+                         <Button variant="ghost" size="icon" onClick={() => removeItem(item.id || item.tempId)} className="h-6 w-6 text-red-500">
+                           <Trash2 className="h-3 w-3" />
+                         </Button>
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                   <TableRow className="bg-slate-50/50">
+                     <TableCell colSpan={10} className="p-2">
+                       <div className="flex items-center gap-2">
+                         <Select onValueChange={(v) => handleAddService(v, isUncategorized ? 'uncategorized' : stageId)}>
+                           <SelectTrigger className="h-8 w-[300px] bg-white">
+                             <SelectValue placeholder="Adicionar serviço nesta etapa..." />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {services.map(s => (
+                               <SelectItem key={s.id} value={s.id}>
+                                 {s.codigo} - {s.descricao}
+                               </SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       </div>
+                     </TableCell>
+                   </TableRow>
+                 </TableBody>
+               </Table>
+             </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
+    );
+  };
+
+  const pieData = stages.map(s => ({
+    name: s.nome,
+    value: calculateTotals(items.filter(i => i.stage_id === (s.id || s.tempId))).final
+  })).concat([{
+    name: 'Sem Etapa',
+    value: calculateTotals(items.filter(i => !i.stage_id)).final
+  }]).filter(d => d.value > 0);
 
   return (
     <div className="pb-20">
+      {/* Header Toolbar */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => window.location.href = createPageUrl('Budgets')}>
@@ -284,13 +481,12 @@ export default function BudgetForm() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{budgetId ? 'Editar Orçamento' : 'Novo Orçamento'}</h1>
-            <p className="text-slate-500">Elaboração de proposta comercial e custos</p>
+            <p className="text-slate-500">Orçamento por Etapas de Obra</p>
           </div>
         </div>
         <div className="flex gap-2">
-           <Button variant="outline" onClick={exportPDF}>
-            <Download className="h-4 w-4 mr-2" />
-            PDF
+          <Button variant="outline" onClick={exportPDF}>
+            <Download className="h-4 w-4 mr-2" /> PDF
           </Button>
           <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700">
             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
@@ -301,27 +497,20 @@ export default function BudgetForm() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
         <div className="lg:col-span-3 space-y-6">
-          {/* Cabeçalho do Orçamento */}
+          {/* Main Info */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Dados Gerais</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <Label>Descrição / Título *</Label>
-                  <Input 
-                    value={header.descricao} 
-                    onChange={(e) => setHeader(prev => ({...prev, descricao: e.target.value}))} 
-                    placeholder="Ex: Reforma do Prédio Administrativo"
-                  />
+                  <Label>Descrição</Label>
+                  <Input value={header.descricao} onChange={e => setHeader({...header, descricao: e.target.value})} />
                 </div>
                 <div>
-                  <Label>Obra *</Label>
-                  <Select 
-                    value={header.obra_id} 
-                    onValueChange={(v) => setHeader(prev => ({...prev, obra_id: v}))}
-                  >
+                  <Label>Obra</Label>
+                  <Select value={header.obra_id} onValueChange={v => setHeader({...header, obra_id: v})}>
                     <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
@@ -329,273 +518,153 @@ export default function BudgetForm() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Centro de Custo</Label>
-                  <Select 
-                    value={header.centro_custo_id} 
-                    onValueChange={(v) => setHeader(prev => ({...prev, centro_custo_id: v}))}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {costCenters.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
                   <Label>Status</Label>
-                  <Select 
-                    value={header.status} 
-                    onValueChange={(v) => setHeader(prev => ({...prev, status: v}))}
-                  >
+                  <Select value={header.status} onValueChange={v => setHeader({...header, status: v})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="rascunho">Rascunho</SelectItem>
                       <SelectItem value="aprovado">Aprovado</SelectItem>
                       <SelectItem value="revisado">Revisado</SelectItem>
-                      <SelectItem value="cancelado">Cancelado</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <Label>BDI Padrão (%)</Label>
-                    <Input 
-                      type="number" 
-                      value={header.bdi_padrao} 
-                      onChange={(e) => setHeader(prev => ({...prev, bdi_padrao: parseFloat(e.target.value)}))}
-                    />
-                  </div>
-                  <Button variant="outline" onClick={updateGlobalBDI} title="Aplicar a todos os itens">
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Tabs defaultValue="sheet">
-            <TabsList className="mb-4">
-              <TabsTrigger value="sheet"><Calculator className="h-4 w-4 mr-2"/> Planilha</TabsTrigger>
-              <TabsTrigger value="report"><PieChartIcon className="h-4 w-4 mr-2"/> Relatório e Gráficos</TabsTrigger>
+            <TabsList>
+              <TabsTrigger value="sheet"><Calculator className="h-4 w-4 mr-2" /> Planilha</TabsTrigger>
+              <TabsTrigger value="report"><PieChartIcon className="h-4 w-4 mr-2" /> Relatórios</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="sheet" className="space-y-4">
-              {/* Adicionar Item */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <Label className="mb-2 block">Adicionar Serviço</Label>
-                      <Select 
-                        value={serviceToAdd} 
-                        onValueChange={setServiceToAdd}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Busque um serviço..." /></SelectTrigger>
-                        <SelectContent>
-                          {services.map(s => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.codigo} - {s.descricao} ({new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(s.custo_total)})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-end">
-                      <Button onClick={handleAddService} disabled={!serviceToAdd}>
-                        <Plus className="h-4 w-4 mr-2" /> Adicionar
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <TabsContent value="sheet">
+              {/* Add Stage Toolbar */}
+              <div className="flex gap-2 mb-4 bg-slate-100 p-3 rounded-lg items-center">
+                <Label className="whitespace-nowrap">Nova Etapa:</Label>
+                <Input 
+                  placeholder="Ex: Fundação, Pintura..." 
+                  value={newStageName} 
+                  onChange={e => setNewStageName(e.target.value)}
+                  className="max-w-xs h-9 bg-white"
+                />
+                <Button size="sm" onClick={handleAddStage} disabled={!newStageName}>
+                  <FolderPlus className="h-4 w-4 mr-2" /> Adicionar
+                </Button>
+              </div>
 
-              {/* Tabela de Itens */}
-              <Card>
-                <CardContent className="p-0 overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-slate-50">
-                        <TableHead className="w-20">Código</TableHead>
-                        <TableHead className="min-w-[200px]">Descrição</TableHead>
-                        <TableHead className="w-16">Unid</TableHead>
-                        <TableHead className="w-24 text-right">Qtd</TableHead>
-                        <TableHead className="w-32 text-right">Custo Unit.</TableHead>
-                        <TableHead className="w-32 text-right">Custo Direto</TableHead>
-                        <TableHead className="w-24 text-right">BDI %</TableHead>
-                        <TableHead className="w-32 text-right">Preço Unit.</TableHead>
-                        <TableHead className="w-32 text-right">Total</TableHead>
-                        <TableHead className="w-12"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item, idx) => (
-                        <TableRow key={item.id || item.tempId}>
-                          <TableCell className="text-xs font-medium">{item.codigo}</TableCell>
-                          <TableCell className="text-sm">{item.descricao}</TableCell>
-                          <TableCell className="text-xs text-slate-500">{item.unidade}</TableCell>
-                          <TableCell>
-                            <Input 
-                              type="number" 
-                              className="h-8 w-20 text-right" 
-                              value={item.quantidade} 
-                              onChange={(e) => updateItem(idx, 'quantidade', e.target.value)}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_unitario_total)}
-                          </TableCell>
-                          <TableCell className="text-right text-sm font-medium text-slate-600">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_direto_total)}
-                          </TableCell>
-                          <TableCell>
-                            <Input 
-                              type="number" 
-                              className="h-8 w-16 text-right" 
-                              value={item.bdi_percentual} 
-                              onChange={(e) => updateItem(idx, 'bdi_percentual', e.target.value)}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_com_bdi_unitario)}
-                          </TableCell>
-                          <TableCell className="text-right text-sm font-bold text-slate-900">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.subtotal)}
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} className="h-6 w-6 text-red-500">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {items.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={10} className="text-center py-8 text-slate-400">
-                            Nenhum item no orçamento.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              {/* Stages List */}
+              <div className="space-y-6">
+                {stages.map(stage => renderStageTable(
+                  stage.id || stage.tempId, 
+                  stage.nome, 
+                  items.filter(i => i.stage_id === (stage.id || stage.tempId))
+                ))}
+                
+                {/* Uncategorized Items */}
+                {items.some(i => !i.stage_id) && renderStageTable(
+                  'uncategorized',
+                  'Sem Etapa Definida',
+                  items.filter(i => !i.stage_id)
+                )}
+
+                {stages.length === 0 && items.length === 0 && (
+                  <div className="text-center py-12 border-2 border-dashed rounded-xl bg-slate-50 text-slate-400">
+                    <FolderPlus className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>Adicione etapas e serviços para começar o orçamento.</p>
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="report">
-              <div ref={reportRef} className="bg-white p-8 rounded-lg border shadow-sm space-y-8">
-                <div className="text-center border-b pb-4">
-                  <h2 className="text-2xl font-bold uppercase">{header.descricao}</h2>
-                  <p className="text-slate-500">Relatório de Fechamento de Orçamento</p>
-                  <p className="text-sm mt-2">Versão: {header.versao} | Data: {format(new Date(), 'dd/MM/yyyy')}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-8">
-                  <div>
-                    <h3 className="font-semibold mb-4">Resumo Financeiro</h3>
-                    <Table>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell>Total Material</TableCell>
-                          <TableCell className="text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.material)}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>Total Mão de Obra</TableCell>
-                          <TableCell className="text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.mao_obra)}</TableCell>
-                        </TableRow>
-                        <TableRow className="font-medium bg-slate-50">
-                          <TableCell>Custo Direto Total</TableCell>
-                          <TableCell className="text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.direto)}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>Total BDI ({bdiRealPercent.toFixed(2)}%)</TableCell>
-                          <TableCell className="text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalBDI)}</TableCell>
-                        </TableRow>
-                        <TableRow className="font-bold text-lg bg-slate-100">
-                          <TableCell>Valor Final (Preço de Venda)</TableCell>
-                          <TableCell className="text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.final)}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <div className="h-64">
-                    <h3 className="font-semibold mb-4 text-center">Composição de Custos</h3>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={pieData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {pieData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
+               <div ref={reportRef} className="bg-white p-8 rounded-lg border shadow-sm">
+                 <div className="text-center border-b pb-6 mb-6">
+                   <h2 className="text-2xl font-bold uppercase">{header.descricao}</h2>
+                   <p className="text-slate-500">Relatório Analítico por Etapas</p>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-8 mb-8">
+                    <div className="h-64">
+                       <h3 className="font-bold text-center mb-4">Custo por Etapa</h3>
+                       <ResponsiveContainer width="100%" height="100%">
+                         <PieChart>
+                           <Pie
+                             data={pieData}
+                             cx="50%"
+                             cy="50%"
+                             innerRadius={60}
+                             outerRadius={80}
+                             paddingAngle={5}
+                             dataKey="value"
+                             label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                           >
+                             {pieData.map((entry, index) => (
+                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                             ))}
+                           </Pie>
+                           <Tooltip formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
+                         </PieChart>
+                       </ResponsiveContainer>
+                    </div>
+                    <div>
+                      <Table>
+                        <TableHeader>
+                           <TableRow>
+                             <TableHead>Etapa</TableHead>
+                             <TableHead className="text-right">Total</TableHead>
+                           </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                           {pieData.map((d, i) => (
+                              <TableRow key={i}>
+                                <TableCell>
+                                  <span className="inline-block w-3 h-3 rounded-full mr-2" style={{backgroundColor: COLORS[i % COLORS.length]}}></span>
+                                  {d.name}
+                                </TableCell>
+                                <TableCell className="text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.value)}</TableCell>
+                              </TableRow>
+                           ))}
+                           <TableRow className="font-bold bg-slate-50">
+                             <TableCell>TOTAL GERAL</TableCell>
+                             <TableCell className="text-right">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(globalTotals.final)}</TableCell>
+                           </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                 </div>
+               </div>
             </TabsContent>
           </Tabs>
         </div>
 
+        {/* Floating Sidebar Summary */}
         <div className="lg:col-span-1 space-y-6">
-          <Card className="bg-slate-900 text-white border-0">
+          <Card className="bg-slate-900 text-white border-0 sticky top-4">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-400">Valor Final</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-400">Resumo do Orçamento</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold mb-4">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.final)}
+              <div className="text-3xl font-bold mb-6">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(globalTotals.final)}
               </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
+              
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between border-b border-slate-700 pb-2">
+                  <span className="text-slate-400">Total Material</span>
+                  <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(globalTotals.material)}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-700 pb-2">
+                  <span className="text-slate-400">Total Mão de Obra</span>
+                  <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(globalTotals.mao_obra)}</span>
+                </div>
+                 <div className="flex justify-between border-b border-slate-700 pb-2">
                   <span className="text-slate-400">Custo Direto</span>
-                  <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.direto)}</span>
+                  <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(globalTotals.direto)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">BDI Total</span>
-                  <span className="text-green-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalBDI)}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Indicadores</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Material</span>
-                  <span className="font-medium">{totals.final > 0 ? ((totals.material / totals.final) * 100).toFixed(1) : 0}%</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500" style={{ width: `${totals.final > 0 ? (totals.material / totals.final) * 100 : 0}%` }} />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Mão de Obra</span>
-                  <span className="font-medium">{totals.final > 0 ? ((totals.mao_obra / totals.final) * 100).toFixed(1) : 0}%</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500" style={{ width: `${totals.final > 0 ? (totals.mao_obra / totals.final) * 100 : 0}%` }} />
-                </div>
-              </div>
-              <div>
-                 <div className="flex justify-between text-sm mb-1">
-                  <span>Lucro/Indiretos (BDI)</span>
-                  <span className="font-medium">{totals.final > 0 ? ((totalBDI / totals.final) * 100).toFixed(1) : 0}%</span>
-                </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-500" style={{ width: `${totals.final > 0 ? (totalBDI / totals.final) * 100 : 0}%` }} />
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-400">Total BDI</span>
+                  <span className="text-green-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(globalBDI)}</span>
                 </div>
               </div>
             </CardContent>
