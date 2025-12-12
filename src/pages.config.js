@@ -37,6 +37,7 @@ import Benefits from './pages/Benefits';
 import BenefitAssignment from './pages/BenefitAssignment';
 import HRReports from './pages/HRReports';
 import Inputs from './pages/Inputs';
+import Services from './pages/Services';
 import __Layout from './Layout.jsx';
 
 
@@ -80,6 +81,7 @@ export const PAGES = {
     "BenefitAssignment": BenefitAssignment,
     "HRReports": HRReports,
     "Inputs": Inputs,
+    "Services": Services,
 }
 
 export const pagesConfig = {
