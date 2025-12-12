@@ -20,7 +20,9 @@ import {
   DollarSign,
   FileText,
   ExternalLink,
-  Plus
+  Plus,
+  Trash2,
+  MoreHorizontal
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -67,6 +69,15 @@ const TIPO_OPERACAO_LABELS = {
   grupamento: 'Grupamento'
 };
 
+const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  if (typeof dateString === 'string' && dateString.length === 10 && dateString.includes('-')) {
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  }
+  return format(new Date(dateString), 'dd/MM/yyyy', { locale: ptBR });
+};
+
 export default function InvestmentDetail() {
   const urlParams = new URLSearchParams(window.location.search);
   const investmentId = urlParams.get('id');
@@ -74,6 +85,8 @@ export default function InvestmentDetail() {
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [showTransactionDialog, setShowTransactionDialog] = useState(false);
+  const [deleteTransactionId, setDeleteTransactionId] = useState(null);
+  const [editingTransaction, setEditingTransaction] = useState(null);
   const [newTransaction, setNewTransaction] = useState({
     tipo_operacao: 'compra',
     quantidade: '',
@@ -81,7 +94,8 @@ export default function InvestmentDetail() {
     valor_total: '',
     data_operacao: format(new Date(), 'yyyy-MM-dd'),
     taxas: '',
-    observacoes: ''
+    observacoes: '',
+    conta_id: 'none'
   });
 
   const { data: investment, isLoading } = useQuery({
@@ -93,6 +107,11 @@ export default function InvestmentDetail() {
     queryKey: ['investmentTransactions', investmentId],
     queryFn: () => base44.entities.InvestmentTransaction.filter({ investimento_id: investmentId }, '-data_operacao'),
     enabled: !!investmentId
+  });
+
+  const { data: bankAccounts = [] } = useQuery({
+    queryKey: ['bankAccounts'],
+    queryFn: () => base44.entities.BankAccount.list()
   });
 
   const updateQuote = async () => {
@@ -153,30 +172,126 @@ export default function InvestmentDetail() {
   };
 
   const createTransactionMutation = useMutation({
-    mutationFn: (data) => base44.entities.InvestmentTransaction.create({
-      ...data,
-      investimento_id: investmentId,
-      investimento_nome: investment?.nome,
-      quantidade: data.quantidade ? parseFloat(data.quantidade) : null,
-      preco_unitario: data.preco_unitario ? parseFloat(data.preco_unitario) : null,
-      valor_total: parseFloat(data.valor_total),
-      taxas: data.taxas ? parseFloat(data.taxas) : 0
-    }),
+    mutationFn: async (data) => {
+      const valor = parseFloat(data.valor_total);
+      
+      // Criar transação do investimento
+      await base44.entities.InvestmentTransaction.create({
+        ...data,
+        investimento_id: investmentId,
+        investimento_nome: investment?.nome,
+        quantidade: data.quantidade ? parseFloat(data.quantidade) : null,
+        preco_unitario: data.preco_unitario ? parseFloat(data.preco_unitario) : null,
+        valor_total: valor,
+        taxas: data.taxas ? parseFloat(data.taxas) : 0
+      });
+
+      // Atualizar valor atual se for rendimento
+      if (['rendimento', 'dividendo', 'jcp'].includes(data.tipo_operacao)) {
+        const novoValorAtual = (investment.valor_atual || 0) + valor;
+        await base44.entities.Investment.update(investmentId, {
+          valor_atual: novoValorAtual,
+          ultima_atualizacao: new Date().toISOString()
+        });
+      }
+
+      // Atualizar conta bancária se selecionada
+      if (data.conta_id && data.conta_id !== 'none') {
+        const conta = bankAccounts.find(c => c.id === data.conta_id);
+        if (conta) {
+          const isEntrada = ['venda', 'dividendo', 'jcp', 'rendimento', 'amortizacao'].includes(data.tipo_operacao);
+          const novoSaldo = isEntrada 
+            ? (conta.saldo_atual || 0) + valor 
+            : (conta.saldo_atual || 0) - valor;
+          
+          await base44.entities.BankAccount.update(conta.id, { saldo_atual: novoSaldo });
+          
+          await base44.entities.Transaction.create({
+            tipo: isEntrada ? 'entrada' : 'saida',
+            descricao: `${TIPO_OPERACAO_LABELS[data.tipo_operacao]} - ${investment.nome}`,
+            valor: valor,
+            data: data.data_operacao,
+            conta_bancaria_id: conta.id,
+            conta_bancaria_nome: conta.nome,
+            origem: 'manual',
+            conciliado: true
+          });
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['investmentTransactions', investmentId] });
+      queryClient.invalidateQueries({ queryKey: ['investment', investmentId] });
+      queryClient.invalidateQueries({ queryKey: ['bankAccounts'] });
+      setShowTransactionDialog(false);
+      resetForm();
+      toast.success('Operação registrada com sucesso!');
+    }
+  });
+
+  const updateTransactionMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      await base44.entities.InvestmentTransaction.update(id, {
+        ...data,
+        quantidade: data.quantidade ? parseFloat(data.quantidade) : null,
+        preco_unitario: data.preco_unitario ? parseFloat(data.preco_unitario) : null,
+        valor_total: parseFloat(data.valor_total),
+        taxas: data.taxas ? parseFloat(data.taxas) : 0
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['investmentTransactions', investmentId] });
       setShowTransactionDialog(false);
-      setNewTransaction({
-        tipo_operacao: 'compra',
-        quantidade: '',
-        preco_unitario: '',
-        valor_total: '',
-        data_operacao: format(new Date(), 'yyyy-MM-dd'),
-        taxas: '',
-        observacoes: ''
-      });
-      toast.success('Operação registrada!');
+      resetForm();
+      toast.success('Operação atualizada!');
     }
   });
+
+  const deleteTransactionMutation = useMutation({
+    mutationFn: (id) => base44.entities.InvestmentTransaction.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['investmentTransactions', investmentId] });
+      setDeleteTransactionId(null);
+      toast.success('Operação excluída');
+    }
+  });
+
+  const resetForm = () => {
+    setNewTransaction({
+      tipo_operacao: 'compra',
+      quantidade: '',
+      preco_unitario: '',
+      valor_total: '',
+      data_operacao: format(new Date(), 'yyyy-MM-dd'),
+      taxas: '',
+      observacoes: '',
+      conta_id: 'none'
+    });
+    setEditingTransaction(null);
+  };
+
+  const handleEditTransaction = (transaction) => {
+    setEditingTransaction(transaction);
+    setNewTransaction({
+      tipo_operacao: transaction.tipo_operacao,
+      quantidade: transaction.quantidade || '',
+      preco_unitario: transaction.preco_unitario || '',
+      valor_total: transaction.valor_total || '',
+      data_operacao: transaction.data_operacao,
+      taxas: transaction.taxas || '',
+      observacoes: transaction.observacoes || '',
+      conta_id: 'none' // Não editamos a conta na edição para simplificar
+    });
+    setShowTransactionDialog(true);
+  };
+
+  const handleSave = () => {
+    if (editingTransaction) {
+      updateTransactionMutation.mutate({ id: editingTransaction.id, data: newTransaction });
+    } else {
+      createTransactionMutation.mutate(newTransaction);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -206,7 +321,7 @@ export default function InvestmentDetail() {
   const transactionColumns = [
     {
       header: 'Data',
-      render: (row) => format(new Date(row.data_operacao), 'dd/MM/yyyy', { locale: ptBR })
+      render: (row) => formatDate(row.data_operacao)
     },
     {
       header: 'Operação',
@@ -236,6 +351,29 @@ export default function InvestmentDetail() {
         <span className="font-medium">
           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_total)}
         </span>
+      )
+    },
+    {
+      header: '',
+      className: 'w-12',
+      render: (row) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleEditTransaction(row)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setDeleteTransactionId(row.id)} className="text-red-600">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )
     }
   ];
@@ -450,7 +588,7 @@ export default function InvestmentDetail() {
                   {investment.data_vencimento && (
                     <div>
                       <p className="text-sm text-slate-500">Data de Vencimento</p>
-                      <p className="font-medium">{format(new Date(investment.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                      <p className="font-medium">{formatDate(investment.data_vencimento)}</p>
                     </div>
                   )}
                 </CardContent>
@@ -468,7 +606,7 @@ export default function InvestmentDetail() {
                 {investment.data_aplicacao && (
                   <div>
                     <p className="text-sm text-slate-500">Data da Aplicação</p>
-                    <p className="font-medium">{format(new Date(investment.data_aplicacao), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                    <p className="font-medium">{formatDate(investment.data_aplicacao)}</p>
                   </div>
                 )}
                 {investment.created_date && (
@@ -559,7 +697,7 @@ export default function InvestmentDetail() {
       <Dialog open={showTransactionDialog} onOpenChange={setShowTransactionDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Registrar Operação</DialogTitle>
+            <DialogTitle>{editingTransaction ? 'Editar Operação' : 'Registrar Operação'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -638,22 +776,56 @@ export default function InvestmentDetail() {
                 className="mt-1.5"
               />
             </div>
+
+            {!editingTransaction && (
+              <div className="pt-2 border-t">
+                <Label>Vincular Conta Bancária (Opcional)</Label>
+                <Select
+                  value={newTransaction.conta_id}
+                  onValueChange={(v) => setNewTransaction(prev => ({ ...prev, conta_id: v }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Selecione uma conta..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não vincular</SelectItem>
+                    {bankAccounts.map(acc => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.nome} - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(acc.saldo_atual || 0)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Ao selecionar uma conta, o saldo será atualizado automaticamente e uma transação será criada.
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowTransactionDialog(false)}>
               Cancelar
             </Button>
             <Button 
-              onClick={() => createTransactionMutation.mutate(newTransaction)}
-              disabled={createTransactionMutation.isPending || !newTransaction.valor_total}
+              onClick={handleSave}
+              disabled={createTransactionMutation.isPending || updateTransactionMutation.isPending || !newTransaction.valor_total}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {createTransactionMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {(createTransactionMutation.isPending || updateTransactionMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={!!deleteTransactionId}
+        onOpenChange={() => setDeleteTransactionId(null)}
+        onConfirm={() => deleteTransactionMutation.mutate(deleteTransactionId)}
+        isDeleting={deleteTransactionMutation.isPending}
+        title="Excluir operação"
+        description="Tem certeza que deseja excluir esta operação? O saldo da conta vinculada (se houver) NÃO será revertido automaticamente."
+      />
     </div>
   );
 }
