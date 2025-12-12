@@ -501,7 +501,19 @@ export default function ServiceEditor() {
                     <TableRow key={idx}>
                       <TableCell className="text-xs font-medium text-slate-500">{comp.tipo_item}</TableCell>
                       <TableCell className="text-sm">
-                        <div className="font-medium">{comp.item_nome}</div>
+                        <div className="font-medium">
+                          {(() => {
+                            const code = comp.tipo_item === 'INSUMO' 
+                              ? inputs.find(i => i.id === comp.item_id)?.codigo 
+                              : allServices.find(s => s.id === comp.item_id)?.codigo;
+                            return code ? (
+                              <div className="flex flex-col">
+                                <span className="text-xs text-slate-500 font-mono mb-0.5">{code}</span>
+                                <span>{comp.item_nome}</span>
+                              </div>
+                            ) : comp.item_nome;
+                          })()}
+                        </div>
                         {comp.custo_unitario === 0 && <span className="text-xs text-red-500 flex items-center"><AlertTriangle className="h-3 w-3 mr-1" /> Sem custo</span>}
                       </TableCell>
                       <TableCell className="text-xs">{comp.unidade}</TableCell>
