@@ -26,7 +26,10 @@ import {
   UsersRound,
   Clock,
   FileSignature,
-  Gift
+  Gift,
+  Package,
+  Layers,
+  Calculator
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
