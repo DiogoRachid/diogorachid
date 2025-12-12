@@ -82,7 +82,7 @@ export default function TableImport() {
       if (['UND_SERV', 'UNIDADE_SERVICO'].some(x => h.includes(x))) return 'unidade_servico';
       if (['COD_ITEM', 'CODIGO_ITEM', 'CODIGO INSUMO'].some(x => h.includes(x))) return 'codigo_item';
       if (['QTD', 'QUANTIDADE', 'COEFICIENTE'].some(x => h.includes(x))) return 'quantidade';
-      if (['VALOR_UNIT', 'CUSTO_UNIT', 'PRECO_UNIT'].some(x => h.includes(x))) return 'custo_unitario';
+      // Custo unitário removido da importação de serviços/composições
       if (['TIPO', 'TIPO_ITEM'].some(x => h.includes(x))) return 'tipo_item'; // Material/Mão de Obra
     }
     return null;
@@ -287,15 +287,9 @@ export default function TableImport() {
           if (qtdStr) qtdStr = qtdStr.replace(',', '.');
           const quantidade = parseFloat(qtdStr) || 0;
 
-          // Parse unit cost if available
-          let costStr = mappedColumns['custo_unitario'] ? cols[mappedColumns['custo_unitario']] : '0';
-          if (costStr) costStr = costStr.replace(',', '.');
-          const custoUnit = parseFloat(costStr) || 0;
-
           serviceGroups[codServ].items.push({
             codItem: cols[mappedColumns['codigo_item']],
             quantidade,
-            custoUnit,
             tipo: mappedColumns['tipo_item'] ? cols[mappedColumns['tipo_item']] : 'MATERIAL'
           });
         }
@@ -362,12 +356,12 @@ export default function TableImport() {
           for (const item of group.items) {
             let itemId;
             let itemType = 'INSUMO';
-            let itemCost = item.custoUnit;
+            let itemCost = 0;
 
             let input = inputsMap.get(item.codItem);
             if (input) {
               itemId = input.id;
-              if (itemCost === 0) itemCost = input.valor_referencia;
+              itemCost = input.valor_referencia;
               
               if (input.data_base) {
                  const d = parseDate(input.data_base);
@@ -379,14 +373,15 @@ export default function TableImport() {
               if (subService) {
                 itemId = subService.id;
                 itemType = 'SERVICO';
-                if (itemCost === 0) itemCost = subService.custo_total;
+                itemCost = subService.custo_total;
               } else {
                 // Create missing Input placeholder (immediately to reuse ID)
+                // Cost 0 since it's missing and we don't import cost anymore
                 const newInput = await base44.entities.Input.create({
                   codigo: item.codItem,
                   descricao: `ITEM IMPORTADO ${item.codItem}`,
                   unidade: 'UN',
-                  valor_referencia: itemCost,
+                  valor_referencia: 0, 
                   fonte: config.origem,
                   data_base: config.data_base,
                   data_atualizacao: new Date().toISOString()
@@ -394,7 +389,7 @@ export default function TableImport() {
                 inputsMap.set(item.codItem, newInput);
                 itemId = newInput.id;
                 input = newInput;
-                logEntries.push(`Aviso: Item ${item.codItem} não existia e foi criado automaticamente.`);
+                logEntries.push(`Aviso: Item ${item.codItem} não existia e foi criado automaticamente com valor zero.`);
               }
             }
             
@@ -403,7 +398,8 @@ export default function TableImport() {
                costType = 'MAO_DE_OBRA';
             }
 
-            const totalItem = item.quantidade * itemCost;
+            // Arredondamento para 2 casas decimais no total do item
+            const totalItem = Math.round((item.quantidade * itemCost) * 100) / 100;
             
             compsToCreate.push({
               servico_id: service.id,
@@ -550,7 +546,7 @@ export default function TableImport() {
   // Manual Mapping
   const getRequiredFields = () => config.tipo === 'INSUMOS' 
     ? ['codigo', 'descricao', 'valor_referencia', 'unidade'] 
-    : ['codigo_servico', 'descricao_servico', 'unidade_servico', 'codigo_item', 'quantidade', 'custo_unitario', 'tipo_item'];
+    : ['codigo_servico', 'descricao_servico', 'unidade_servico', 'codigo_item', 'quantidade', 'tipo_item'];
 
   const handleMapChange = (field, colIndex) => {
      setMappedColumns(prev => ({...prev, [field]: parseInt(colIndex)}));
@@ -697,7 +693,7 @@ export default function TableImport() {
                   {getRequiredFields().map(field => (
                      <div key={field}>
                         <Label className="text-xs font-semibold uppercase text-slate-500 mb-1 block">
-                           {field.replace('_', ' ')} {['codigo','descricao','valor_referencia','codigo_servico','codigo_item','quantidade'].includes(field) && '*'}
+                          {field.replace('_', ' ')} {['codigo','descricao','valor_referencia','codigo_servico','codigo_item','quantidade'].includes(field) && '*'}
                         </Label>
                         <Select 
                            value={mappedColumns[field] !== undefined ? String(mappedColumns[field]) : ''}
