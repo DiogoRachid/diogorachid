@@ -326,42 +326,72 @@ export default function Investments() {
         </div>
       )}
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
-          <CardContent className="pt-6">
-            <p className="text-blue-100 text-sm">Total Investido</p>
-            <p className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInvestido)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Patrimônio Atual</p>
-            <p className="text-2xl font-bold text-slate-900">
+      {/* Dashboard de Investimentos */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {/* Patrimônio Total */}
+        <Card className="md:col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 text-white border-0 shadow-xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-slate-300">Patrimônio Total</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold mb-1">
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalAtual)}
-            </p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-300 mb-6">
+              <span>Investido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInvestido)}</span>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">Rentabilidade R$</span>
+                <span className={`font-semibold ${totalRentabilidade >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {totalRentabilidade >= 0 ? '+' : ''}{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRentabilidade)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">Rentabilidade %</span>
+                <span className={`font-semibold ${rentabilidadePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {rentabilidadePercent >= 0 ? '+' : ''}{rentabilidadePercent.toFixed(2)}%
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Rentabilidade Total</p>
-            <p className={`text-2xl font-bold ${totalRentabilidade >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              {totalRentabilidade >= 0 ? '+' : ''}{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRentabilidade)}
-            </p>
-            <p className={`text-sm ${rentabilidadePercent >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              {rentabilidadePercent >= 0 ? '+' : ''}{rentabilidadePercent.toFixed(2)}%
-            </p>
-          </CardContent>
-        </Card>
+        {/* Resumo por Categoria */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-slate-500">Alocação por Categoria</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {Object.keys(CATEGORY_CONFIG).map(cat => {
+                const totalCat = investments
+                  .filter(inv => inv.categoria === cat)
+                  .reduce((sum, inv) => sum + (inv.valor_atual || inv.valor_investido || 0), 0);
+                
+                if (totalCat === 0) return null;
+                
+                const config = CATEGORY_CONFIG[cat];
+                const Icon = config.icon;
+                const percent = totalAtual > 0 ? (totalCat / totalAtual) * 100 : 0;
 
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Ativos</p>
-            <p className="text-2xl font-bold text-slate-900">{investments.length}</p>
+                return (
+                  <div key={cat} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`p-1.5 rounded-lg ${config.color} bg-opacity-10`}>
+                        <Icon className={`h-4 w-4 ${config.color.replace('bg-', 'text-')}`} />
+                      </div>
+                      <span className="text-xs font-medium text-slate-600 truncate">{config.label}</span>
+                    </div>
+                    <p className="font-semibold text-slate-900">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCat)}
+                    </p>
+                    <p className="text-xs text-slate-500">{percent.toFixed(1)}%</p>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       </div>
