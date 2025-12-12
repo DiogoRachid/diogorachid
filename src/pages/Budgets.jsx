@@ -10,8 +10,10 @@ import {
   MoreHorizontal,
   Loader2,
   Copy,
-  FileText
+  FileText,
+  Printer
 } from 'lucide-react';
+import { printBudget } from '@/components/budgets/BudgetPrinter';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchFilter from '@/components/shared/SearchFilter';
 import DataTable from '@/components/shared/DataTable';
@@ -104,6 +106,10 @@ export default function Budgets() {
             <DropdownMenuItem onClick={() => window.location.href = createPageUrl(`BudgetForm?id=${row.id}`)}>
               <Pencil className="h-4 w-4 mr-2" />
               Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => printBudget(row.id)}>
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimir
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => duplicateBudget(row)}>
               <Copy className="h-4 w-4 mr-2" />
