@@ -40,9 +40,13 @@ import { format } from 'date-fns';
 const processBatches = async (items, batchSize, fn) => {
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
-    await Promise.all(batch.map(fn));
-    // Add a significant delay between batches
-    if (i + batchSize < items.length) await new Promise(r => setTimeout(r, 1000)); 
+    for (const item of batch) {
+       await fn(item);
+       // Small delay between each item
+       await new Promise(r => setTimeout(r, 100));
+    }
+    // Significant delay between batches
+    if (i + batchSize < items.length) await new Promise(r => setTimeout(r, 2000)); 
   }
 };
 
@@ -238,12 +242,12 @@ export default function TableImport() {
         // Bulk Insert
         if (toCreate.length > 0) {
           setProgress(`Criando ${toCreate.length} novos insumos...`);
-          for (let i = 0; i < toCreate.length; i += 50) {
-            const chunk = toCreate.slice(i, i + 50);
+          for (let i = 0; i < toCreate.length; i += 20) {
+            const chunk = toCreate.slice(i, i + 20);
             await base44.entities.Input.bulkCreate(chunk);
             inserted += chunk.length;
-            setProgress(`Criando insumos... ${Math.min(i + 50, toCreate.length)}/${toCreate.length}`);
-            await new Promise(r => setTimeout(r, 500));
+            setProgress(`Criando insumos... ${Math.min(i + 20, toCreate.length)}/${toCreate.length}`);
+            await new Promise(r => setTimeout(r, 1500));
           }
         }
 
@@ -332,8 +336,11 @@ export default function TableImport() {
           // Clean existing items
           const oldComps = await base44.entities.ServiceComposition.filter({ servico_id: service.id });
           if (oldComps.length > 0) {
-             // Batch delete in chunks of 5
-             await processBatches(oldComps, 5, async (c) => base44.entities.ServiceComposition.delete(c.id));
+             // Sequential delete with delay
+             for (const c of oldComps) {
+                await base44.entities.ServiceComposition.delete(c.id);
+                await new Promise(r => setTimeout(r, 100));
+             }
           }
 
           let totalMat = 0;
