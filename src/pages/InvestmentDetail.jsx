@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DataTable from '@/components/shared/DataTable';
+import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog';
 import { toast } from "sonner";
 import { fetchSingleQuote } from '@/components/investments/QuoteService';
 import {
