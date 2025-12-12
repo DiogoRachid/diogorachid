@@ -36,6 +36,7 @@ import ContractForm from './pages/ContractForm';
 import Benefits from './pages/Benefits';
 import BenefitAssignment from './pages/BenefitAssignment';
 import HRReports from './pages/HRReports';
+import Inputs from './pages/Inputs';
 import __Layout from './Layout.jsx';
 
 
@@ -78,10 +79,11 @@ export const PAGES = {
     "Benefits": Benefits,
     "BenefitAssignment": BenefitAssignment,
     "HRReports": HRReports,
+    "Inputs": Inputs,
 }
 
 export const pagesConfig = {
-    mainPage: "Dashboard",
+    mainPage: "Investments",
     Pages: PAGES,
     Layout: __Layout,
 };
