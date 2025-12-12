@@ -7,7 +7,7 @@ export async function fetchQuotes(tickers) {
   const tickerList = tickers.join(', ');
   
   const response = await base44.integrations.Core.InvokeLLM({
-    prompt: `Busque as cotações atuais dos seguintes ativos financeiros: ${tickerList}. 
+    prompt: `Utilize o Yahoo Finance como fonte de dados para buscar as cotações atuais dos seguintes ativos financeiros: ${tickerList}. 
     
     Para cada ativo, retorne:
     - ticker: código do ativo
@@ -16,12 +16,10 @@ export async function fetchQuotes(tickers) {
     - change_percent: variação percentual do dia
     
     Atenção:
-    - Para ações brasileiras (terminadas em números como PETR4, VALE3), busque na B3
+    - Para ações brasileiras (terminadas em números como PETR4, VALE3), busque na B3 (sufixo .SA no Yahoo Finance)
     - Para ações internacionais (AAPL, MSFT, etc), busque no mercado americano
-    - Para criptomoedas (BTC, ETH, etc), busque o preço em USD
-    - Para FIIs brasileiros, busque na B3
-    - Para ETFs brasileiros (BOVA11, IVVB11), busque na B3
-    - Para BDRs (terminados em 34 ou 35), busque na B3
+    - Para criptomoedas (BTC, ETH, etc), busque o preço em USD (pares com USD, ex: BTC-USD)
+    - Para FIIs brasileiros, busque na B3 (.SA)
     
     Retorne APENAS os dados encontrados. Se não encontrar algum ativo, omita-o da resposta.`,
     add_context_from_internet: true,
@@ -85,7 +83,7 @@ export async function fetchSingleQuote(ticker, categoria) {
   }
 
   const response = await base44.integrations.Core.InvokeLLM({
-    prompt: `Busque a cotação atual do ${context} com ticker/código "${ticker}".
+    prompt: `Utilize o Yahoo Finance para buscar a cotação atual do ${context} com ticker/código "${ticker}".
     
     Retorne:
     - price: preço atual
