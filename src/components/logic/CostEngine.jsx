@@ -225,7 +225,8 @@ export const recalculateCosts = async (
 // --- Logic 3: Execute Batch Updates ---
 export const executeUpdates = async (updates, onProgress) => {
   const { serviceUpdates, compUpdates } = updates;
-  const BATCH_SIZE = 50;
+  // Reduced batch size to prevent Rate Limits
+  const BATCH_SIZE = 5;
   let processed = 0;
   const total = serviceUpdates.length + compUpdates.length;
 
@@ -235,7 +236,8 @@ export const executeUpdates = async (updates, onProgress) => {
        await Promise.all(batch.map(item => base44.entities[entityName].update(item.id, item.data)));
        processed += batch.length;
        if (onProgress) onProgress(processed, total);
-       await new Promise(r => setTimeout(r, 10)); // Yield to UI
+       // Increased delay to prevent Rate Limits
+       await new Promise(r => setTimeout(r, 200)); 
     }
   };
 

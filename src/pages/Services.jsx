@@ -356,13 +356,13 @@ export default function Services() {
       header: 'Material',
       accessor: 'custo_material',
       className: 'text-right',
-      render: (row) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.custo_material)
+      render: (row) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.custo_material || 0)
     },
     { 
       header: 'Mão de Obra', 
       accessor: 'custo_mao_obra',
       className: 'text-right',
-      render: (row) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.custo_mao_obra)
+      render: (row) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.custo_mao_obra || 0)
     },
     { 
       header: 'Total', 

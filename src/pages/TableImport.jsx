@@ -245,8 +245,10 @@ export default function TableImport() {
                     unidade: r.unidade_servico,
                     fonte: config.origem,
                     data_base: config.data_base,
+                    custo_material: 0,
+                    custo_mao_obra: 0,
                     custo_total: 0
-                 });
+                    });
               }
            } else {
               // Exists: Check if we should update description?
@@ -273,8 +275,10 @@ export default function TableImport() {
                     unidade: 'UN',
                     fonte: 'SISTEMA',
                     data_base: config.data_base,
+                    custo_material: 0,
+                    custo_mao_obra: 0,
                     custo_total: 0
-                 });
+                    });
               }
            }
         }
