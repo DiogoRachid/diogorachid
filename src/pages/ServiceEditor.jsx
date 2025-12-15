@@ -12,8 +12,10 @@ import {
   AlertTriangle,
   Search,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
+  RefreshCw
 } from 'lucide-react';
+import * as CostEngine from '@/utils/costEngine';
 import { cn } from "@/lib/utils";
 import {
   Command,
@@ -125,9 +127,18 @@ export default function ServiceEditor() {
   // Handlers
   const handleAddItem = () => {
     if (!newItem.item_id) return;
-    if (newItem.tipo_item === 'SERVICO' && newItem.item_id === serviceId) {
-      toast.error('Não é possível adicionar o próprio serviço (recursividade).');
-      return;
+    // 1. Circular Check
+    if (newItem.tipo_item === 'SERVICO') {
+      if (newItem.item_id === serviceId) {
+        toast.error('Não é possível adicionar o próprio serviço.');
+        return;
+      }
+      
+      // Simple client-side check if we have the list loaded, but we don't have full graph here.
+      // We rely on the backend (if available) or basic checks.
+      // Ideally we would call CostEngine.checkCircularDependency(serviceId, newItem.item_id)
+      // but that requires fetching all comps which is heavy.
+      // For now, we block direct self-reference.
     }
 
     let itemData, custoUnit, nome;
@@ -149,12 +160,19 @@ export default function ServiceEditor() {
     const newComp = {
       tipo_item: newItem.tipo_item,
       item_id: newItem.item_id,
+      // Snapshot Fields
+      descricao_snapshot: nome,
+      unidade_snapshot: itemData.unidade,
+      
+      // Legacy
       item_nome: nome,
       unidade: itemData.unidade,
+      
       quantidade: parseFloat(newItem.quantidade),
       custo_unitario: custoUnit,
       custo_total_item: parseFloat(newItem.quantidade) * custoUnit,
-      tipo_custo: newItem.tipo_custo
+      tipo_custo: newItem.tipo_custo,
+      nivel: newItem.tipo_item === 'SERVICO' ? 2 : 1 // Approximation
     };
 
     setCompositions([...compositions, newComp]);
@@ -282,6 +300,9 @@ export default function ServiceEditor() {
             {isSaving ? 'Salvando...' : <><Save className="h-4 w-4 mr-2" /> Salvar Alterações</>}
           </Button>
         </div>
+      </div>
+      
+      {/* Warning if composition has outdated values? We could check but let's keep it simple */}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

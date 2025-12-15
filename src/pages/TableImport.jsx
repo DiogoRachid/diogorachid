@@ -438,12 +438,19 @@ export default function TableImport() {
                       servico_id: service.id,
                       tipo_item: itemType,
                       item_id: itemId,
+                      // New Snapshot Fields
+                      descricao_snapshot: itemName || (itemType === 'SERVICO' ? 'Serviço Auxiliar' : 'Insumo'),
+                      unidade_snapshot: item.unidade || u,
+                      custo_unitario: itemCost, // This acts as snapshot too
+                      
+                      // Legacy Fields
                       item_nome: itemName || (itemType === 'SERVICO' ? 'Serviço Auxiliar' : 'Insumo'),
                       unidade: item.unidade || u,
+                      
                       quantidade: item.quantidade,
-                      custo_unitario: itemCost,
                       custo_total_item: totalItem,
-                      tipo_custo: costType
+                      tipo_custo: costType,
+                      nivel: itemType === 'SERVICO' ? 2 : 1 // Simple assumption for import. Logic Engine will fix later.
                    });
 
                    if (costType === 'MATERIAL') totalMat += totalItem;
