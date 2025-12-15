@@ -248,18 +248,29 @@ export default function TableImport() {
          const processable = [];
          const remaining = [];
 
-         for (const group of pendingGroups) {
-            let canProcess = true;
-            for (const item of group.items) {
-               if (item.tipo_item === 'SERVICO') {
-                  if (!knownServiceMap.has(item.codigo_item)) {
-                     canProcess = false;
-                     break;
+         // Check dependencies in chunks to avoid UI freeze with large pending lists
+         const groupChunkSize = 1000;
+         for (let i = 0; i < pendingGroups.length; i += groupChunkSize) {
+            const chunk = pendingGroups.slice(i, i + groupChunkSize);
+            
+            for (const group of chunk) {
+               let canProcess = true;
+               for (const item of group.items) {
+                  if (item.tipo_item === 'SERVICO') {
+                     if (!knownServiceMap.has(item.codigo_item)) {
+                        canProcess = false;
+                        break;
+                     }
                   }
                }
+               if (canProcess) processable.push(group);
+               else remaining.push(group);
             }
-            if (canProcess) processable.push(group);
-            else remaining.push(group);
+            
+            // Yield every chunk
+            if (i % (groupChunkSize * 5) === 0) {
+               await new Promise(r => setTimeout(r, 0));
+            }
          }
 
          if (processable.length === 0) {
@@ -509,41 +520,50 @@ export default function TableImport() {
         const separator = lines[0].includes(';') ? ';' : ',';
 
         if (config.tipo === 'INSUMOS') {
-          setProgress('Processando linhas de insumos...');
+          setProgress('Iniciando processamento de insumos...');
           
-          // 1. Parse all lines to memory
+          // 1. Parse all lines to memory (Chunked)
           const parsedItems = [];
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.trim()) continue;
-            const cols = line.split(separator).map(c => c.replace(/"/g, '').trim());
-            
-            const codigo = cols[mappedColumns['codigo']];
-            const descricao = cols[mappedColumns['descricao']];
-            
-            if (!codigo || !descricao) continue;
+          const chunkSize = 1000;
+          const totalLines = lines.length;
 
-            let valorStr = cols[mappedColumns['valor_referencia']];
-            if (valorStr) {
-               valorStr = valorStr.replace('R$', '').trim();
-               if (valorStr.includes(',') && valorStr.includes('.')) {
-                  valorStr = valorStr.replace(/\./g, '').replace(',', '.');
-               } else if (valorStr.includes(',')) {
-                  valorStr = valorStr.replace(',', '.');
-               }
+          for (let i = 1; i < totalLines; i += chunkSize) {
+            const end = Math.min(i + chunkSize, totalLines);
+            setProgress(`Lendo linhas ${i} a ${end} de ${totalLines}...`);
+            await new Promise(r => setTimeout(r, 0)); // Yield to UI
+
+            for (let j = i; j < end; j++) {
+              const line = lines[j];
+              if (!line.trim()) continue;
+              const cols = line.split(separator).map(c => c.replace(/"/g, '').trim());
+              
+              const codigo = cols[mappedColumns['codigo']];
+              const descricao = cols[mappedColumns['descricao']];
+              
+              if (!codigo || !descricao) continue;
+
+              let valorStr = cols[mappedColumns['valor_referencia']];
+              if (valorStr) {
+                 valorStr = valorStr.replace('R$', '').trim();
+                 if (valorStr.includes(',') && valorStr.includes('.')) {
+                    valorStr = valorStr.replace(/\./g, '').replace(',', '.');
+                 } else if (valorStr.includes(',')) {
+                    valorStr = valorStr.replace(',', '.');
+                 }
+              }
+              const valor = parseFloat(valorStr) || 0;
+              const unidade = mappedColumns['unidade'] !== undefined ? cols[mappedColumns['unidade']] : 'UN';
+
+              parsedItems.push({
+                 codigo,
+                 descricao: descricao.slice(0, 500),
+                 unidade: unidade || 'UN',
+                 valor_referencia: valor,
+                 fonte: config.origem,
+                 data_base: config.data_base,
+                 data_atualizacao: new Date().toISOString()
+              });
             }
-            const valor = parseFloat(valorStr) || 0;
-            const unidade = mappedColumns['unidade'] !== undefined ? cols[mappedColumns['unidade']] : 'UN';
-
-            parsedItems.push({
-               codigo,
-               descricao: descricao.slice(0, 500),
-               unidade: unidade || 'UN',
-               valor_referencia: valor,
-               fonte: config.origem,
-               data_base: config.data_base,
-               data_atualizacao: new Date().toISOString()
-            });
           }
 
           // 2. Fetch existing items
@@ -587,60 +607,67 @@ export default function TableImport() {
 
         } else if (config.tipo === 'COMPOSICOES') {
           // New "Ordered Import" Logic
-          setProgress('Carregando arquivo para tabela temporária...');
+          setProgress('Lendo arquivo de composições...');
           
           const newBatchId = new Date().getTime().toString();
           setBatchId(newBatchId);
           
-          // 1. Ingest to CompositionStaging
+          // 1. Ingest to CompositionStaging (Chunked)
           const stagingItems = [];
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.trim()) continue;
-            const cols = line.split(separator).map(c => c.replace(/"/g, '').trim());
-            
-            const codServ = cols[mappedColumns['codigo_servico']];
-            const codItem = cols[mappedColumns['codigo_item']];
-            
-            if (!codServ || !codItem) continue;
-            
-            let qtdStr = cols[mappedColumns['quantidade']];
-            if (qtdStr) qtdStr = qtdStr.replace(',', '.');
-            const quantidade = parseFloat(qtdStr) || 0;
+          const chunkSize = 1000;
+          const totalLines = lines.length;
 
-            const descServ = mappedColumns['descricao_servico'] ? cols[mappedColumns['descricao_servico']] : `Serviço ${codServ}`;
-            const unidServ = mappedColumns['unidade_servico'] ? cols[mappedColumns['unidade_servico']] : 'UN';
-            const unidItem = mappedColumns['unidade_item'] ? cols[mappedColumns['unidade_item']] : '';
+          for (let i = 1; i < totalLines; i += chunkSize) {
+            const end = Math.min(i + chunkSize, totalLines);
+            setProgress(`Analisando linhas ${i} a ${end} de ${totalLines}...`);
+            await new Promise(r => setTimeout(r, 0)); // Yield
 
-            // We don't know type yet (INSUMO vs SERVICO) for sure, but we can guess or leave it for processing phase.
-            // Usually, if we have inputs loaded, we check. But inputs are 55k.
-            // Let's store as Unknown and resolve later or infer.
-            // But prompt says "Importar TODAS as linhas".
-            // Let's infer type later or check basic pattern if possible.
-            // For now, assume 'INSUMO' by default unless we find it's a service later.
-            // Wait, standard file usually has type column or we infer by checking 'Input' table.
-            
-            stagingItems.push({
-              batch_id: newBatchId,
-              codigo_servico: codServ,
-              descricao_servico: descServ,
-              unidade_servico: unidServ,
-              codigo_item: codItem,
-              tipo_item: 'INSUMO', // Placeholder, will resolve in logic
-              quantidade,
-              unidade_item: unidItem,
-              processado: false
-            });
+            for (let j = i; j < end; j++) {
+              const line = lines[j];
+              if (!line.trim()) continue;
+              const cols = line.split(separator).map(c => c.replace(/"/g, '').trim());
+              
+              const codServ = cols[mappedColumns['codigo_servico']];
+              const codItem = cols[mappedColumns['codigo_item']];
+              
+              if (!codServ || !codItem) continue;
+              
+              let qtdStr = cols[mappedColumns['quantidade']];
+              if (qtdStr) qtdStr = qtdStr.replace(',', '.');
+              const quantidade = parseFloat(qtdStr) || 0;
+
+              const descServ = mappedColumns['descricao_servico'] ? cols[mappedColumns['descricao_servico']] : `Serviço ${codServ}`;
+              const unidServ = mappedColumns['unidade_servico'] ? cols[mappedColumns['unidade_servico']] : 'UN';
+              const unidItem = mappedColumns['unidade_item'] ? cols[mappedColumns['unidade_item']] : '';
+              
+              stagingItems.push({
+                batch_id: newBatchId,
+                codigo_servico: codServ,
+                descricao_servico: descServ,
+                unidade_servico: unidServ,
+                codigo_item: codItem,
+                tipo_item: 'INSUMO', // Placeholder, will resolve in logic
+                quantidade,
+                unidade_item: unidItem,
+                processado: false
+              });
+            }
           }
 
-          setProgress(`Enviando ${stagingItems.length} registros para processamento...`);
+          setProgress(`Enviando ${stagingItems.length} registros para tabela temporária...`);
           
-          // Bulk Insert Staging
-          for (let i = 0; i < stagingItems.length; i += 100) {
-             const batch = stagingItems.slice(i, i + 100);
+          // Bulk Insert Staging in chunks
+          // Using a larger chunk size for insert might be better for network, but let's keep progress smooth
+          const insertChunkSize = 200; 
+          for (let i = 0; i < stagingItems.length; i += insertChunkSize) {
+             const batch = stagingItems.slice(i, i + insertChunkSize);
              await base44.entities.CompositionStaging.bulkCreate(batch);
              processed += batch.length;
-             setProgress(`Carregando... ${processed}/${stagingItems.length}`);
+             // Update progress every 1000 items to avoid UI flicker
+             if (i % 1000 === 0 || i + insertChunkSize >= stagingItems.length) {
+                setProgress(`Upload de registros... ${processed}/${stagingItems.length}`);
+                await new Promise(r => setTimeout(r, 0));
+             }
           }
 
           // Trigger Processing
