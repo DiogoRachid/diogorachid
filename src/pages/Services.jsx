@@ -16,7 +16,7 @@ import {
   RefreshCw,
   Settings2
 } from 'lucide-react';
-import * as CostEngine from '@/utils/costEngine';
+import * as CostEngine from '@/components/logic/CostEngine';
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {

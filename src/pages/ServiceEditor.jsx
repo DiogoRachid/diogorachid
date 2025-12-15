@@ -15,7 +15,7 @@ import {
   ChevronsUpDown,
   RefreshCw
 } from 'lucide-react';
-import * as CostEngine from '@/utils/costEngine';
+import * as CostEngine from '@/components/logic/CostEngine';
 import { cn } from "@/lib/utils";
 import {
   Command,
@@ -300,9 +300,6 @@ export default function ServiceEditor() {
             {isSaving ? 'Salvando...' : <><Save className="h-4 w-4 mr-2" /> Salvar Alterações</>}
           </Button>
         </div>
-      </div>
-      
-      {/* Warning if composition has outdated values? We could check but let's keep it simple */}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
