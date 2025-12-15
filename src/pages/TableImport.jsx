@@ -1,4 +1,162 @@
-const confirmImport = async () => {
+import React, { useState, useRef } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  UploadCloud,
+  FileSpreadsheet,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  Save,
+  Ban,
+  FileText
+} from 'lucide-react';
+import PageHeader from '@/components/ui/PageHeader';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { toast } from "sonner";
+import { format } from 'date-fns';
+
+// Helper for batch processing with concurrency
+const processBatches = async (items, batchSize, fn) => {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    await Promise.all(batch.map(fn));
+    // Small delay to yield to event loop
+    await new Promise(r => setTimeout(r, 50));
+  }
+};
+
+// Helper to fetch entities by codes in chunks
+const fetchByCodes = async (entity, codes) => {
+  const uniqueCodes = [...new Set(codes.filter(Boolean))];
+  const results = [];
+  const chunkSize = 100; // Safe limit for $in query
+  
+  for (let i = 0; i < uniqueCodes.length; i += chunkSize) {
+    const chunk = uniqueCodes.slice(i, i + chunkSize);
+    try {
+      // Use $in query
+      const found = await base44.entities[entity].filter({
+        codigo: { "$in": chunk }
+      }, null, 1000); // Set high limit for the chunk result
+      results.push(...found);
+    } catch (e) {
+      console.error(`Error fetching ${entity} chunk`, e);
+    }
+  }
+  return results;
+};
+
+export default function TableImport() {
+  const [file, setFile] = useState(null);
+  const [config, setConfig] = useState({
+    origem: 'SINAPI',
+    tipo: 'INSUMOS', // INSUMOS or COMPOSICOES
+    updateBudgets: false,
+    data_base: '09/2025'
+  });
+  const [previewData, setPreviewData] = useState([]);
+  const [headers, setHeaders] = useState([]);
+  const [mappedColumns, setMappedColumns] = useState({});
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [logs, setLogs] = useState([]);
+  
+  const fileInputRef = useRef(null);
+
+  // Column Mapping Helpers
+  const identifyColumn = (headerName, type) => {
+    const h = headerName.toUpperCase().trim();
+    if (type === 'INSUMOS') {
+      if (['COD', 'CODIGO', 'CÓDIGO', 'ID'].some(x => h.includes(x))) return 'codigo';
+      if (['DESCR', 'DESCRIÇÃO', 'DESCRICAO', 'NOME'].some(x => h.includes(x))) return 'descricao';
+      if (['UND', 'UNID', 'UNIDADE'].some(x => h === x)) return 'unidade';
+      if (['PRECO', 'PREÇO', 'VALOR', 'CUSTO'].some(x => h.includes(x))) return 'valor_referencia';
+    } else { // COMPOSICOES
+      // Identifying Composite vs Component
+      if (['COD_SERV', 'CODIGO_SERVICO', 'CODIGO SERVICO'].some(x => h.includes(x))) return 'codigo_servico';
+      if (['DESC_SERV', 'DESCRICAO_SERVICO'].some(x => h.includes(x))) return 'descricao_servico';
+      if (['UND_SERV', 'UNIDADE_SERVICO'].some(x => h.includes(x))) return 'unidade_servico';
+      if (['COD_ITEM', 'CODIGO_ITEM', 'CODIGO INSUMO'].some(x => h.includes(x))) return 'codigo_item';
+      if (['QTD', 'QUANTIDADE', 'COEFICIENTE'].some(x => h.includes(x))) return 'quantidade';
+      // Custo unitário removido da importação de serviços/composições
+      if (['UNIDADE_ITEM', 'UND_ITEM', 'UNID_ITEM', 'UN_ITEM'].some(x => h.includes(x))) return 'unidade_item';
+    }
+    return null;
+  };
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setPreviewData([]);
+      setLogs([]);
+      setProgress('');
+    }
+  };
+
+  const processFile = () => {
+    if (!file) return;
+    setProcessing(true);
+    setProgress('Lendo arquivo...');
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split('\n');
+      
+      // Basic CSV parsing (handles ; or ,)
+      // Find separator based on first line
+      const firstLine = lines[0];
+      const separator = firstLine.includes(';') ? ';' : ',';
+      
+      const rawHeaders = lines[0].split(separator).map(h => h.replace(/"/g, '').trim());
+      setHeaders(rawHeaders);
+
+      // Map columns automatically
+      const mapping = {};
+      rawHeaders.forEach((h, index) => {
+        const field = identifyColumn(h, config.tipo);
+        if (field) mapping[field] = index;
+      });
+      setMappedColumns(mapping);
+
+      // Parse preview data (first 20 lines)
+      const preview = lines.slice(1, 21).map(line => {
+        if (!line.trim()) return null;
+        const cols = line.split(separator).map(c => c.replace(/"/g, '').trim());
+        return cols;
+      }).filter(Boolean);
+
+      setPreviewData(preview);
+      setProcessing(false);
+      setProgress('Pré-visualização gerada. Verifique as colunas.');
+    };
+    
+    reader.readAsText(file, 'ISO-8859-1'); // Default to latin1 for legacy systems usually, or try UTF-8
+  };
+
+  const confirmImport = async () => {
     if (!file) return;
     
     // Validation
@@ -354,3 +512,216 @@ const confirmImport = async () => {
     reader.onerror = () => { toast.error('Erro ao ler arquivo'); setProcessing(false); };
     reader.readAsText(file, 'ISO-8859-1');
   };
+
+  const getRequiredFields = () => config.tipo === 'INSUMOS' 
+    ? ['codigo', 'descricao', 'valor_referencia', 'unidade'] 
+    : ['codigo_servico', 'descricao_servico', 'unidade_servico', 'codigo_item', 'quantidade', 'unidade_item'];
+
+  const handleMapChange = (field, colIndex) => {
+     setMappedColumns(prev => ({...prev, [field]: parseInt(colIndex)}));
+  };
+
+  return (
+    <div className="pb-20">
+      <PageHeader
+        title="Importação de Tabelas"
+        subtitle="Importe insumos e composições do SINAPI, TCPO e outras fontes"
+        icon={UploadCloud}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuração da Importação</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Arquivo (CSV ou TXT)</Label>
+                <div className="mt-2">
+                  <Input 
+                    ref={fileInputRef}
+                    type="file" 
+                    accept=".csv,.txt" 
+                    onChange={handleFileChange} 
+                    disabled={processing}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Formatos suportados: CSV separado por vírgula ou ponto e vírgula.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <Label>Origem dos Dados</Label>
+                <Select 
+                  value={config.origem} 
+                  onValueChange={(v) => setConfig(prev => ({...prev, origem: v}))}
+                  disabled={processing}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SINAPI">SINAPI</SelectItem>
+                    <SelectItem value="TCPO">TCPO</SelectItem>
+                    <SelectItem value="CDHU">CDHU</SelectItem>
+                    <SelectItem value="OUTROS">OUTROS</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Tipo de Tabela</Label>
+                <Select 
+                  value={config.tipo} 
+                  onValueChange={(v) => setConfig(prev => ({...prev, tipo: v}))}
+                  disabled={processing}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INSUMOS">Insumos (Materiais/MO)</SelectItem>
+                    <SelectItem value="COMPOSICOES">Composições de Serviço</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Data Base (MM/AAAA)</Label>
+                <Input
+                  value={config.data_base}
+                  onChange={(e) => setConfig(prev => ({...prev, data_base: e.target.value}))}
+                  disabled={processing}
+                  placeholder="Ex: 09/2025"
+                />
+              </div>
+
+              {config.tipo === 'COMPOSICOES' && (
+                <div className="flex items-center space-x-2 border p-3 rounded-lg bg-slate-50">
+                  <Checkbox 
+                    id="updateBudgets" 
+                    checked={config.updateBudgets}
+                    onCheckedChange={(v) => setConfig(prev => ({...prev, updateBudgets: v}))}
+                    disabled={processing}
+                  />
+                  <Label htmlFor="updateBudgets" className="text-sm font-normal">
+                    Atualizar orçamentos existentes
+                  </Label>
+                </div>
+              )}
+
+              {!processing ? (
+                <div className="space-y-2">
+                  <Button className="w-full" onClick={processFile} disabled={!file}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Ler Arquivo e Pré-visualizar
+                  </Button>
+                </div>
+              ) : (
+                <div className="bg-blue-50 p-4 rounded-lg flex flex-col items-center justify-center text-center">
+                  <Loader2 className="h-8 w-8 text-blue-600 animate-spin mb-2" />
+                  <p className="text-sm font-medium text-blue-800">{progress}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {logs.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-amber-600 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  Inconsistências ({logs.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-60 overflow-y-auto text-xs bg-slate-50 p-2 font-mono">
+                {logs.map((log, i) => <div key={i} className="mb-1">{log}</div>)}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="lg:col-span-2 space-y-6">
+          {previewData.length > 0 && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Pré-visualização (20 primeiras linhas)</CardTitle>
+                <Button onClick={confirmImport} disabled={processing} className="bg-green-600 hover:bg-green-700">
+                  <Save className="h-4 w-4 mr-2" />
+                  Confirmar Importação
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Alert className="mb-4 bg-blue-50 border-blue-200">
+                  <CheckCircle className="h-4 w-4 text-blue-600" />
+                  <AlertTitle>Mapeamento Automático</AlertTitle>
+                  <AlertDescription className="text-xs text-blue-700 mt-1">
+                    Verifique se todas as colunas foram mapeadas corretamente. Caso contrário, ajuste manualmente abaixo.
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border">
+                  {getRequiredFields().map(field => (
+                     <div key={field}>
+                        <Label className="text-xs font-semibold uppercase text-slate-500 mb-1 block">
+                          {field.replace('_', ' ')} {['codigo','descricao','valor_referencia','codigo_servico','codigo_item','quantidade'].includes(field) && '*'}
+                        </Label>
+                        <Select 
+                           value={mappedColumns[field] !== undefined ? String(mappedColumns[field]) : ''}
+                           onValueChange={(v) => handleMapChange(field, v)}
+                        >
+                           <SelectTrigger className="h-8 text-xs bg-white">
+                              <SelectValue placeholder="Selecione a coluna..." />
+                           </SelectTrigger>
+                           <SelectContent>
+                              {headers.map((h, i) => (
+                                 <SelectItem key={i} value={String(i)}>{i + 1}: {h}</SelectItem>
+                              ))}
+                           </SelectContent>
+                        </Select>
+                     </div>
+                  ))}
+                </div>
+
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50">
+                        {headers.map((h, i) => (
+                          <TableHead key={i} className="whitespace-nowrap px-3 py-2 text-xs">
+                            {h}
+                            {Object.entries(mappedColumns).find(([k, v]) => v === i) && (
+                              <span className="block text-[10px] text-blue-600 font-bold uppercase">
+                                [{Object.entries(mappedColumns).find(([k, v]) => v === i)[0]}]
+                              </span>
+                            )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {previewData.map((row, i) => (
+                        <TableRow key={i}>
+                          {row.map((cell, j) => (
+                            <TableCell key={j} className="whitespace-nowrap px-3 py-2 text-xs">
+                              {cell}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!previewData.length && !processing && (
+            <div className="h-64 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed rounded-xl bg-slate-50/50">
+              <UploadCloud className="h-12 w-12 mb-3 opacity-50" />
+              <p>Carregue um arquivo para visualizar os dados</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
