@@ -41,8 +41,8 @@ const processBatches = async (items, batchSize, fn) => {
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     await Promise.all(batch.map(fn));
-    // Increased delay to prevent Rate Limits
-    await new Promise(r => setTimeout(r, 200));
+    // Aggressive delay to prevent Rate Limits (500ms)
+    await new Promise(r => setTimeout(r, 500));
   }
 };
 
@@ -51,7 +51,7 @@ const fetchByCodes = async (entity, codes) => {
   const uniqueCodes = [...new Set(codes.filter(Boolean))];
   const results = [];
   const chunkSize = 500; 
-  const concurrency = 2; // Reduced concurrency to prevent Rate Limits
+  const concurrency = 1; // Sequential fetching to prevent Rate Limits
   
   const chunks = [];
   for (let i = 0; i < uniqueCodes.length; i += chunkSize) {
@@ -296,8 +296,8 @@ export default function TableImport() {
         if (servicesToUpdate.length > 0) {
            // dedupe updates by ID
            const uniqueUpd = Object.values(servicesToUpdate.reduce((acc, u) => { acc[u.id] = u; return acc; }, {}));
-           // Reduced batch size to 5 to prevent Rate Limits
-           await processBatches(uniqueUpd, 5, u => base44.entities.Service.update(u.id, u.data));
+           // Very small batch size for updates
+           await processBatches(uniqueUpd, 2, u => base44.entities.Service.update(u.id, u.data));
         }
 
         // 5. Create Compositions
@@ -382,11 +382,11 @@ export default function TableImport() {
 
         // 6. Delete Processed Staging Records
         const idsToDelete = stagingChunk.map(r => r.id);
-        // Reduced batch size to 10 to prevent Rate Limits
-        await processBatches(idsToDelete, 10, id => base44.entities.CompositionStaging.delete(id));
+        // Reduced batch size to 5 for deletions
+        await processBatches(idsToDelete, 5, id => base44.entities.CompositionStaging.delete(id));
         
         totalProcessed += stagingChunk.length;
-        await new Promise(r => setTimeout(r, 200)); // Increased yield to prevent Rate Limits
+        await new Promise(r => setTimeout(r, 500)); // Aggressive yield to prevent Rate Limits
       }
 
       toast.success(`Importação finalizada! ${totalProcessed} registros processados.`);
