@@ -88,6 +88,17 @@ export default function TableImport() {
   });
   const [batchId, setBatchId] = useState(null);
   const [previewData, setPreviewData] = useState([]);
+  const [pendingStagingCount, setPendingStagingCount] = useState(0);
+
+  // Check for pending staging records on load
+  React.useEffect(() => {
+     base44.entities.CompositionStaging.list(null, 1).then(res => {
+        if (res && res.length > 0) {
+           // We don't have count API, but existence is enough to show button
+           setPendingStagingCount(1);
+        }
+     });
+  }, []);
   const [headers, setHeaders] = useState([]);
   const [mappedColumns, setMappedColumns] = useState({});
   const [processing, setProcessing] = useState(false);
@@ -173,14 +184,14 @@ export default function TableImport() {
     
     try {
       // 1. Fetch ALL Staging Records (Chunked)
+      // We load all to have full context for Headers, but we'll optimize deletion later.
       const stagingRecords = [];
       let page = 0;
       while(true) {
-         // Limit 1000 per page
-         const res = await base44.entities.CompositionStaging.filter({ batch_id: currentBatchId, processado: false }, null, 1000, page * 1000);
+         const res = await base44.entities.CompositionStaging.filter({ batch_id: currentBatchId, processado: false }, null, 2000, page * 2000);
          if (!res || res.length === 0) break;
          stagingRecords.push(...res);
-         if (res.length < 1000) break;
+         if (res.length < 2000) break;
          page++;
          setProgress(`Carregando staging... ${stagingRecords.length} registros`);
          await new Promise(r => setTimeout(r, 0));
@@ -207,9 +218,6 @@ export default function TableImport() {
       const serviceMap = new Map(existingServices.map(s => [s.codigo, s]));
 
       // 4. PASS 1: Create/Update ALL Service Headers
-      // This ensures we have IDs for everything (parents and child services)
-      // Identify services that need creation (allServiceCodes)
-      
       const servicesToCreate = [];
       const servicesToUpdate = [];
 
@@ -255,15 +263,13 @@ export default function TableImport() {
          }
       }
       
-      // Execute Updates (Async Background?)
-      // We update descriptions/units. 
+      // Execute Updates (Fire & Forget for speed? No, safer to wait)
       if (servicesToUpdate.length > 0) {
-         // Process in parallel batches
-         await processBatches(servicesToUpdate, 20, s => base44.entities.Service.update(s.id, s.data));
+         // Process in parallel batches, larger batch size for updates
+         await processBatches(servicesToUpdate, 50, s => base44.entities.Service.update(s.id, s.data));
       }
 
       // 5. PASS 2: Resolve Items & Create Placeholders
-      // Check items that are NOT in inputMap and NOT in serviceMap
       const missingCodes = new Set();
       allItemCodes.forEach(code => {
          if (!inputMap.has(code) && !serviceMap.has(code)) {
@@ -273,10 +279,6 @@ export default function TableImport() {
 
       if (missingCodes.size > 0) {
          setProgress(`Passo 2/3: Criando ${missingCodes.size} itens ausentes (Placeholders)...`);
-         // We create them as Services? Or Inputs?
-         // Safer to create as Inputs if they are leaf nodes, but we don't know.
-         // Let's create as Inputs with specific flag?
-         // Actually, if it's missing, creating as Input is standard for "Material not found".
          const placeholders = Array.from(missingCodes).map(code => ({
             codigo: code,
             descricao: `[AUTO-GERADO] Item ${code}`,
@@ -293,121 +295,112 @@ export default function TableImport() {
          }
       }
 
-      // 6. PASS 3: Create Compositions
+      // 6. PASS 3: Create Compositions & Clean Staging Chunk-by-Chunk
       setProgress(`Passo 3/3: Vinculando ${stagingRecords.length} composições...`);
       
-      // First, delete OLD compositions for these services to avoid duplicates
-      // We have all parent IDs in serviceMap
-      // We can iterate parents and delete.
-      // This might be slow if 5000 services.
-      // Optim: Only delete if we are updating? Yes.
-      // We already identified updates.
+      // Pre-clean old comps for updated services
       const serviceIdsToClean = servicesToUpdate.map(u => u.id);
-      
-      // Batch delete old comps
       if (serviceIdsToClean.length > 0) {
          setProgress('Limpando composições antigas...');
-         // Fetch all comps for these services (Chunked)
-         // Assuming logic to bulk delete by ID or loop
-         // We'll skip complex delete optimization for now and rely on user knowing this overwrites?
-         // Better: Delete.
-         // Fetch IDs
+         // Use a more aggressive cleanup strategy
          const allCompsToDelete = [];
          const chunk = 100;
          for(let i=0; i<serviceIdsToClean.length; i+=chunk) {
              const batchIds = serviceIdsToClean.slice(i, i+chunk);
              try {
+                // Fetch just IDs if possible? No, fetch entities.
                 const found = await base44.entities.ServiceComposition.filter({ servico_id: { "$in": batchIds } });
                 allCompsToDelete.push(...found);
              } catch(e) {}
          }
-         
          if (allCompsToDelete.length > 0) {
+            // Bulk delete via parallel requests
             await processBatches(allCompsToDelete, 50, c => base44.entities.ServiceComposition.delete(c.id));
          }
       }
 
-      // Build New Compositions
-      const compsToCreate = [];
-      
-      for (const r of stagingRecords) {
-         const service = serviceMap.get(r.codigo_servico);
-         if (!service) continue; // Should exist now
+      // Process Compositions in Chunks of 500
+      // For each chunk: Create Comps -> Delete corresponding Staging records
+      const processChunkSize = 500;
+      let processedCount = 0;
 
-         // Determine Item Type and ID
-         let itemType = 'INSUMO';
-         let itemId = null;
-         let itemCost = 0;
-         let itemName = '';
-         let itemUnit = '';
+      for (let i = 0; i < stagingRecords.length; i += processChunkSize) {
+         const chunk = stagingRecords.slice(i, i + processChunkSize);
+         const compsToCreate = [];
+         const stagingIdsToDelete = [];
 
-         if (inputMap.has(r.codigo_item)) {
-            const i = inputMap.get(r.codigo_item);
-            itemType = 'INSUMO';
-            itemId = i.id;
-            itemCost = i.valor_referencia;
-            itemName = i.descricao;
-            itemUnit = i.unidade;
-         } else if (serviceMap.has(r.codigo_item)) {
-            const s = serviceMap.get(r.codigo_item);
-            itemType = 'SERVICO';
-            itemId = s.id;
-            itemCost = s.custo_total;
-            itemName = s.descricao;
-            itemUnit = s.unidade;
+         for (const r of chunk) {
+            stagingIdsToDelete.push(r.id);
+            const service = serviceMap.get(r.codigo_servico);
+            if (!service) continue;
+
+            let itemType = 'INSUMO';
+            let itemId = null;
+            let itemCost = 0;
+            let itemName = '';
+            let itemUnit = '';
+
+            if (inputMap.has(r.codigo_item)) {
+               const inp = inputMap.get(r.codigo_item);
+               itemType = 'INSUMO';
+               itemId = inp.id;
+               itemCost = inp.valor_referencia;
+               itemName = inp.descricao;
+               itemUnit = inp.unidade;
+            } else if (serviceMap.has(r.codigo_item)) {
+               const s = serviceMap.get(r.codigo_item);
+               itemType = 'SERVICO';
+               itemId = s.id;
+               itemCost = s.custo_total;
+               itemName = s.descricao;
+               itemUnit = s.unidade;
+            }
+
+            if (!itemId) continue;
+
+            const qtd = r.quantidade || 0;
+            const totalItem = qtd * itemCost;
+            
+            let cat = 'MATERIAL';
+            const u = (r.unidade_item || itemUnit || 'UN').toUpperCase();
+            if (u.includes('H') || u.includes('HORA')) cat = 'MAO_DE_OBRA';
+
+            compsToCreate.push({
+               servico_id: service.id,
+               tipo_item: itemType,
+               item_id: itemId,
+               quantidade: qtd,
+               custo_unitario: itemCost,
+               custo_total_item: totalItem,
+               tipo_custo: cat,
+               descricao_snapshot: itemName,
+               unidade_snapshot: r.unidade_item || itemUnit,
+               item_nome: itemName,
+               unidade: r.unidade_item || itemUnit,
+               nivel: itemType === 'SERVICO' ? 2 : 1
+            });
          }
 
-         if (!itemId) continue; // Should not happen given placeholder logic
-
-         // Cost Calc
-         const qtd = r.quantidade || 0;
-         const totalItem = qtd * itemCost;
-         
-         // Category
-         let cat = 'MATERIAL';
-         const u = (r.unidade_item || itemUnit || 'UN').toUpperCase();
-         if (u.includes('H') || u.includes('HORA')) cat = 'MAO_DE_OBRA';
-
-         compsToCreate.push({
-            servico_id: service.id,
-            tipo_item: itemType,
-            item_id: itemId,
-            quantidade: qtd,
-            custo_unitario: itemCost,
-            custo_total_item: totalItem,
-            tipo_custo: cat,
-            descricao_snapshot: itemName,
-            unidade_snapshot: r.unidade_item || itemUnit,
-            item_nome: itemName,
-            unidade: r.unidade_item || itemUnit,
-            nivel: itemType === 'SERVICO' ? 2 : 1
-         });
-      }
-
-      // Bulk Insert Comps
-      setProgress(`Inserindo ${compsToCreate.length} itens de composição...`);
-      for (let i = 0; i < compsToCreate.length; i += 200) {
-         await base44.entities.ServiceComposition.bulkCreate(compsToCreate.slice(i, i + 200));
-         if (i % 2000 === 0) {
-            setProgress(`Inserindo... ${i}/${compsToCreate.length}`);
-            await new Promise(r => setTimeout(r, 0));
+         // Bulk Insert Compositions
+         if (compsToCreate.length > 0) {
+            await base44.entities.ServiceComposition.bulkCreate(compsToCreate);
          }
+
+         // Batch Delete Staging Records immediately
+         await processBatches(stagingIdsToDelete, 50, id => base44.entities.CompositionStaging.delete(id));
+
+         processedCount += chunk.length;
+         setProgress(`Vinculando e limpando... ${processedCount}/${stagingRecords.length}`);
+         await new Promise(r => setTimeout(r, 0)); // Yield
       }
 
-      // Mark Staging as Processed
-      // Optional: Clean up staging table?
-      // Or verify.
-      // Let's mark.
-      const stagingIds = stagingRecords.map(r => r.id);
-      await processBatches(stagingIds, 50, id => base44.entities.CompositionStaging.delete(id)); // DELETE to keep table clean
-
-      toast.success(`Importação realizada com sucesso! ${compsToCreate.length} itens processados.`);
+      toast.success(`Importação realizada com sucesso! ${processedCount} itens processados.`);
       setProgress('Concluído.');
       
       // Optional: Prompt for Recalculation
       setTimeout(() => {
         if(confirm("Importação finalizada. Deseja recalcular os custos agora? (Recomendado)")) {
-           window.location.href = '/Services'; // Or trigger logic
+           window.location.href = '/Services';
         }
       }, 500);
 
@@ -717,6 +710,35 @@ export default function TableImport() {
                   placeholder="Ex: 09/2025"
                 />
               </div>
+
+              {pendingStagingCount > 0 && !processing && (
+                  <Alert className="bg-amber-50 border-amber-200">
+                     <AlertCircle className="h-4 w-4 text-amber-600" />
+                     <AlertTitle>Importação Pendente</AlertTitle>
+                     <AlertDescription className="flex flex-col gap-2 mt-2">
+                        <span className="text-xs text-amber-700">Detectamos registros de uma importação anterior que não foi finalizada.</span>
+                        <div className="flex gap-2">
+                           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => processStaging(null)}>
+                              Retomar Processamento
+                           </Button>
+                           <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={async () => {
+                              if(confirm('Tem certeza? Isso apagará os dados temporários.')) {
+                                 setProcessing(true);
+                                 setProgress('Limpando...');
+                                 // Fetch and delete all
+                                 const all = await base44.entities.CompositionStaging.list(null, 1000);
+                                 await processBatches(all.map(i=>i.id), 50, id => base44.entities.CompositionStaging.delete(id));
+                                 setPendingStagingCount(0);
+                                 setProcessing(false);
+                                 toast.success('Limpo.');
+                              }
+                           }}>
+                              Descartar
+                           </Button>
+                        </div>
+                     </AlertDescription>
+                  </Alert>
+              )}
 
               {config.tipo === 'COMPOSICOES' && (
                 <div className="flex items-center space-x-2 border p-3 rounded-lg bg-slate-50">
