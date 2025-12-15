@@ -193,6 +193,189 @@ export default function Services() {
     setCompositions(comps);
   };
 
+  // Update Costs Logic
+  const fetchAll = async (entityName) => {
+    let allData = [];
+    let page = 0;
+    const limit = 1000;
+    while (true) {
+      // Assuming list accepts (sort, limit, skip)
+      // Note: base44.entities.Entity.list(sort, limit, skip)
+      const data = await base44.entities[entityName].list(null, limit, page * limit);
+      if (!data || data.length === 0) break;
+      allData = [...allData, ...data];
+      if (data.length < limit) break;
+      page++;
+    }
+    return allData;
+  };
+
+  const calculateCostRecursive = (serviceId, inputMap, serviceMap, compMap, visited, computedCosts) => {
+    if (visited.has(serviceId)) return 0; // Cycle protection
+    if (computedCosts.has(serviceId)) return computedCosts.get(serviceId);
+
+    visited.add(serviceId);
+    const comps = compMap.get(serviceId) || [];
+    let total = 0;
+    let mat = 0;
+    let labor = 0;
+
+    for (const comp of comps) {
+      let unitCost = 0;
+      
+      if (comp.tipo_item === 'INSUMO') {
+        const input = inputMap.get(comp.item_id);
+        unitCost = input ? (input.valor_referencia || 0) : 0;
+      } else if (comp.tipo_item === 'SERVICO') {
+        // Recursively calculate sub-service cost
+        const subServiceCost = calculateCostRecursive(comp.item_id, inputMap, serviceMap, compMap, visited, computedCosts);
+        unitCost = subServiceCost.total;
+      }
+
+      const itemTotal = unitCost * comp.quantidade;
+      total += itemTotal;
+      
+      // Update the composition item's cached unit cost and total?
+      // We are in a loop calculating totals. We should probably update the composition record too?
+      // Yes, otherwise the 'view' of composition will show old values.
+      // But updating 55k compositions is heavy.
+      // Maybe we only update the Service totals?
+      // User said "atualizar composições". This likely means updating the stored values in compositions too.
+      // We can collect updates and batch them.
+      
+      // Categorize
+      if (comp.tipo_custo === 'MATERIAL') mat += itemTotal;
+      else labor += itemTotal;
+    }
+
+    visited.delete(serviceId);
+    const result = { total, mat, labor };
+    computedCosts.set(serviceId, result);
+    return result;
+  };
+
+  const executeUpdateCosts = async () => {
+    if (!updateDataBase) {
+      toast.error('Informe a data base.');
+      return;
+    }
+    setIsUpdating(true);
+    setUpdateProgress('Carregando dados...');
+
+    try {
+      // 1. Fetch All Data
+      const [allInputs, allServicesData, allComps] = await Promise.all([
+        fetchAll('Input'),
+        fetchAll('Service'),
+        fetchAll('ServiceComposition')
+      ]);
+
+      setUpdateProgress(`Processando ${allServicesData.length} serviços e ${allComps.length} itens...`);
+
+      // 2. Maps
+      const inputMap = new Map(allInputs.map(i => [i.id, i]));
+      const serviceMap = new Map(allServicesData.map(s => [s.id, s]));
+      const compMap = new Map();
+      
+      for (const comp of allComps) {
+        if (!compMap.has(comp.servico_id)) compMap.set(comp.servico_id, []);
+        compMap.get(comp.servico_id).push(comp);
+      }
+
+      // 3. Calculate
+      const computedCosts = new Map(); // serviceId -> { total, mat, labor }
+      const serviceUpdates = [];
+      const compUpdates = [];
+
+      // Iterate all services
+      for (const service of allServicesData) {
+        // Calculate (will recurse if needed)
+        // We use a new visited set for each root call, but computedCosts is shared (memoization)
+        calculateCostRecursive(service.id, inputMap, serviceMap, compMap, new Set(), computedCosts);
+      }
+
+      // Now we have computed costs. We need to prepare updates.
+      // We also need to update Composition Items if we want them to reflect new Unit Costs!
+      // To do this efficiently, we have to re-iterate or do it during calculation.
+      // Doing it during calculation is tricky because we return 'result' but we also need to capture 'comp' updates.
+      // Let's iterate services again and check their compositions against the calculated values.
+      
+      setUpdateProgress('Preparando atualizações...');
+
+      for (const service of allServicesData) {
+        const result = computedCosts.get(service.id) || { total: 0, mat: 0, labor: 0 };
+        
+        // Update Service
+        serviceUpdates.push({
+          id: service.id,
+          data: {
+            custo_material: result.mat,
+            custo_mao_obra: result.labor,
+            custo_total: result.total,
+            data_base: updateDataBase
+          }
+        });
+
+        // Update Compositions for this service
+        const comps = compMap.get(service.id) || [];
+        for (const comp of comps) {
+          let newUnitCost = 0;
+          if (comp.tipo_item === 'INSUMO') {
+            const input = inputMap.get(comp.item_id);
+            newUnitCost = input ? (input.valor_referencia || 0) : 0;
+          } else {
+             const subRes = computedCosts.get(comp.item_id);
+             newUnitCost = subRes ? subRes.total : 0;
+          }
+
+          const newTotalItem = newUnitCost * comp.quantidade;
+          
+          // Only update if changed (with small tolerance)
+          if (Math.abs(newUnitCost - comp.custo_unitario) > 0.001 || Math.abs(newTotalItem - comp.custo_total_item) > 0.001) {
+             compUpdates.push({
+               id: comp.id,
+               data: {
+                 custo_unitario: newUnitCost,
+                 custo_total_item: newTotalItem
+               }
+             });
+          }
+        }
+      }
+
+      // 4. Batch Updates
+      const processBatch = async (items, fn) => {
+        for (let i = 0; i < items.length; i += 50) {
+           const batch = items.slice(i, i + 50);
+           await Promise.all(batch.map(fn));
+           // Yield
+           await new Promise(r => setTimeout(r, 20));
+        }
+      };
+
+      if (compUpdates.length > 0) {
+        setUpdateProgress(`Atualizando ${compUpdates.length} itens de composição...`);
+        await processBatch(compUpdates, (item) => base44.entities.ServiceComposition.update(item.id, item.data));
+      }
+
+      if (serviceUpdates.length > 0) {
+        setUpdateProgress(`Atualizando ${serviceUpdates.length} serviços...`);
+        await processBatch(serviceUpdates, (item) => base44.entities.Service.update(item.id, item.data));
+      }
+
+      toast.success('Atualização concluída!');
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      setShowUpdateDialog(false);
+
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro na atualização: ' + e.message);
+    } finally {
+      setIsUpdating(false);
+      setUpdateProgress('');
+    }
+  };
+
   const handleEdit = async (service) => {
     setEditingService(service);
     setServiceForm({
