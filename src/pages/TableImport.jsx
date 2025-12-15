@@ -36,18 +36,35 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { format } from 'date-fns';
 
-// Helper for batch processing to avoid rate limits
+// Helper for batch processing with concurrency
 const processBatches = async (items, batchSize, fn) => {
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
-    for (const item of batch) {
-       await fn(item);
-       // Small delay between each item
-       await new Promise(r => setTimeout(r, 100));
-    }
-    // Significant delay between batches
-    if (i + batchSize < items.length) await new Promise(r => setTimeout(r, 2000)); 
+    await Promise.all(batch.map(fn));
+    // Small delay to yield to event loop
+    await new Promise(r => setTimeout(r, 50));
   }
+};
+
+// Helper to fetch entities by codes in chunks
+const fetchByCodes = async (entity, codes) => {
+  const uniqueCodes = [...new Set(codes.filter(Boolean))];
+  const results = [];
+  const chunkSize = 100; // Safe limit for $in query
+  
+  for (let i = 0; i < uniqueCodes.length; i += chunkSize) {
+    const chunk = uniqueCodes.slice(i, i + chunkSize);
+    try {
+      // Use $in query
+      const found = await base44.entities[entity].filter({
+        codigo: { "$in": chunk }
+      }, null, 1000); // Set high limit for the chunk result
+      results.push(...found);
+    } catch (e) {
+      console.error(`Error fetching ${entity} chunk`, e);
+    }
+  }
+  return results;
 };
 
 export default function TableImport() {
