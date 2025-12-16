@@ -34,6 +34,29 @@ export const checkCircularDependency = async (serviceId, targetItemId) => {
 };
 
 // --- PROMPT 2: MOTOR DE CÁLCULO DETERMINÍSTICO ---
+// Helper para buscar tudo (paginação)
+export const fetchAll = async (entityName) => {
+  let allData = [];
+  let page = 0;
+  const limit = 1000;
+  while (true) {
+    const data = await base44.entities[entityName].list('created_date', limit, page * limit);
+    if (!data || data.length === 0) break;
+    allData.push(...data);
+    if (data.length < limit) break;
+    page++;
+  }
+  return allData;
+};
+
+// Helper para parsear data "MM/AAAA"
+const parseDate = (str) => {
+  if (!str) return new Date(9999, 11, 31); // Futuro se nulo
+  const [mes, ano] = str.split('/');
+  if (!mes || !ano) return new Date(9999, 11, 31);
+  return new Date(parseInt(ano), parseInt(mes) - 1, 1);
+};
+
 export const recalculateService = async (serviceId) => {
   // 1. Buscar itens
   const items = await base44.entities.ServiceItem.filter({ servico_id: serviceId });
@@ -41,10 +64,12 @@ export const recalculateService = async (serviceId) => {
   let custoMaterial = 0;
   let custoMaoObra = 0;
   let maxNivelDep = 0;
+  let oldestDate = null; // Para armazenar a data mais antiga
 
   // Carregar dados de referência (snapshot de valor)
   for (const item of items) {
     let unitCost = 0;
+    let itemDate = null;
     
     if (item.tipo_item === 'INSUMO') {
       const insumo = await base44.entities.Input.filter({ id: item.item_id }).then(r => r[0]);
@@ -71,31 +96,51 @@ export const recalculateService = async (serviceId) => {
       // Para sub-serviços, herdamos a quebra de custos proporcional
       const subService = await base44.entities.Service.filter({ id: item.item_id }).then(r => r[0]);
       if (subService) {
+        itemDate = subService.data_base;
         const matRatio = subService.custo_total ? (subService.custo_material / subService.custo_total) : 0;
         const laborRatio = subService.custo_total ? (subService.custo_mao_obra / subService.custo_total) : 0;
         
         custoMaterial += totalItem * matRatio;
         custoMaoObra += totalItem * laborRatio;
       } else {
-        // Fallback se não achar (não deveria acontecer)
         if (item.categoria === 'MATERIAL') custoMaterial += totalItem;
         else custoMaoObra += totalItem;
       }
     } else {
       // Para insumos, respeita a categoria definida
+      const insumo = await base44.entities.Input.filter({ id: item.item_id }).then(r => r[0]);
+      if (insumo) itemDate = insumo.data_base;
+
       if (item.categoria === 'MATERIAL') custoMaterial += totalItem;
       if (item.categoria === 'MAO_OBRA') custoMaoObra += totalItem;
+    }
+
+    // Verificar data mais antiga
+    if (itemDate) {
+      const currentDate = parseDate(itemDate);
+      if (!oldestDate || currentDate < oldestDate) {
+        oldestDate = currentDate;
+      }
     }
   }
 
   const custoTotal = custoMaterial + custoMaoObra;
+  
+  // Formatar a data mais antiga de volta para MM/AAAA
+  let dataBaseFinal = null;
+  if (oldestDate && oldestDate.getFullYear() !== 9999) {
+    const m = (oldestDate.getMonth() + 1).toString().padStart(2, '0');
+    const a = oldestDate.getFullYear();
+    dataBaseFinal = `${m}/${a}`;
+  }
 
   // 6. Salvar no serviço
   await base44.entities.Service.update(serviceId, {
     custo_material: custoMaterial,
     custo_mao_obra: custoMaoObra,
     custo_total: custoTotal,
-    nivel_max_dependencia: maxNivelDep
+    nivel_max_dependencia: maxNivelDep,
+    data_base: dataBaseFinal // Atualiza a data base
   });
 
   return { custo_total: custoTotal };

@@ -46,7 +46,7 @@ export default function TableImport() {
         const creates = [];
 
         // Pre-fetch check map
-        const allInputs = await base44.entities.Input.list();
+        const allInputs = await Engine.fetchAll('Input');
         const inputMap = new Map(allInputs.map(i => [i.codigo, i.id]));
 
         for (const line of lines) {
@@ -140,9 +140,9 @@ export default function TableImport() {
         setProgress('Verificando Serviços (Pais)...');
         const distinctParents = [...new Set(staging.map(s => s.codigo_pai))];
         
-        // Optim: fetch existing in batches? Or just fetch all codes needed?
-        // Fetch all services is safer for check
-        const allServices = await base44.entities.Service.list();
+        // CRITICAL: Fetch ALL services (using Engine.fetchAll) to ensure we match everything
+        setProgress('Carregando todos os serviços existentes...');
+        const allServices = await Engine.fetchAll('Service');
         const serviceMap = new Map(allServices.map(s => [s.codigo, s]));
 
         const newServices = [];
@@ -183,10 +183,11 @@ export default function TableImport() {
         }
 
         // Refresh Map
-        const allServicesRefreshed = await base44.entities.Service.list();
+        setProgress('Recarregando mapas de dados...');
+        const allServicesRefreshed = await Engine.fetchAll('Service');
         const serviceMapRefreshed = new Map(allServicesRefreshed.map(s => [s.codigo, s.id]));
         
-        const allInputs = await base44.entities.Input.list();
+        const allInputs = await Engine.fetchAll('Input');
         const inputMap = new Map(allInputs.map(i => [i.codigo, { id: i.id, un: i.unidade }]));
 
         // 3. Resolve Children & Links

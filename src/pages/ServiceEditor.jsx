@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { ArrowLeft, Save, Plus, Trash2, Calculator, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Calculator, Loader2, Check, ChevronsUpDown } from 'lucide-react';
 import * as Engine from '@/components/logic/CompositionEngine';
 import PageHeader from '@/components/ui/PageHeader';
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export default function ServiceEditor() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -21,18 +35,21 @@ export default function ServiceEditor() {
 
   // PROMPT 7: INTERFACE DINÂMICA
   const [service, setService] = useState({
-    codigo: '', descricao: '', unidade: 'UN', ativo: true
+    codigo: '', descricao: '', unidade: 'UN', ativo: true, data_base: ''
   });
   const [items, setItems] = useState([]);
   const [inputs, setInputs] = useState([]);
   const [services, setServices] = useState([]);
+  const [openCombobox, setOpenCombobox] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Load initial data
   useEffect(() => {
     const load = async () => {
+      // Fetch all for dropdowns (optimize later if too slow)
       const [allInputs, allServices] = await Promise.all([
-        base44.entities.Input.list(),
-        base44.entities.Service.list()
+        Engine.fetchAll('Input'),
+        Engine.fetchAll('Service')
       ]);
       setInputs(allInputs);
       setServices(allServices);
@@ -80,12 +97,14 @@ export default function ServiceEditor() {
 
     // Get snapshot data
     let unitCost = 0;
+    let selectedItem = null;
+    
     if (newItem.type === 'INSUMO') {
-      const i = inputs.find(x => x.id === newItem.id);
-      unitCost = i ? i.valor_unitario : 0;
+      selectedItem = inputs.find(x => x.id === newItem.id);
+      unitCost = selectedItem ? selectedItem.valor_unitario : 0;
     } else {
-      const s = services.find(x => x.id === newItem.id);
-      unitCost = s ? s.custo_total : 0;
+      selectedItem = services.find(x => x.id === newItem.id);
+      unitCost = selectedItem ? selectedItem.custo_total : 0;
     }
 
     const total = newItem.qtd * unitCost;
@@ -113,6 +132,7 @@ export default function ServiceEditor() {
     
     toast.success("Item adicionado e custos recalculados");
     setNewItem({ ...newItem, id: '', qtd: 1 });
+    setSearchQuery('');
   };
 
   const handleDeleteItem = async (itemId) => {
@@ -161,6 +181,10 @@ export default function ServiceEditor() {
                   <Label>Unidade</Label>
                   <Input value={service.unidade} onChange={e => setService({...service, unidade: e.target.value})} />
                 </div>
+                <div className="col-span-1">
+                  <Label>Data Base</Label>
+                  <Input value={service.data_base || ''} readOnly className="bg-slate-50" placeholder="Calculado automaticamente" />
+                </div>
                 <div className="col-span-2">
                   <Label>Descrição</Label>
                   <Input value={service.descricao} onChange={e => setService({...service, descricao: e.target.value})} />
@@ -174,10 +198,10 @@ export default function ServiceEditor() {
             <Card>
               <CardHeader><CardTitle>Itens</CardTitle></CardHeader>
               <CardContent>
-                <div className="flex gap-2 items-end mb-4 bg-slate-50 p-3 rounded">
+                <div className="flex flex-wrap gap-2 items-end mb-4 bg-slate-50 p-3 rounded">
                   <div className="w-32">
                     <Label>Tipo</Label>
-                    <Select value={newItem.type} onValueChange={v => setNewItem({...newItem, type: v})}>
+                    <Select value={newItem.type} onValueChange={v => { setNewItem({...newItem, type: v, id: ''}); setSearchQuery(''); }}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="INSUMO">Insumo</SelectItem>
@@ -185,18 +209,73 @@ export default function ServiceEditor() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex-1">
-                    <Label>Item</Label>
-                    <Select value={newItem.id} onValueChange={v => setNewItem({...newItem, id: v})}>
-                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                      <SelectContent>
-                        {(newItem.type === 'INSUMO' ? inputs : services.filter(s => s.id !== serviceId)).map(i => (
-                          <SelectItem key={i.id} value={i.id}>
-                            {i.codigo} - {i.descricao.substring(0, 50)}...
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex-1 min-w-[250px]">
+                    <Label>Item (Busca Dinâmica)</Label>
+                    <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openCombobox}
+                          className="w-full justify-between font-normal truncate"
+                        >
+                          {newItem.id
+                            ? (newItem.type === 'INSUMO' 
+                                ? inputs.find((i) => i.id === newItem.id)
+                                : services.find((s) => s.id === newItem.id)
+                              )?.descricao.substring(0, 60) + '...' || "Selecione o item..."
+                            : "Selecione o item..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput 
+                            placeholder="Buscar por nome ou código..." 
+                            value={searchQuery}
+                            onValueChange={setSearchQuery}
+                          />
+                          <CommandList>
+                            <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {(() => {
+                                const list = newItem.type === 'INSUMO' ? inputs : services.filter(s => s.id !== serviceId);
+                                const filtered = list.filter(item => 
+                                  !searchQuery || 
+                                  item.codigo?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                  item.descricao?.toLowerCase().includes(searchQuery.toLowerCase())
+                                ).slice(0, 50); // Limit to 50 for performance
+                                
+                                return filtered.map((item) => (
+                                  <CommandItem
+                                    key={item.id}
+                                    value={`${item.codigo} ${item.descricao}`}
+                                    onSelect={() => {
+                                      setNewItem(prev => ({ ...prev, id: item.id }));
+                                      setOpenCombobox(false);
+                                      setSearchQuery('');
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        newItem.id === item.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex flex-col overflow-hidden">
+                                      <span className="font-medium truncate">{item.descricao}</span>
+                                      <span className="text-xs text-slate-500">
+                                        {item.codigo} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(newItem.type === 'INSUMO' ? item.valor_unitario : item.custo_total)}
+                                      </span>
+                                    </div>
+                                  </CommandItem>
+                                ));
+                              })()}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="w-24">
                     <Label>Qtd</Label>
@@ -265,6 +344,10 @@ export default function ServiceEditor() {
                  <div className="flex justify-between">
                    <span>Mão de Obra</span>
                    <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.custo_mao_obra || 0)}</span>
+                 </div>
+                 <div className="flex justify-between pt-2 border-t border-slate-700">
+                    <span className="text-slate-400">Data Base</span>
+                    <span>{service.data_base || '-'}</span>
                  </div>
                </div>
              </CardContent>
