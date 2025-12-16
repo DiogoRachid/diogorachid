@@ -56,7 +56,7 @@ export default function TableImport() {
   const detectCategory = (unit) => {
     if (!unit) return 'MATERIAL';
     const u = unit.toUpperCase().trim();
-    if (u === 'H' || u === 'HORA' || u.startsWith('H')) return 'MAO_DE_OBRA';
+    if (u === 'H' || u === 'HORA' || u.startsWith('H')) return 'MAO_OBRA';
     return 'MATERIAL';
   };
 

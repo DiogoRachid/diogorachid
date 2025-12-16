@@ -295,7 +295,9 @@ export default function ServiceEditor() {
                                     key={item.id}
                                     value={`${item.codigo} ${item.descricao}`}
                                     onSelect={() => {
-                                      setNewItem(prev => ({ ...prev, id: item.id }));
+                                      const u = (item.unidade || 'UN').toUpperCase().trim();
+                                      const cat = (u === 'H' || u === 'HORA' || u.startsWith('H')) ? 'MAO_OBRA' : 'MATERIAL';
+                                      setNewItem(prev => ({ ...prev, id: item.id, cat }));
                                       setOpenCombobox(false);
                                       setSearchQuery('');
                                     }}
@@ -331,8 +333,8 @@ export default function ServiceEditor() {
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="MATERIAL">Material</SelectItem>
-                        <SelectItem value="MAO_DE_OBRA">Mão de Obra</SelectItem>
-                      </SelectContent>
+                        <SelectItem value="MAO_OBRA">Mão de Obra</SelectItem>
+                        </SelectContent>
                     </Select>
                   </div>
                   <Button onClick={handleAddItem}><Plus className="h-4 w-4"/></Button>
@@ -347,13 +349,26 @@ export default function ServiceEditor() {
                       <TableHead>Und</TableHead>
                       <TableHead>Qtd</TableHead>
                       <TableHead>Unit.</TableHead>
-                      <TableHead>Total</TableHead>
+                      <TableHead>Total MO</TableHead>
+                      <TableHead>Total Geral</TableHead>
                       <TableHead>Cat</TableHead>
                       <TableHead className="w-24">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map(item => (
+                      </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                      {items.map(item => {
+                      // Calculate labor portion for display
+                      let laborCost = 0;
+                      if (item.tipo_item === 'INSUMO') {
+                         if (item.categoria === 'MAO_OBRA') laborCost = item.custo_total_item;
+                      } else {
+                         const subS = services.find(s => s.id === item.item_id);
+                         if (subS && subS.custo_total > 0) {
+                           laborCost = (subS.custo_mao_obra / subS.custo_total) * item.custo_total_item;
+                         }
+                      }
+
+                      return (
                       <TableRow key={item.id}>
                         <TableCell className="text-xs font-mono">{getItemCode(item)}</TableCell>
                         <TableCell className="text-xs font-mono">{item.tipo_item}</TableCell>
@@ -361,9 +376,12 @@ export default function ServiceEditor() {
                         <TableCell className="text-xs">{getItemUnit(item)}</TableCell>
                         <TableCell>{item.quantidade}</TableCell>
                         <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_unitario_snapshot)}</TableCell>
+                        <TableCell className="text-slate-500">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(laborCost)}</TableCell>
                         <TableCell className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_total_item)}</TableCell>
-                        <TableCell className="text-xs">{item.categoria}</TableCell>
+                        <TableCell className="text-xs">{item.categoria === 'MAO_OBRA' ? 'MO' : 'MAT'}</TableCell>
                         <TableCell className="flex gap-1">
+                      );
+                      })}
                           <Button variant="ghost" size="sm" onClick={() => handleEditItem(item)} className="text-blue-600">
                              <Pencil className="h-4 w-4" />
                           </Button>
