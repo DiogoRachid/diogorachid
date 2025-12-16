@@ -26,21 +26,25 @@ export default function TableImport() {
   const [stagingCount, setStagingCount] = useState(0);
   const [stagingSummary, setStagingSummary] = useState({ parents: 0, children: 0 });
 
+  // Batch Processing State
+  const [batches, setBatches] = useState([]);
+  const [analyzed, setAnalyzed] = useState(false);
+  const mapsRef = useRef({ services: new Map(), inputs: new Map() });
+  const stagingDataRef = useRef(new Map()); // Groups staging items by parent code
+
   // 1. Initial Check & Refresh
   const checkStaging = async () => {
     try {
-      // Get total count
-      // Need a way to count efficiently. For now list with limit 1 to check existence or assume small list? 
-      // Actually we need the real count. 
-      // Base44 list returns array. 
-      // Let's fetch all IDs (lightweight) if possible, or just fetch chunks.
-      // Or just fetch first 5000 to see if work exists.
       const staging = await Engine.fetchAll('CompositionStaging');
       setStagingCount(staging.length);
       
       if (staging.length > 0) {
          const parents = new Set(staging.map(s => s.codigo_pai)).size;
          setStagingSummary({ parents, children: staging.length });
+      } else {
+         setStagingSummary({ parents: 0, children: 0 });
+         setBatches([]);
+         setAnalyzed(false);
       }
     } catch (e) {
       console.error(e);
@@ -173,10 +177,10 @@ export default function TableImport() {
   };
 
 
-  // 3. Step 2: Process Staging (Optimized)
-  const handleProcessStaging = async () => {
+  // 3. Step 2A: Analyze & Prepare Batches
+  const handleAnalyzeStaging = async () => {
     setLoading(true);
-    setProgress({ message: 'Carregando dados da tabela temporária...', percent: 5, current: 0, total: 0 });
+    setProgress({ message: 'Carregando tabela temporária...', percent: 5 });
 
     try {
       const staging = await Engine.fetchAll('CompositionStaging');
@@ -186,10 +190,8 @@ export default function TableImport() {
         return;
       }
 
-      // 1. Prepare Data & Indexes
+      // Group Staging by Parent
       setProgress({ message: 'Organizando dados...', percent: 10 });
-      
-      // Group Staging by Parent Code (O(N))
       const stagingByParent = new Map();
       const distinctParents = [];
       
@@ -200,191 +202,197 @@ export default function TableImport() {
         }
         stagingByParent.get(item.codigo_pai).push(item);
       }
-
-      const PARENT_BATCH_SIZE = 500; // Smaller batch for smoother UI
       
-      setProgress({ message: 'Carregando banco de dados atual...', percent: 15 });
-      const allServices = await Engine.fetchAll('Service');
-      const serviceMap = new Map(allServices.map(s => [s.codigo, s]));
-      const allInputs = await Engine.fetchAll('Input');
-      const inputMap = new Map(allInputs.map(i => [i.codigo, { id: i.id, un: i.unidade }]));
+      stagingDataRef.current = stagingByParent;
 
-      // 2. Loop Batches
-      const totalBatches = Math.ceil(distinctParents.length / PARENT_BATCH_SIZE);
-      
-      for (let batchIdx = 0; batchIdx < distinctParents.length; batchIdx += PARENT_BATCH_SIZE) {
-         // Force Yield
-         await new Promise(r => setTimeout(r, 10));
-
-         const currentParents = distinctParents.slice(batchIdx, batchIdx + PARENT_BATCH_SIZE);
-         const currentBatchNum = Math.floor(batchIdx / PARENT_BATCH_SIZE) + 1;
-         const percent = 15 + Math.round((currentBatchNum / totalBatches) * 80); // 15% to 95%
-         
-         setProgress({ 
-            message: `Processando lote ${currentBatchNum}/${totalBatches} (${currentParents.length} serviços)...`, 
-            percent 
+      // Create Batches
+      const PARENT_BATCH_SIZE = 500;
+      const newBatches = [];
+      for (let i = 0; i < distinctParents.length; i += PARENT_BATCH_SIZE) {
+         const chunk = distinctParents.slice(i, i + PARENT_BATCH_SIZE);
+         newBatches.push({
+            id: i / PARENT_BATCH_SIZE + 1,
+            parents: chunk,
+            status: 'pending', // pending, processing, completed, error
+            itemsCount: chunk.reduce((acc, p) => acc + (stagingByParent.get(p)?.length || 0), 0)
          });
-
-         // A. Register Services (Parents)
-         const newServices = [];
-         const updatesServices = [];
-
-         for (const pCode of currentParents) {
-            const items = stagingByParent.get(pCode);
-            if (!items || items.length === 0) continue;
-            
-            const sample = items[0];
-            const existing = serviceMap.get(pCode);
-            
-            if (!existing) {
-              newServices.push({
-                codigo: pCode,
-                descricao: sample.descricao_pai || `[TEMP] Serviço ${pCode}`,
-                unidade: sample.unidade_pai || 'UN',
-                ativo: true
-              });
-            } else {
-               // Update descriptions if needed
-               if (existing.descricao.startsWith('[TEMP]') && sample.descricao_pai && !sample.descricao_pai.startsWith('[TEMP]')) {
-                  updatesServices.push({ id: existing.id, data: { descricao: sample.descricao_pai, unidade: sample.unidade_pai } });
-               }
-            }
-         }
-
-         if (newServices.length > 0) {
-            try {
-               // Chunks of 100
-               for (let i=0; i<newServices.length; i+=100) {
-                  const created = await base44.entities.Service.bulkCreate(newServices.slice(i, i+100));
-                  created?.forEach(c => serviceMap.set(c.codigo, c));
-               }
-            } catch (e) { console.error("Error creating services", e); }
-         }
-         if (updatesServices.length > 0) {
-            try {
-               // Parallel chunks of 50
-               const chunks = [];
-               for (let i=0; i<updatesServices.length; i+=50) chunks.push(updatesServices.slice(i, i+50));
-               for (const chunk of chunks) {
-                  await Promise.all(chunk.map(u => base44.entities.Service.update(u.id, u.data)));
-               }
-            } catch (e) { console.error("Error updating services", e); }
-         }
-
-         // B. Stubs for missing children & Links
-         const missingChildrenCodes = new Set();
-         const linksToCreate = [];
-         
-         // Process items for current parents
-         for (const pCode of currentParents) {
-            const items = stagingByParent.get(pCode);
-            const parent = serviceMap.get(pCode);
-            // Parent should exist now (created above or existed)
-            // But we must check map again for newly created
-            if (!parent && !serviceMap.has(pCode)) {
-               // Should not happen if bulkCreate succeeded
-               continue; 
-            }
-            const parentId = parent ? parent.id : serviceMap.get(pCode)?.id;
-            if (!parentId) continue;
-
-            for (const item of items) {
-               // Identify missing children
-               if (!inputMap.has(item.codigo_item) && !serviceMap.has(item.codigo_item)) {
-                  missingChildrenCodes.add(item.codigo_item);
-               }
-               
-               // Prepare link (assuming child exists or will be created)
-               // Note: If child is missing, we create it below, THEN we need its ID.
-               // So we can't create link yet if child ID is missing.
-               // We need 2 passes or create stubs first.
-            }
-         }
-
-         // Create missing children stubs
-         if (missingChildrenCodes.size > 0) {
-            const childrenStubs = Array.from(missingChildrenCodes).map(c => ({
-               codigo: c,
-               descricao: `[TEMP] Sub-Serviço ${c}`,
-               unidade: 'UN',
-               ativo: true
-            }));
-            try {
-               for (let i=0; i<childrenStubs.length; i+=100) {
-                  const created = await base44.entities.Service.bulkCreate(childrenStubs.slice(i, i+100));
-                  created?.forEach(c => serviceMap.set(c.codigo, c));
-               }
-            } catch (e) { console.error("Error creating stubs", e); }
-         }
-
-         // Now Create Links (All IDs should exist)
-         for (const pCode of currentParents) {
-            const items = stagingByParent.get(pCode);
-            const parentId = serviceMap.get(pCode)?.id;
-            if (!parentId) continue;
-
-            for (const item of items) {
-               let childId = null;
-               let type = 'SERVICO';
-               let category = 'MATERIAL';
-
-               if (inputMap.has(item.codigo_item)) {
-                  const inp = inputMap.get(item.codigo_item);
-                  childId = inp.id;
-                  type = 'INSUMO';
-                  category = detectCategory(inp.un);
-               } else if (serviceMap.has(item.codigo_item)) {
-                  const svc = serviceMap.get(item.codigo_item);
-                  childId = svc.id;
-                  type = 'SERVICO';
-                  category = detectCategory(svc.unidade);
-               }
-
-               if (childId) {
-                  linksToCreate.push({
-                     servico_id: parentId,
-                     tipo_item: type,
-                     item_id: childId,
-                     quantidade: item.quantidade,
-                     categoria: category,
-                     ordem: 0, // Order not preserved in import? default 0
-                     custo_unitario_snapshot: 0,
-                     custo_total_item: 0
-                  });
-               }
-            }
-         }
-
-         if (linksToCreate.length > 0) {
-            try {
-               for (let i=0; i<linksToCreate.length; i+=200) {
-                  await base44.entities.ServiceItem.bulkCreate(linksToCreate.slice(i, i+200));
-                  // Yield
-                  if (i % 1000 === 0) await new Promise(r => setTimeout(r, 0));
-               }
-            } catch (e) { console.error("Error creating links", e); }
-         }
       }
 
-      // 3. Clear Staging
-      setProgress({ message: 'Limpando tabela temporária...', percent: 98 });
-      try {
-         const stagingIds = staging.map(s => s.id);
-         for(let i=0; i<stagingIds.length; i+=500) {
-            await base44.entities.CompositionStaging.delete(stagingIds.slice(i, i+500));
-            await new Promise(r => setTimeout(r, 0));
-         }
-      } catch (e) { console.error("Error clearing staging", e); }
+      setBatches(newBatches);
 
-      setProgress({ message: 'Processamento concluído!', percent: 100 });
-      toast.success("Cadastro finalizado com sucesso!");
-      checkStaging();
+      // Pre-load Maps
+      setProgress({ message: 'Carregando banco de serviços e insumos...', percent: 30 });
+      const [allServices, allInputs] = await Promise.all([
+        Engine.fetchAll('Service'),
+        Engine.fetchAll('Input')
+      ]);
+      
+      mapsRef.current.services = new Map(allServices.map(s => [s.codigo, s]));
+      mapsRef.current.inputs = new Map(allInputs.map(i => [i.codigo, { id: i.id, un: i.unidade }]));
+
+      setAnalyzed(true);
+      setProgress({ message: 'Análise concluída!', percent: 100 });
+      setLoading(false);
 
     } catch (err) {
-       console.error(err);
-       toast.error("Erro no processamento: " + err.message);
-    } finally {
-       setLoading(false);
+      console.error(err);
+      toast.error("Erro na análise: " + err.message);
+      setLoading(false);
+    }
+  };
+
+  // 3. Step 2B: Process Single Batch
+  const handleProcessBatch = async (batchId) => {
+    const batchIndex = batches.findIndex(b => b.id === batchId);
+    if (batchIndex === -1) return;
+
+    const batch = batches[batchIndex];
+    
+    // Update UI to processing
+    const newBatches = [...batches];
+    newBatches[batchIndex].status = 'processing';
+    setBatches(newBatches);
+
+    try {
+       const { parents } = batch;
+       const { services: serviceMap, inputs: inputMap } = mapsRef.current;
+       const stagingByParent = stagingDataRef.current;
+
+       // A. Register Services (Parents)
+       const newServices = [];
+       const updatesServices = [];
+
+       for (const pCode of parents) {
+          const items = stagingByParent.get(pCode);
+          if (!items || items.length === 0) continue;
+          
+          const sample = items[0];
+          const existing = serviceMap.get(pCode);
+          
+          if (!existing) {
+            newServices.push({
+              codigo: pCode,
+              descricao: sample.descricao_pai || `[TEMP] Serviço ${pCode}`,
+              unidade: sample.unidade_pai || 'UN',
+              ativo: true
+            });
+          } else {
+             if (existing.descricao.startsWith('[TEMP]') && sample.descricao_pai && !sample.descricao_pai.startsWith('[TEMP]')) {
+                updatesServices.push({ id: existing.id, data: { descricao: sample.descricao_pai, unidade: sample.unidade_pai } });
+             }
+          }
+       }
+
+       if (newServices.length > 0) {
+          for (let i=0; i<newServices.length; i+=100) {
+             const created = await base44.entities.Service.bulkCreate(newServices.slice(i, i+100));
+             created?.forEach(c => serviceMap.set(c.codigo, c));
+          }
+       }
+       if (updatesServices.length > 0) {
+          const chunks = [];
+          for (let i=0; i<updatesServices.length; i+=50) chunks.push(updatesServices.slice(i, i+50));
+          for (const chunk of chunks) {
+             await Promise.all(chunk.map(u => base44.entities.Service.update(u.id, u.data)));
+          }
+       }
+
+       // B. Stubs & Links
+       const missingChildrenCodes = new Set();
+       const linksToCreate = [];
+       const itemsToDeleteFromStaging = [];
+
+       // Identify missing & prepare items
+       for (const pCode of parents) {
+          const items = stagingByParent.get(pCode);
+          const parentId = serviceMap.get(pCode)?.id; // Should exist now
+          if (!parentId) continue;
+
+          for (const item of items) {
+             itemsToDeleteFromStaging.push(item.id);
+             
+             if (!inputMap.has(item.codigo_item) && !serviceMap.has(item.codigo_item)) {
+                missingChildrenCodes.add(item.codigo_item);
+             }
+          }
+       }
+
+       // Create Stubs
+       if (missingChildrenCodes.size > 0) {
+          const childrenStubs = Array.from(missingChildrenCodes).map(c => ({
+             codigo: c,
+             descricao: `[TEMP] Sub-Serviço ${c}`,
+             unidade: 'UN',
+             ativo: true
+          }));
+          for (let i=0; i<childrenStubs.length; i+=100) {
+             const created = await base44.entities.Service.bulkCreate(childrenStubs.slice(i, i+100));
+             created?.forEach(c => serviceMap.set(c.codigo, c));
+          }
+       }
+
+       // Create Links
+       for (const pCode of parents) {
+          const items = stagingByParent.get(pCode);
+          const parentId = serviceMap.get(pCode)?.id;
+          if (!parentId) continue;
+
+          for (const item of items) {
+             let childId = null;
+             let type = 'SERVICO';
+             let category = 'MATERIAL';
+
+             if (inputMap.has(item.codigo_item)) {
+                const inp = inputMap.get(item.codigo_item);
+                childId = inp.id;
+                type = 'INSUMO';
+                category = detectCategory(inp.un);
+             } else if (serviceMap.has(item.codigo_item)) {
+                const svc = serviceMap.get(item.codigo_item);
+                childId = svc.id;
+                type = 'SERVICO';
+                category = detectCategory(svc.unidade);
+             }
+
+             if (childId) {
+                linksToCreate.push({
+                   servico_id: parentId,
+                   tipo_item: type,
+                   item_id: childId,
+                   quantidade: item.quantidade,
+                   categoria: category,
+                   ordem: 0,
+                   custo_unitario_snapshot: 0,
+                   custo_total_item: 0
+                });
+             }
+          }
+       }
+
+       if (linksToCreate.length > 0) {
+          for (let i=0; i<linksToCreate.length; i+=200) {
+             await base44.entities.ServiceItem.bulkCreate(linksToCreate.slice(i, i+200));
+          }
+       }
+
+       // Cleanup Staging for this batch
+       if (itemsToDeleteFromStaging.length > 0) {
+          for(let i=0; i<itemsToDeleteFromStaging.length; i+=500) {
+             await base44.entities.CompositionStaging.delete(itemsToDeleteFromStaging.slice(i, i+500));
+          }
+       }
+
+       // Success
+       const finalBatches = [...batches];
+       finalBatches[batchIndex] = { ...finalBatches[batchIndex], status: 'completed' }; // Update ref to latest state? No, setState logic
+       setBatches(prev => prev.map(b => b.id === batchId ? { ...b, status: 'completed' } : b));
+       
+       toast.success(`Lote ${batchId} processado!`);
+
+    } catch (e) {
+       console.error(e);
+       toast.error(`Erro no lote ${batchId}: ${e.message}`);
+       setBatches(prev => prev.map(b => b.id === batchId ? { ...b, status: 'error' } : b));
     }
   };
 
@@ -454,22 +462,69 @@ export default function TableImport() {
                  </div>
               )}
            </CardContent>
-           <CardFooter className="flex gap-3">
-              <Button 
-                className="flex-1 bg-blue-600 hover:bg-blue-700" 
-                onClick={handleProcessStaging}
-                disabled={loading}
-              >
-                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                 {loading ? 'Processando...' : 'Iniciar Cadastro dos Serviços'}
-              </Button>
-              <Button 
-                variant="destructive" 
-                onClick={handleClearStaging}
-                disabled={loading}
-              >
-                 <Trash2 className="mr-2 h-4 w-4" /> Limpar Tabela
-              </Button>
+           <CardFooter className="flex flex-col gap-3">
+              {!analyzed ? (
+                <div className="flex w-full gap-3">
+                  <Button 
+                    className="flex-1 bg-blue-600 hover:bg-blue-700" 
+                    onClick={handleAnalyzeStaging}
+                    disabled={loading}
+                  >
+                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                     {loading ? 'Analisando...' : '1. Analisar e Preparar Lotes'}
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleClearStaging}
+                    disabled={loading}
+                  >
+                     <Trash2 className="mr-2 h-4 w-4" /> Limpar Tabela
+                  </Button>
+                </div>
+              ) : (
+                <div className="w-full space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-lg">Lotes para Processamento</h3>
+                    <Button variant="outline" size="sm" onClick={() => { setAnalyzed(false); checkStaging(); }}>
+                      <RefreshCw className="mr-2 h-4 w-4" /> Recarregar
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto">
+                    {batches.map(batch => (
+                      <Card key={batch.id} className={`border ${batch.status === 'completed' ? 'bg-green-50 border-green-200' : batch.status === 'error' ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
+                        <div className="p-3">
+                          <div className="flex justify-between items-center mb-2">
+                             <span className="font-bold text-sm">Lote {batch.id}</span>
+                             <span className={`text-xs px-2 py-1 rounded-full ${
+                                batch.status === 'completed' ? 'bg-green-200 text-green-800' :
+                                batch.status === 'processing' ? 'bg-blue-200 text-blue-800' :
+                                batch.status === 'error' ? 'bg-red-200 text-red-800' :
+                                'bg-slate-200 text-slate-800'
+                             }`}>
+                                {batch.status === 'completed' ? 'Concluído' : 
+                                 batch.status === 'processing' ? 'Processando...' : 
+                                 batch.status === 'error' ? 'Erro' : 'Pendente'}
+                             </span>
+                          </div>
+                          <div className="text-xs text-slate-500 mb-3">
+                             {batch.parents.length} pais, ~{batch.itemsCount} itens
+                          </div>
+                          <Button 
+                             size="sm" 
+                             className="w-full"
+                             disabled={batch.status === 'processing' || batch.status === 'completed'}
+                             onClick={() => handleProcessBatch(batch.id)}
+                             variant={batch.status === 'error' ? 'destructive' : 'default'}
+                          >
+                             {batch.status === 'completed' ? 'Feito' : 'Iniciar Lote'}
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
            </CardFooter>
         </Card>
       ) : (
