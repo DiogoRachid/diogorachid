@@ -67,8 +67,25 @@ export const recalculateService = async (serviceId) => {
       });
     }
 
-    if (item.categoria === 'MATERIAL') custoMaterial += totalItem;
-    if (item.categoria === 'MAO_OBRA') custoMaoObra += totalItem;
+    if (item.tipo_item === 'SERVICO') {
+      // Para sub-serviços, herdamos a quebra de custos proporcional
+      const subService = await base44.entities.Service.filter({ id: item.item_id }).then(r => r[0]);
+      if (subService) {
+        const matRatio = subService.custo_total ? (subService.custo_material / subService.custo_total) : 0;
+        const laborRatio = subService.custo_total ? (subService.custo_mao_obra / subService.custo_total) : 0;
+        
+        custoMaterial += totalItem * matRatio;
+        custoMaoObra += totalItem * laborRatio;
+      } else {
+        // Fallback se não achar (não deveria acontecer)
+        if (item.categoria === 'MATERIAL') custoMaterial += totalItem;
+        else custoMaoObra += totalItem;
+      }
+    } else {
+      // Para insumos, respeita a categoria definida
+      if (item.categoria === 'MATERIAL') custoMaterial += totalItem;
+      if (item.categoria === 'MAO_OBRA') custoMaoObra += totalItem;
+    }
   }
 
   const custoTotal = custoMaterial + custoMaoObra;
