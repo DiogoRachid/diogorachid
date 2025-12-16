@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import * as Engine from '@/components/logic/CompositionEngine';
 
@@ -31,7 +32,7 @@ export default function Inputs() {
   const [editing, setEditing] = useState(null);
   const [open, setOpen] = useState(false);
   
-  const [form, setForm] = useState({ codigo: '', descricao: '', unidade: 'UN', valor_unitario: 0, fonte: 'PROPRIA' });
+  const [form, setForm] = useState({ codigo: '', descricao: '', unidade: 'UN', valor_unitario: 0, categoria: 'MATERIAL', fonte: 'PROPRIA' });
 
   const { data: inputs = [], isLoading, refetch } = useQuery({
     queryKey: ['inputs'],
@@ -82,6 +83,12 @@ export default function Inputs() {
     { header: 'Descrição', accessor: 'descricao' },
     { header: 'Unidade', accessor: 'unidade', className: 'w-16' },
     { 
+      header: 'Categoria', 
+      accessor: 'categoria', 
+      className: 'w-32',
+      render: (row) => row.categoria === 'MAO_OBRA' ? 'Mão de Obra' : 'Material'
+    },
+    { 
       header: 'Valor Unitário', 
       accessor: 'valor_unitario', 
       className: 'text-right',
@@ -117,7 +124,7 @@ export default function Inputs() {
         subtitle="Banco de materiais e mão de obra" 
         icon={Package}
         actionLabel="Novo Insumo"
-        onAction={() => { setEditing(null); setForm({ codigo: '', descricao: '', unidade: 'UN', valor_unitario: 0, fonte: 'PROPRIA' }); setOpen(true); }}
+        onAction={() => { setEditing(null); setForm({ codigo: '', descricao: '', unidade: 'UN', valor_unitario: 0, categoria: 'MATERIAL', fonte: 'PROPRIA' }); setOpen(true); }}
       />
       <SearchFilter searchValue={search} onSearchChange={setSearch} placeholder="Buscar insumo..." />
       <DataTable columns={columns} data={filtered} isLoading={isLoading} />
@@ -140,6 +147,16 @@ export default function Inputs() {
                <div>
                 <Label>Unidade</Label>
                 <Input value={form.unidade} onChange={e => setForm({...form, unidade: e.target.value})} />
+              </div>
+              <div>
+                <Label>Categoria</Label>
+                <Select value={form.categoria} onValueChange={v => setForm({...form, categoria: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MATERIAL">Material</SelectItem>
+                    <SelectItem value="MAO_OBRA">Mão de Obra</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
                <div>
                 <Label>Valor Unit.</Label>
