@@ -306,7 +306,8 @@ export default function TableImport() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => processImport(ev.target.result);
-    reader.readAsText(file);
+    // Force ISO-8859-1 for Brazilian/Excel files to fix '' artifacts
+    reader.readAsText(file, 'ISO-8859-1'); 
   };
 
   return (
