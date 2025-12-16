@@ -26,11 +26,9 @@ export default function TableImport() {
   const [stagingCount, setStagingCount] = useState(0);
   const [stagingSummary, setStagingSummary] = useState({ parents: 0, children: 0 });
 
-  // Batch Processing State
-  const [batches, setBatches] = useState([]);
+  // Global Processing State
   const [analyzed, setAnalyzed] = useState(false);
-  const mapsRef = useRef({ services: new Map(), inputs: new Map() });
-  const stagingDataRef = useRef(new Map()); // Groups staging items by parent code
+  const [stats, setStats] = useState(null);
 
   // 1. Initial Check & Refresh
   const checkStaging = async () => {
@@ -177,242 +175,180 @@ export default function TableImport() {
   };
 
 
-  // 3. Step 2A: Analyze & Prepare Batches
-  const handleAnalyzeStaging = async () => {
+  // 3. Optimized Global Strategy (Fast & Robust)
+  const handleProcessGlobal = async () => {
     setLoading(true);
-    setProgress({ message: 'Carregando tabela temporária...', percent: 5 });
+    setProgress({ message: 'Preparando ambiente...', percent: 0 });
 
     try {
+      // --- PHASE 0: PRE-LOAD ---
+      setProgress({ message: 'Carregando TODOS os dados de importação...', percent: 5 });
       const staging = await Engine.fetchAll('CompositionStaging');
-      if (staging.length === 0) {
-        toast.info("Nada para processar.");
-        setLoading(false);
-        return;
-      }
+      if (staging.length === 0) { toast.info("Nada para processar"); setLoading(false); return; }
 
-      // Group Staging by Parent
-      setProgress({ message: 'Organizando dados...', percent: 10 });
-      const stagingByParent = new Map();
-      const distinctParents = [];
-      
-      for (const item of staging) {
-        if (!stagingByParent.has(item.codigo_pai)) {
-           stagingByParent.set(item.codigo_pai, []);
-           distinctParents.push(item.codigo_pai);
-        }
-        stagingByParent.get(item.codigo_pai).push(item);
-      }
-      
-      stagingDataRef.current = stagingByParent;
-
-      // Create Batches
-      const PARENT_BATCH_SIZE = 100; // Reduced to 100 for safer processing
-      const newBatches = [];
-      for (let i = 0; i < distinctParents.length; i += PARENT_BATCH_SIZE) {
-         const chunk = distinctParents.slice(i, i + PARENT_BATCH_SIZE);
-         newBatches.push({
-            id: Math.floor(i / PARENT_BATCH_SIZE) + 1,
-            parents: chunk,
-            status: 'pending', // pending, processing, completed, error
-            itemsCount: chunk.reduce((acc, p) => acc + (stagingByParent.get(p)?.length || 0), 0)
-         });
-      }
-
-      setBatches(newBatches);
-
-      // Pre-load Maps
-      setProgress({ message: 'Carregando banco de serviços e insumos...', percent: 30 });
-      const [allServices, allInputs] = await Promise.all([
+      setProgress({ message: 'Carregando Insumos e Serviços existentes...', percent: 10 });
+      // Parallel Fetch
+      const [existingServices, existingInputs] = await Promise.all([
         Engine.fetchAll('Service'),
         Engine.fetchAll('Input')
       ]);
+
+      const serviceMap = new Map(existingServices.map(s => [s.codigo, s]));
+      const inputMap = new Map(existingInputs.map(i => [i.codigo, { id: i.id, un: i.unidade }]));
+
+      // --- PHASE 1: IDENTIFY & CREATE ALL MISSING SERVICES ---
+      setProgress({ message: 'Identificando serviços faltantes...', percent: 20 });
       
-      mapsRef.current.services = new Map(allServices.map(s => [s.codigo, s]));
-      mapsRef.current.inputs = new Map(allInputs.map(i => [i.codigo, { id: i.id, un: i.unidade }]));
+      const distinctServiceCodes = new Set();
+      const parentCodes = new Set();
+      
+      // 1.1 Collect all potential Service codes (Parents AND Children that aren't inputs)
+      for (const row of staging) {
+         parentCodes.add(row.codigo_pai);
+         distinctServiceCodes.add(row.codigo_pai);
+         
+         // Check child: if not input, assume service
+         if (!inputMap.has(row.codigo_item)) {
+            distinctServiceCodes.add(row.codigo_item);
+         }
+      }
 
-      setAnalyzed(true);
-      setProgress({ message: 'Análise concluída!', percent: 100 });
-      setLoading(false);
+      // 1.2 Diff against existing
+      const servicesToCreate = [];
+      
+      // We also need to capture description/units for parents from staging if they don't exist
+      const parentMeta = new Map(); // code -> { desc, un }
+      for (const row of staging) {
+         if (!parentMeta.has(row.codigo_pai)) {
+            parentMeta.set(row.codigo_pai, { d: row.descricao_pai, u: row.unidade_pai });
+         }
+      }
 
-    } catch (err) {
-      console.error(err);
-      toast.error("Erro na análise: " + err.message);
-      setLoading(false);
-    }
-  };
+      for (const code of distinctServiceCodes) {
+         if (!serviceMap.has(code)) {
+             const meta = parentMeta.get(code);
+             servicesToCreate.push({
+                codigo: code,
+                descricao: meta?.d || `[IMPORTADO] Serviço ${code}`,
+                unidade: meta?.u || 'UN',
+                ativo: true
+             });
+         }
+      }
 
-  // 3. Step 2B: Process Single Batch
-  const handleProcessBatch = async (batchId) => {
-    const batchIndex = batches.findIndex(b => b.id === batchId);
-    if (batchIndex === -1) return;
-
-    const batch = batches[batchIndex];
-    
-    // Update UI to processing
-    const newBatches = [...batches];
-    newBatches[batchIndex].status = 'processing';
-    setBatches(newBatches);
-
-    try {
-       const { parents } = batch;
-       const { services: serviceMap, inputs: inputMap } = mapsRef.current;
-       const stagingByParent = stagingDataRef.current;
-
-       if (!serviceMap || !inputMap || !stagingByParent) {
-          throw new Error("Mapas de dados perdidos. Recarregue a página e analise novamente.");
-       }
-
-       // A. Register Services (Parents)
-       const newServices = [];
-       const updatesServices = [];
-
-       for (const pCode of parents) {
-          const items = stagingByParent.get(pCode);
-          if (!items || items.length === 0) continue;
-          
-          const sample = items[0];
-          const existing = serviceMap.get(pCode);
-          
-          if (!existing) {
-            newServices.push({
-              codigo: pCode,
-              descricao: sample.descricao_pai || `[TEMP] Serviço ${pCode}`,
-              unidade: sample.unidade_pai || 'UN',
-              ativo: true
-            });
-          } else {
-             if (existing.descricao.startsWith('[TEMP]') && sample.descricao_pai && !sample.descricao_pai.startsWith('[TEMP]')) {
-                updatesServices.push({ id: existing.id, data: { descricao: sample.descricao_pai, unidade: sample.unidade_pai } });
-             }
-          }
-       }
-
-       if (newServices.length > 0) {
-          // Reduced chunk size for stability
-          for (let i=0; i<newServices.length; i+=50) {
-             const created = await base44.entities.Service.bulkCreate(newServices.slice(i, i+50));
-             if (created && Array.isArray(created)) {
-                created.forEach(c => serviceMap.set(c.codigo, c));
-             } else {
-                console.warn("bulkCreate did not return array", created);
-                // Fallback: try to fetch created services if bulk return failed (rare)
-                // We skip for now to avoid freezing, but this might cause stubs to fail
-             }
-          }
-       }
-       if (updatesServices.length > 0) {
-          const chunks = [];
-          for (let i=0; i<updatesServices.length; i+=20) chunks.push(updatesServices.slice(i, i+20));
-          for (const chunk of chunks) {
-             await Promise.all(chunk.map(u => base44.entities.Service.update(u.id, u.data)));
-          }
-       }
-
-       // B. Stubs & Links
-       const missingChildrenCodes = new Set();
-       const linksToCreate = [];
-       const itemsToDeleteFromStaging = [];
-
-       // Identify missing & prepare items
-       for (const pCode of parents) {
-          const items = stagingByParent.get(pCode);
-          const parentId = serviceMap.get(pCode)?.id; 
-          
-          // If parentId is missing (creation failed), skip this parent
-          if (!parentId) {
-             console.error(`Parent ID missing for ${pCode} even after creation attempt.`);
-             continue; 
-          }
-
-          for (const item of items) {
-             itemsToDeleteFromStaging.push(item.id);
+      // 1.3 Bulk Create Missing Services
+      if (servicesToCreate.length > 0) {
+         const total = servicesToCreate.length;
+         for (let i = 0; i < total; i += 500) {
+             const chunk = servicesToCreate.slice(i, i + 500);
+             const percent = 20 + Math.floor((i/total) * 30); // 20% -> 50%
+             setProgress({ 
+                message: `Criando ${i + chunk.length}/${total} novos serviços...`, 
+                percent 
+             });
              
-             if (!inputMap.has(item.codigo_item) && !serviceMap.has(item.codigo_item)) {
-                missingChildrenCodes.add(item.codigo_item);
-             }
-          }
-       }
-
-       // Create Stubs
-       if (missingChildrenCodes.size > 0) {
-          const childrenStubs = Array.from(missingChildrenCodes).map(c => ({
-             codigo: c,
-             descricao: `[TEMP] Sub-Serviço ${c}`,
-             unidade: 'UN',
-             ativo: true
-          }));
-          for (let i=0; i<childrenStubs.length; i+=50) {
-             const created = await base44.entities.Service.bulkCreate(childrenStubs.slice(i, i+50));
+             // Yield
+             await new Promise(r => setTimeout(r, 0));
+             
+             const created = await base44.entities.Service.bulkCreate(chunk);
              if (created && Array.isArray(created)) {
                 created.forEach(c => serviceMap.set(c.codigo, c));
              }
-          }
-       }
+         }
+      }
 
-       // Create Links
-       for (const pCode of parents) {
-          const items = stagingByParent.get(pCode);
-          const parentId = serviceMap.get(pCode)?.id;
-          if (!parentId) continue;
+      // --- PHASE 2: CREATE LINKS (COMPOSITIONS) ---
+      setProgress({ message: 'Preparando vínculos de composição...', percent: 50 });
+      
+      const linksToCreate = [];
+      const totalStaging = staging.length;
+      
+      for (let i = 0; i < totalStaging; i++) {
+         const row = staging[i];
+         const parent = serviceMap.get(row.codigo_pai);
+         
+         if (!parent) continue; // Should not happen
 
-          for (const item of items) {
-             let childId = null;
-             let type = 'SERVICO';
-             let category = 'MATERIAL';
+         let childId = null;
+         let type = 'SERVICO';
+         let category = 'MATERIAL';
 
-             if (inputMap.has(item.codigo_item)) {
-                const inp = inputMap.get(item.codigo_item);
-                childId = inp.id;
-                type = 'INSUMO';
-                category = detectCategory(inp.un);
-             } else if (serviceMap.has(item.codigo_item)) {
-                const svc = serviceMap.get(item.codigo_item);
-                childId = svc.id;
-                type = 'SERVICO';
-                category = detectCategory(svc.unidade);
-             }
+         if (inputMap.has(row.codigo_item)) {
+            const inp = inputMap.get(row.codigo_item);
+            childId = inp.id;
+            type = 'INSUMO';
+            category = detectCategory(inp.un);
+         } else if (serviceMap.has(row.codigo_item)) {
+            const svc = serviceMap.get(row.codigo_item);
+            childId = svc.id;
+            type = 'SERVICO';
+            category = detectCategory(svc.unidade);
+         }
 
-             if (childId) {
-                linksToCreate.push({
-                   servico_id: parentId,
-                   tipo_item: type,
-                   item_id: childId,
-                   quantidade: item.quantidade,
-                   categoria: category,
-                   ordem: 0,
-                   custo_unitario_snapshot: 0,
-                   custo_total_item: 0
-                });
-             }
-          }
-       }
+         if (childId) {
+            linksToCreate.push({
+               servico_id: parent.id,
+               tipo_item: type,
+               item_id: childId,
+               quantidade: row.quantidade,
+               categoria: category,
+               ordem: 0,
+               custo_unitario_snapshot: 0,
+               custo_total_item: 0
+            });
+         }
+      }
 
-       if (linksToCreate.length > 0) {
-          // Reduced chunk size for links
-          for (let i=0; i<linksToCreate.length; i+=50) {
-             await base44.entities.ServiceItem.bulkCreate(linksToCreate.slice(i, i+50));
-          }
-       }
+      // 2.1 Bulk Create Links
+      const totalLinks = linksToCreate.length;
+      for (let i = 0; i < totalLinks; i += 500) {
+          const chunk = linksToCreate.slice(i, i + 500);
+          const percent = 50 + Math.floor((i/totalLinks) * 40); // 50% -> 90%
+          setProgress({ 
+             message: `Salvando vínculos ${i + chunk.length}/${totalLinks}...`, 
+             percent 
+          });
+          
+          await new Promise(r => setTimeout(r, 0)); // Yield UI
+          await base44.entities.ServiceItem.bulkCreate(chunk);
+      }
 
-       // Cleanup Staging for this batch
-       if (itemsToDeleteFromStaging.length > 0) {
-          for(let i=0; i<itemsToDeleteFromStaging.length; i+=200) {
-             await base44.entities.CompositionStaging.delete(itemsToDeleteFromStaging.slice(i, i+200));
-          }
-       }
+      // --- PHASE 3: CLEANUP ---
+      setProgress({ message: 'Limpando dados temporários...', percent: 95 });
+      const stagingIds = staging.map(s => s.id);
+      for(let i=0; i<stagingIds.length; i+=1000) {
+         await base44.entities.CompositionStaging.delete(stagingIds.slice(i, i+1000));
+         await new Promise(r => setTimeout(r, 0));
+      }
 
-       // Success
-       const finalBatches = [...batches];
-       finalBatches[batchIndex] = { ...finalBatches[batchIndex], status: 'completed' }; // Update ref to latest state? No, setState logic
-       setBatches(prev => prev.map(b => b.id === batchId ? { ...b, status: 'completed' } : b));
-       
-       toast.success(`Lote ${batchId} processado!`);
+      setProgress({ message: 'Processamento global concluído!', percent: 100 });
+      toast.success(`Importação finalizada! ${servicesToCreate.length} serviços criados e ${totalLinks} vínculos gerados.`);
+      
+      setAnalyzed(false);
+      setStats(null);
+      checkStaging();
 
     } catch (e) {
        console.error(e);
-       toast.error(`Erro no lote ${batchId}: ${e.message}`);
-       setBatches(prev => prev.map(b => b.id === batchId ? { ...b, status: 'error' } : b));
+       toast.error("Erro Crítico: " + e.message);
+    } finally {
+       setLoading(false);
     }
+  };
+
+  // Helper for analysis stats
+  const handleAnalyzeStats = async () => {
+    setLoading(true);
+    try {
+      const staging = await Engine.fetchAll('CompositionStaging');
+      const uniqueParents = new Set(staging.map(s => s.codigo_pai)).size;
+      setStats({
+         totalRows: staging.length,
+         uniqueParents: uniqueParents
+      });
+      setAnalyzed(true);
+    } catch(e) {}
+    setLoading(false);
   };
 
   const handleClearStaging = async () => {
@@ -486,11 +422,11 @@ export default function TableImport() {
                 <div className="flex w-full gap-3">
                   <Button 
                     className="flex-1 bg-blue-600 hover:bg-blue-700" 
-                    onClick={handleAnalyzeStaging}
+                    onClick={handleAnalyzeStats}
                     disabled={loading}
                   >
-                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                     {loading ? 'Analisando...' : '1. Analisar e Preparar Lotes'}
+                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                     {loading ? 'Analisando...' : '1. Analisar Dados'}
                   </Button>
                   <Button 
                     variant="destructive" 
@@ -502,46 +438,27 @@ export default function TableImport() {
                 </div>
               ) : (
                 <div className="w-full space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-lg">Lotes para Processamento</h3>
-                    <Button variant="outline" size="sm" onClick={() => { setAnalyzed(false); checkStaging(); }}>
-                      <RefreshCw className="mr-2 h-4 w-4" /> Recarregar
-                    </Button>
+                  <div className="bg-slate-50 p-4 rounded-lg border">
+                     <h3 className="font-bold text-lg mb-2">Resumo da Importação</h3>
+                     <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>Linhas Totais: <strong>{stats?.totalRows}</strong></div>
+                        <div>Composições (Pais): <strong>{stats?.uniqueParents}</strong></div>
+                     </div>
+                     <p className="text-xs text-slate-500 mt-2">
+                        O sistema processará todos os dados em fases globais otimizadas para alta performance.
+                        Isso evita erros de dependência e é muito mais rápido do que lotes individuais.
+                     </p>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto">
-                    {batches.map(batch => (
-                      <Card key={batch.id} className={`border ${batch.status === 'completed' ? 'bg-green-50 border-green-200' : batch.status === 'error' ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
-                        <div className="p-3">
-                          <div className="flex justify-between items-center mb-2">
-                             <span className="font-bold text-sm">Lote {batch.id}</span>
-                             <span className={`text-xs px-2 py-1 rounded-full ${
-                                batch.status === 'completed' ? 'bg-green-200 text-green-800' :
-                                batch.status === 'processing' ? 'bg-blue-200 text-blue-800' :
-                                batch.status === 'error' ? 'bg-red-200 text-red-800' :
-                                'bg-slate-200 text-slate-800'
-                             }`}>
-                                {batch.status === 'completed' ? 'Concluído' : 
-                                 batch.status === 'processing' ? 'Processando...' : 
-                                 batch.status === 'error' ? 'Erro' : 'Pendente'}
-                             </span>
-                          </div>
-                          <div className="text-xs text-slate-500 mb-3">
-                             {batch.parents.length} pais, ~{batch.itemsCount} itens
-                          </div>
-                          <Button 
-                             size="sm" 
-                             className="w-full"
-                             disabled={batch.status === 'processing' || batch.status === 'completed'}
-                             onClick={() => handleProcessBatch(batch.id)}
-                             variant={batch.status === 'error' ? 'destructive' : 'default'}
-                          >
-                             {batch.status === 'completed' ? 'Feito' : 'Iniciar Lote'}
-                          </Button>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
+
+                  <Button 
+                     size="lg" 
+                     className="w-full bg-green-600 hover:bg-green-700 text-white font-bold"
+                     disabled={loading}
+                     onClick={handleProcessGlobal}
+                  >
+                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                     {loading ? 'Processando (Não feche a página)...' : '2. Iniciar Processamento Global'}
+                  </Button>
                 </div>
               )}
            </CardFooter>
