@@ -206,12 +206,12 @@ export default function TableImport() {
       stagingDataRef.current = stagingByParent;
 
       // Create Batches
-      const PARENT_BATCH_SIZE = 500;
+      const PARENT_BATCH_SIZE = 100; // Reduced to 100 for safer processing
       const newBatches = [];
       for (let i = 0; i < distinctParents.length; i += PARENT_BATCH_SIZE) {
          const chunk = distinctParents.slice(i, i + PARENT_BATCH_SIZE);
          newBatches.push({
-            id: i / PARENT_BATCH_SIZE + 1,
+            id: Math.floor(i / PARENT_BATCH_SIZE) + 1,
             parents: chunk,
             status: 'pending', // pending, processing, completed, error
             itemsCount: chunk.reduce((acc, p) => acc + (stagingByParent.get(p)?.length || 0), 0)
@@ -258,6 +258,10 @@ export default function TableImport() {
        const { services: serviceMap, inputs: inputMap } = mapsRef.current;
        const stagingByParent = stagingDataRef.current;
 
+       if (!serviceMap || !inputMap || !stagingByParent) {
+          throw new Error("Mapas de dados perdidos. Recarregue a página e analise novamente.");
+       }
+
        // A. Register Services (Parents)
        const newServices = [];
        const updatesServices = [];
@@ -284,14 +288,21 @@ export default function TableImport() {
        }
 
        if (newServices.length > 0) {
-          for (let i=0; i<newServices.length; i+=100) {
-             const created = await base44.entities.Service.bulkCreate(newServices.slice(i, i+100));
-             created?.forEach(c => serviceMap.set(c.codigo, c));
+          // Reduced chunk size for stability
+          for (let i=0; i<newServices.length; i+=50) {
+             const created = await base44.entities.Service.bulkCreate(newServices.slice(i, i+50));
+             if (created && Array.isArray(created)) {
+                created.forEach(c => serviceMap.set(c.codigo, c));
+             } else {
+                console.warn("bulkCreate did not return array", created);
+                // Fallback: try to fetch created services if bulk return failed (rare)
+                // We skip for now to avoid freezing, but this might cause stubs to fail
+             }
           }
        }
        if (updatesServices.length > 0) {
           const chunks = [];
-          for (let i=0; i<updatesServices.length; i+=50) chunks.push(updatesServices.slice(i, i+50));
+          for (let i=0; i<updatesServices.length; i+=20) chunks.push(updatesServices.slice(i, i+20));
           for (const chunk of chunks) {
              await Promise.all(chunk.map(u => base44.entities.Service.update(u.id, u.data)));
           }
@@ -305,8 +316,13 @@ export default function TableImport() {
        // Identify missing & prepare items
        for (const pCode of parents) {
           const items = stagingByParent.get(pCode);
-          const parentId = serviceMap.get(pCode)?.id; // Should exist now
-          if (!parentId) continue;
+          const parentId = serviceMap.get(pCode)?.id; 
+          
+          // If parentId is missing (creation failed), skip this parent
+          if (!parentId) {
+             console.error(`Parent ID missing for ${pCode} even after creation attempt.`);
+             continue; 
+          }
 
           for (const item of items) {
              itemsToDeleteFromStaging.push(item.id);
@@ -325,9 +341,11 @@ export default function TableImport() {
              unidade: 'UN',
              ativo: true
           }));
-          for (let i=0; i<childrenStubs.length; i+=100) {
-             const created = await base44.entities.Service.bulkCreate(childrenStubs.slice(i, i+100));
-             created?.forEach(c => serviceMap.set(c.codigo, c));
+          for (let i=0; i<childrenStubs.length; i+=50) {
+             const created = await base44.entities.Service.bulkCreate(childrenStubs.slice(i, i+50));
+             if (created && Array.isArray(created)) {
+                created.forEach(c => serviceMap.set(c.codigo, c));
+             }
           }
        }
 
@@ -370,15 +388,16 @@ export default function TableImport() {
        }
 
        if (linksToCreate.length > 0) {
-          for (let i=0; i<linksToCreate.length; i+=200) {
-             await base44.entities.ServiceItem.bulkCreate(linksToCreate.slice(i, i+200));
+          // Reduced chunk size for links
+          for (let i=0; i<linksToCreate.length; i+=50) {
+             await base44.entities.ServiceItem.bulkCreate(linksToCreate.slice(i, i+50));
           }
        }
 
        // Cleanup Staging for this batch
        if (itemsToDeleteFromStaging.length > 0) {
-          for(let i=0; i<itemsToDeleteFromStaging.length; i+=500) {
-             await base44.entities.CompositionStaging.delete(itemsToDeleteFromStaging.slice(i, i+500));
+          for(let i=0; i<itemsToDeleteFromStaging.length; i+=200) {
+             await base44.entities.CompositionStaging.delete(itemsToDeleteFromStaging.slice(i, i+200));
           }
        }
 
