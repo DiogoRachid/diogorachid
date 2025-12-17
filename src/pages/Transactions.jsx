@@ -44,6 +44,8 @@ export default function Transactions() {
     data: format(new Date(), 'yyyy-MM-dd'),
     conta_bancaria_id: '',
     conta_bancaria_nome: '',
+    conta_destino_id: '',
+    conta_destino_nome: '',
     centro_custo_id: '',
     centro_custo_nome: ''
   });
@@ -71,17 +73,28 @@ export default function Transactions() {
         valor: parseFloat(data.valor),
         origem: 'manual'
       });
-      // Atualizar saldo da conta
+      // Atualizar saldo da conta origem
+      const valor = parseFloat(data.valor);
+      
       if (data.conta_bancaria_id) {
         const [account] = await base44.entities.BankAccount.filter({ id: data.conta_bancaria_id });
         if (account) {
-          const valor = parseFloat(data.valor);
           const novoSaldo = data.tipo === 'entrada' 
             ? (account.saldo_atual || 0) + valor
-            : (account.saldo_atual || 0) - valor;
+            : (account.saldo_atual || 0) - valor; // Saída ou Transferência (sai da origem)
           await base44.entities.BankAccount.update(data.conta_bancaria_id, { saldo_atual: novoSaldo });
         }
       }
+
+      // Atualizar saldo da conta destino (transferência)
+      if (data.tipo === 'transferencia' && data.conta_destino_id) {
+        const [destAccount] = await base44.entities.BankAccount.filter({ id: data.conta_destino_id });
+        if (destAccount) {
+          const novoSaldoDest = (destAccount.saldo_atual || 0) + valor;
+          await base44.entities.BankAccount.update(data.conta_destino_id, { saldo_atual: novoSaldoDest });
+        }
+      }
+
       return transaction;
     },
     onSuccess: () => {
@@ -308,6 +321,7 @@ export default function Transactions() {
                 <SelectContent>
                   <SelectItem value="entrada">Entrada</SelectItem>
                   <SelectItem value="saida">Saída</SelectItem>
+                  <SelectItem value="transferencia">Transferência</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -343,7 +357,7 @@ export default function Transactions() {
             </div>
 
             <div>
-              <Label>Conta Bancária</Label>
+              <Label>{newTransaction.tipo === 'transferencia' ? 'Conta Origem' : 'Conta Bancária'}</Label>
               <Select
                 value={newTransaction.conta_bancaria_id}
                 onValueChange={handleBankAccountChange}
@@ -359,22 +373,52 @@ export default function Transactions() {
               </Select>
             </div>
 
-            <div>
-              <Label>Centro de Custo</Label>
-              <Select
-                value={newTransaction.centro_custo_id}
-                onValueChange={handleCostCenterChange}
-              >
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {costCenters.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {newTransaction.tipo === 'transferencia' && (
+              <div>
+                <Label>Conta Destino</Label>
+                <Select
+                  value={newTransaction.conta_destino_id}
+                  onValueChange={(id) => {
+                     const account = bankAccounts.find(a => a.id === id);
+                     setNewTransaction(prev => ({
+                        ...prev,
+                        conta_destino_id: id,
+                        conta_destino_nome: account?.nome || ''
+                     }));
+                  }}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bankAccounts
+                      .filter(a => a.id !== newTransaction.conta_bancaria_id)
+                      .map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {newTransaction.tipo !== 'transferencia' && (
+              <div>
+                <Label>Centro de Custo</Label>
+                <Select
+                  value={newTransaction.centro_custo_id}
+                  onValueChange={handleCostCenterChange}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {costCenters.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewDialog(false)}>
