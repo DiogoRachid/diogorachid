@@ -601,75 +601,96 @@ export default function Investments() {
         </div>
       )}
 
-      {/* Dashboard de Investimentos */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        {/* Patrimônio Total */}
-        <Card className="md:col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 text-white border-0 shadow-xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-300">Patrimônio Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold mb-1">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalAtual)}
-            </div>
-            <div className="flex flex-col gap-1 text-sm text-slate-300 mb-4">
-              <div className="flex justify-between">
-                 <span>Investimentos:</span>
-                 <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInvestimentos)}</span>
-              </div>
-              <div className="flex justify-between">
-                 <span>Saldo em Conta:</span>
-                 <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalBankBalance)}</span>
-              </div>
-            </div>
-            
-            <div className="space-y-3 border-t border-slate-700 pt-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-400">Rentabilidade R$</span>
-                <span className={`font-semibold ${totalRentabilidade >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {totalRentabilidade >= 0 ? '+' : ''}{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRentabilidade)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-400">Rentabilidade %</span>
-                <span className={`font-semibold ${rentabilidadePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {rentabilidadePercent >= 0 ? '+' : ''}{rentabilidadePercent.toFixed(2)}%
-                </span>
-              </div>
-            </div>
-
-            {/* Variação Diária (vs Dia Anterior) */}
-            <div className="mt-4 pt-3 border-t border-slate-700">
-               <div className="flex items-center justify-between text-sm">
-                 <span className="text-slate-400">Variação (vs Anterior)</span>
-                 <div className={`flex items-center gap-1 font-semibold ${dailyDiffValue >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {dailyDiffValue >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    <span>
-                       {dailyDiffValue >= 0 ? '+' : ''}{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dailyDiffValue)}
-                       <span className="text-xs ml-1 opacity-80">
-                          ({dailyDiffValue >= 0 ? '+' : ''}{dailyDiffPercent.toFixed(2)}%)
-                       </span>
-                    </span>
-                 </div>
-               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Resumo de Alocação (Abas) */}
-        <Card className="md:col-span-2">
-          <CardHeader className="pb-2">
-             <Tabs defaultValue="category" className="w-full">
-                <div className="flex items-center justify-between mb-4">
-                  <CardTitle className="text-sm font-medium text-slate-500">Alocação de Ativos</CardTitle>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="category" className="text-xs">Por Categoria</TabsTrigger>
-                    <TabsTrigger value="account" className="text-xs">Por Conta/Instituição</TabsTrigger>
-                  </TabsList>
+      {/* Dashboard de Investimentos - KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-0 shadow-lg relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-3 opacity-10">
+                <Wallet className="w-16 h-16" />
+             </div>
+             <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs font-medium text-slate-300 uppercase tracking-wider">Patrimônio Total</CardTitle>
+             </CardHeader>
+             <CardContent className="relative z-10">
+                <div className="text-2xl font-bold">
+                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalAtual)}
                 </div>
+                <div className="mt-2 text-xs flex items-center gap-1">
+                   {dailyDiffValue >= 0 ? (
+                      <span className="text-emerald-400 flex items-center bg-emerald-400/10 px-1.5 py-0.5 rounded">
+                         <TrendingUp className="h-3 w-3 mr-1" />
+                         +{dailyDiffPercent.toFixed(2)}%
+                      </span>
+                   ) : (
+                      <span className="text-red-400 flex items-center bg-red-400/10 px-1.5 py-0.5 rounded">
+                         <TrendingDown className="h-3 w-3 mr-1" />
+                         {dailyDiffPercent.toFixed(2)}%
+                      </span>
+                   )}
+                   <span className="text-slate-400">vs dia anterior</span>
+                </div>
+             </CardContent>
+          </Card>
 
-                <TabsContent value="category" className="mt-0">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <Card>
+             <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Investido</CardTitle>
+             </CardHeader>
+             <CardContent>
+                <div className="text-2xl font-bold text-slate-900">
+                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInvestimentos)}
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                   Total aplicado em ativos
+                </div>
+             </CardContent>
+          </Card>
+
+          <Card>
+             <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider">Saldo em Conta</CardTitle>
+             </CardHeader>
+             <CardContent>
+                <div className="text-2xl font-bold text-slate-900">
+                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalBankBalance)}
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                   Disponível em contas
+                </div>
+             </CardContent>
+          </Card>
+
+          <Card>
+             <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider">Rentabilidade Geral</CardTitle>
+             </CardHeader>
+             <CardContent>
+                <div className={`text-2xl font-bold ${totalRentabilidade >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                   {totalRentabilidade >= 0 ? '+' : ''}{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRentabilidade)}
+                </div>
+                <div className="mt-2 text-xs flex items-center gap-1">
+                   <span className={`flex items-center px-1.5 py-0.5 rounded ${totalRentabilidade >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {totalRentabilidade >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                      {rentabilidadePercent.toFixed(2)}%
+                   </span>
+                   <span className="text-slate-500">rentabilidade acumulada</span>
+                </div>
+             </CardContent>
+          </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <Card className="lg:col-span-1">
+           <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Alocação de Ativos</CardTitle>
+           </CardHeader>
+           <CardContent>
+             <Tabs defaultValue="category" className="w-full">
+                <TabsList className="w-full mb-4">
+                  <TabsTrigger value="category" className="flex-1 text-xs">Por Categoria</TabsTrigger>
+                  <TabsTrigger value="account" className="flex-1 text-xs">Por Instituição</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="category" className="mt-0 space-y-3">
                     {Object.keys(CATEGORY_CONFIG).map(cat => {
                       const totalCat = investments
                         .filter(inv => inv.categoria === cat)
@@ -682,49 +703,166 @@ export default function Investments() {
                       const percent = totalAtual > 0 ? (totalCat / totalAtual) * 100 : 0;
 
                       return (
-                        <div key={cat} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className={`p-1.5 rounded-lg ${config.color} bg-opacity-10`}>
+                        <div key={cat} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${config.color} bg-opacity-10`}>
                               <Icon className={`h-4 w-4 ${config.color.replace('bg-', 'text-')}`} />
                             </div>
-                            <span className="text-xs font-medium text-slate-600 truncate">{config.label}</span>
+                            <div className="flex flex-col">
+                               <span className="text-sm font-medium text-slate-700">{config.label}</span>
+                               <span className="text-xs text-slate-400">{percent.toFixed(1)}%</span>
+                            </div>
                           </div>
-                          <p className="font-semibold text-slate-900">
+                          <span className="font-semibold text-slate-900 text-sm">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCat)}
-                          </p>
-                          <p className="text-xs text-slate-500">{percent.toFixed(1)}%</p>
+                          </span>
                         </div>
                       );
                     })}
-                  </div>
                 </TabsContent>
 
-                <TabsContent value="account" className="mt-0">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <TabsContent value="account" className="mt-0 space-y-3">
                     {totalsByAccountData.map((item, index) => {
                       const percent = totalAtual > 0 ? (item.value / totalAtual) * 100 : 0;
                       return (
-                        <div key={index} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600">
+                        <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-slate-100 text-slate-600">
                               <Building className="h-4 w-4" />
                             </div>
-                            <span className="text-xs font-medium text-slate-600 truncate" title={item.name}>{item.name}</span>
+                            <div className="flex flex-col">
+                               <span className="text-sm font-medium text-slate-700 truncate max-w-[120px]" title={item.name}>{item.name}</span>
+                               <span className="text-xs text-slate-400">{percent.toFixed(1)}%</span>
+                            </div>
                           </div>
-                          <p className="font-semibold text-slate-900">
+                          <span className="font-semibold text-slate-900 text-sm">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
-                          </p>
-                          <p className="text-xs text-slate-500">{percent.toFixed(1)}%</p>
+                          </span>
                         </div>
                       );
                     })}
-                  </div>
                 </TabsContent>
              </Tabs>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {/* Conteúdo movido para dentro do TabsContent acima */}
-          </CardContent>
+             
+             <div className="mt-6 pt-4 border-t border-slate-100">
+                <Button
+                   variant="outline"
+                   size="sm"
+                   className="w-full"
+                   onClick={() => setShowBatchUpdate(true)}
+                >
+                   <Pencil className="h-4 w-4 mr-2" />
+                   Atualizar Cotações Manualmente
+                </Button>
+             </div>
+           </CardContent>
+        </Card>
+
+        {/* Gráfico de Evolução (Agora ao lado da alocação) */}
+        <Card className="lg:col-span-2 flex flex-col">
+           <CardHeader className="flex flex-row items-center justify-between pb-2">
+             <CardTitle className="text-lg">Evolução Patrimonial</CardTitle>
+             <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {historyDate ? format(historyDate, 'dd/MM') : "Data"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={historyDate}
+                      onSelect={setHistoryDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button size="sm" onClick={handleSaveHistory} className="bg-slate-900 text-white hover:bg-slate-800">
+                   <Save className="mr-2 h-4 w-4" />
+                   Salvar Histórico
+                </Button>
+             </div>
+           </CardHeader>
+           <CardContent className="flex-1 min-h-[400px]">
+               <Tabs defaultValue="chart" className="h-full flex flex-col">
+                  <TabsList className="mb-4 w-fit">
+                     <TabsTrigger value="chart">Gráfico</TabsTrigger>
+                     <TabsTrigger value="table">Tabela de Histórico</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="chart" className="flex-1">
+                     {evolutionData.length > 0 ? (
+                       <div className="h-full w-full min-h-[300px]">
+                         <ResponsiveContainer width="100%" height="100%">
+                           <AreaChart data={evolutionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                             <defs>
+                               <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                                 <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                               </linearGradient>
+                             </defs>
+                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                             <XAxis dataKey="data" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                             <YAxis 
+                               stroke="#64748b" 
+                               fontSize={12}
+                               tickLine={false} 
+                               axisLine={false}
+                               tickFormatter={(value) => 
+                                 new Intl.NumberFormat('pt-BR', { 
+                                   notation: "compact", 
+                                   compactDisplay: "short" 
+                                 }).format(value)
+                               } 
+                             />
+                             <Tooltip 
+                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
+                             />
+                             <Area 
+                               type="monotone" 
+                               dataKey="total" 
+                               name="Patrimônio Total"
+                               stroke="#3b82f6" 
+                               strokeWidth={2}
+                               fillOpacity={1} 
+                               fill="url(#colorTotal)" 
+                             />
+                             <Area 
+                               type="monotone" 
+                               dataKey="investido" 
+                               name="Total Investido"
+                               stroke="#94a3b8" 
+                               strokeWidth={2}
+                               fill="transparent" 
+                               strokeDasharray="5 5"
+                             />
+                           </AreaChart>
+                         </ResponsiveContainer>
+                       </div>
+                     ) : (
+                       <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-50 rounded-lg">
+                          <LineChart className="h-10 w-10 mb-2 opacity-50" />
+                          <p>Nenhum histórico registrado.</p>
+                       </div>
+                     )}
+                  </TabsContent>
+
+                  <TabsContent value="table" className="flex-1">
+                     <DataTable 
+                        columns={historyColumns}
+                        data={historyWithDiffs}
+                        emptyComponent={
+                           <div className="p-8 text-center text-slate-500">
+                              Nenhum histórico salvo.
+                           </div>
+                        }
+                     />
+                  </TabsContent>
+               </Tabs>
+           </CardContent>
         </Card>
       </div>
 
