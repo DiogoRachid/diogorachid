@@ -1,29 +1,36 @@
 // Serviço para buscar cotações usando a API do LLM com contexto da internet
 import { base44 } from '@/api/base44Client';
 
+function isB3Ticker(ticker) {
+  // Padrão B3: 4 letras + número(s) (ex: PETR4, AAPL34, BOVA11, BITH11)
+  // Ignora criptos (BTC, ETH) e ativos US (AAPL, VOO) que não seguem esse padrão exato
+  return /^[A-Z]{4}[0-9]{1,2}$/.test(ticker.toUpperCase());
+}
+
 export async function fetchQuotes(tickers) {
   if (!tickers || tickers.length === 0) return {};
 
-  const tickerList = tickers.join(', ');
+  // Adiciona sufixo .SA explicitamente para ativos B3 para forçar a busca correta
+  const processedTickers = tickers.map(t => {
+    const upper = t.toUpperCase();
+    return isB3Ticker(upper) && !upper.endsWith('.SA') ? `${upper}.SA` : upper;
+  });
+
+  const tickerList = processedTickers.join(', ');
   
   const response = await base44.integrations.Core.InvokeLLM({
-    prompt: `Atue como um especialista financeiro. Utilize fontes confiáveis (Google Finance, Yahoo Finance) para buscar as cotações mais recentes dos ativos: ${tickerList}.
+    prompt: `Atue como um especialista financeiro. Busque as cotações mais recentes para a lista exata de ativos: ${tickerList}.
 
-    REGRAS CRÍTICAS DE CONTEXTO (B3 vs EXTERIOR):
-    
-    1. ATIVOS B3 (BRASIL) - PREÇO OBRIGATÓRIO EM BRL:
-       - Qualquer ticker terminando em 11 (ETFs/FIIs), 34 (BDRs), 3, 4, 6 (Ações).
-       - Exemplos Citados: BITH11, QETH11, KISU11, AAPL34, BOVA11, IVVB11.
-       - AAPL34 é BDR da Apple no Brasil -> Preço em BRL (~R$ 60-100). NÃO confundir com AAPL (USD).
-       - BITH11/QETH11 são ETFs de Cripto na B3 -> Preço em BRL.
-       - Dica: Busque adicionando ".SA" (ex: BITH11.SA, AAPL34.SA).
+    REGRAS CRÍTICAS:
+    1. ATIVOS COM SUFIXO ".SA" (ex: AAPL34.SA, BITH11.SA):
+       - SÃO OBRIGATORIAMENTE DA BOLSA BRASILEIRA (B3).
+       - O PREÇO DEVE SER EM REAIS (BRL).
+       - AAPL34.SA não é AAPL (EUA). É um BDR negociado no Brasil.
+       - BITH11.SA é um ETF negociado no Brasil.
 
-    2. CRIPTOMOEDAS PURAS (BTC, ETH):
-       - Priorize BRL. Se só achar USD, ok.
-
-    3. ATIVOS EUA (AAPL, MSFT, VOO):
-       - Apenas se NÃO tiver final 34/11.
-       - Preço em USD.
+    2. ATIVOS SEM SUFIXO:
+       - Se for Cripto (BTC, ETH): Tente BRL, aceite USD.
+       - Se for Stock EUA (AAPL, VOO): USD.
 
     Retorne um JSON com:
     - ticker: código do ativo (ex: BTC, PETR4)
@@ -73,37 +80,26 @@ export async function fetchQuotes(tickers) {
 }
 
 export async function fetchSingleQuote(ticker, categoria) {
-  let context = '';
-  
-  switch (categoria) {
-    case 'renda_variavel_br':
-      context = 'ação ou FII brasileiro na B3';
-      break;
-    case 'renda_variavel_int':
-      context = 'ação americana no mercado dos EUA';
-      break;
-    case 'crypto':
-      context = 'criptomoeda';
-      break;
-    case 'fundos':
-      context = 'fundo de investimento ou ETF';
-      break;
-    default:
-      context = 'ativo financeiro';
-  }
+  const upperTicker = ticker.toUpperCase();
+  // Se parece ticker da B3 e não tem .SA, adiciona para garantir
+  const searchTicker = (isB3Ticker(upperTicker) && !upperTicker.endsWith('.SA')) 
+    ? `${upperTicker}.SA` 
+    : upperTicker;
 
   const response = await base44.integrations.Core.InvokeLLM({
-    prompt: `Atue como um especialista financeiro. Busque a cotação mais recente do ativo "${ticker}" em fontes confiáveis.
+    prompt: `Atue como um especialista financeiro. Busque a cotação mais recente para o ativo: "${searchTicker}".
+
+    INSTRUÇÕES RÍGIDAS:
+    1. Se o ticker tem ".SA" (ex: AAPL34.SA, BITH11.SA):
+       - É um ativo da B3 (Brasil).
+       - PREÇO OBRIGATÓRIO EM BRL (Reais).
+       - Ignore cotações em Dólar para estes ativos.
     
-    REGRA DE OURO B3 (BRASIL):
-    - Se o ticker termina em 11, 33, 34, 3, 4, 6 (ex: BITH11, QETH11, AAPL34, KISU11):
-    - É um ativo negociado na B3 (Brasil).
-    - O PREÇO DEVE SER EM BRL (Reais).
-    - Tente buscar com o sufixo .SA (ex: ${ticker}.SA).
-    
-    Outros casos:
-    - Cripto pura (BTC): Priorize BRL.
-    - Stocks EUA (AAPL, VOO): USD.
+    2. Se for Cripto (BTC, ETH):
+       - Busque o valor em BRL.
+
+    3. Se for Ativo Internacional (AAPL, MSFT) sem .SA:
+       - Preço em USD.
 
     Retorne um JSON com:
     - price: preço atual (numérico)

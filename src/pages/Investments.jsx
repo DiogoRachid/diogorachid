@@ -122,8 +122,8 @@ export default function Investments() {
         return;
       }
 
-      // Batch requests to avoid LLM limits (chunk size 5)
-      const chunkSize = 5;
+      // Batch requests to avoid LLM limits (chunk size 3 for better accuracy)
+      const chunkSize = 3;
       let allQuotes = {};
       
       for (let i = 0; i < tickersToUpdate.length; i += chunkSize) {
