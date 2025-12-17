@@ -90,8 +90,9 @@ export default function InvestmentDetail() {
   const investmentId = urlParams.get('id');
   const queryClient = useQueryClient();
 
-  const [isUpdating, setIsUpdating] = useState(false);
   const [showTransactionDialog, setShowTransactionDialog] = useState(false);
+  const [showQuoteDialog, setShowQuoteDialog] = useState(false);
+  const [manualQuote, setManualQuote] = useState('');
   const [deleteTransactionId, setDeleteTransactionId] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [newTransaction, setNewTransaction] = useState({
@@ -121,78 +122,31 @@ export default function InvestmentDetail() {
     queryFn: () => base44.entities.BankAccount.list()
   });
 
-  const updateQuote = async () => {
-    if (!investment?.ticker || !investment?.categoria) {
-      toast.error('Este investimento não possui ticker para atualização');
-      return;
-    }
+  const handleManualQuoteUpdate = async () => {
+    if (!manualQuote) return;
+    const novaCotacao = parseFloat(manualQuote);
+    if (isNaN(novaCotacao)) return;
 
-    setIsUpdating(true);
     try {
-      const quote = await fetchSingleQuote(investment.ticker, investment.categoria);
-      if (quote?.price) {
-        let cotacaoBRL = quote.price;
-        let cotacaoUSD = null;
-        let valorAtualUSD = null;
-        
-        // Se é ativo internacional ou crypto, guardar valor em USD e converter para BRL
-        if (quote.currency === 'USD' && ['renda_variavel_int', 'crypto'].includes(investment.categoria)) {
-          // Buscar taxa de câmbio atual
-          const indicatorsRes = await base44.integrations.Core.InvokeLLM({
-            prompt: 'Qual a cotação atual do dólar (USD/BRL)?',
-            add_context_from_internet: true,
-            response_json_schema: {
-              type: "object",
-              properties: { dolar: { type: "number" } }
-            }
-          });
-          const usdBrl = indicatorsRes?.dolar || 5.0;
-          
-          cotacaoUSD = quote.price;
-          cotacaoBRL = quote.price * usdBrl;
-          valorAtualUSD = investment.quantidade ? investment.quantidade * cotacaoUSD : cotacaoUSD;
-        } else {
-           // Se veio em BRL mas é crypto/intl, calcular o USD reverso
-           if (['renda_variavel_int', 'crypto'].includes(investment.categoria)) {
-              // Buscar taxa se não tivermos
-              const indicatorsRes = await base44.integrations.Core.InvokeLLM({
-                prompt: 'Qual a cotação atual do dólar (USD/BRL)?',
-                add_context_from_internet: true,
-                response_json_schema: {
-                  type: "object",
-                  properties: { dolar: { type: "number" } }
-                }
-              });
-              const usdBrl = indicatorsRes?.dolar || 5.0;
-              
-              cotacaoUSD = cotacaoBRL / usdBrl;
-              valorAtualUSD = investment.quantidade ? investment.quantidade * cotacaoUSD : cotacaoUSD;
-           }
-        }
+      const valorAtual = investment.quantidade ? investment.quantidade * novaCotacao : novaCotacao;
+      const rentabilidadeValor = valorAtual - (investment.valor_investido || 0);
+      const rentabilidadePercent = investment.valor_investido ? ((valorAtual / investment.valor_investido) - 1) * 100 : 0;
 
-        const valorAtual = investment.quantidade ? investment.quantidade * cotacaoBRL : cotacaoBRL;
-        const rentabilidadeValor = valorAtual - (investment.valor_investido || 0);
-        const rentabilidadePercent = investment.valor_investido ? ((valorAtual / investment.valor_investido) - 1) * 100 : 0;
+      await base44.entities.Investment.update(investmentId, {
+        cotacao_atual: novaCotacao,
+        valor_atual: valorAtual,
+        rentabilidade_valor: rentabilidadeValor,
+        rentabilidade_percentual: rentabilidadePercent,
+        ultima_atualizacao: new Date().toISOString()
+      });
 
-        await base44.entities.Investment.update(investmentId, {
-          cotacao_atual: cotacaoBRL,
-          cotacao_atual_usd: cotacaoUSD,
-          valor_atual: valorAtual,
-          valor_atual_usd: valorAtualUSD,
-          rentabilidade_valor: rentabilidadeValor,
-          rentabilidade_percentual: rentabilidadePercent,
-          ultima_atualizacao: new Date().toISOString()
-        });
-
-        queryClient.invalidateQueries({ queryKey: ['investment', investmentId] });
-        toast.success('Cotação atualizada!');
-      } else {
-        toast.error('Não foi possível obter a cotação');
-      }
+      queryClient.invalidateQueries({ queryKey: ['investment', investmentId] });
+      toast.success('Cotação atualizada!');
+      setShowQuoteDialog(false);
+      setManualQuote('');
     } catch (error) {
       toast.error('Erro ao atualizar cotação');
     }
-    setIsUpdating(false);
   };
 
   const createTransactionMutation = useMutation({
@@ -272,11 +226,68 @@ export default function InvestmentDetail() {
   });
 
   const deleteTransactionMutation = useMutation({
-    mutationFn: (id) => base44.entities.InvestmentTransaction.delete(id),
+    mutationFn: async (id) => {
+      const transaction = transactions.find(t => t.id === id);
+      if (transaction) {
+        let updates = {};
+        const currentQty = investment.quantidade || 0;
+        const currentInvested = investment.valor_investido || 0;
+        const currentAvgPrice = investment.preco_medio || 0;
+        const currentCurrentValue = investment.valor_atual || 0;
+
+        if (transaction.tipo_operacao === 'compra') {
+            const newQty = currentQty - (transaction.quantidade || 0);
+            const newInvested = currentInvested - transaction.valor_total;
+            updates = {
+                quantidade: newQty,
+                valor_investido: newInvested,
+                preco_medio: newQty > 0 ? newInvested / newQty : 0,
+                valor_atual: newQty * (investment.cotacao_atual || 0)
+            };
+        } else if (transaction.tipo_operacao === 'venda') {
+            const newQty = currentQty + (transaction.quantidade || 0);
+            // Revert sale: Add back the cost basis of sold items (Qty * CurrentAvgPrice)
+            // Assuming AvgPrice hasn't changed significantly or using current as best approximation
+            const costBasisReturned = (transaction.quantidade || 0) * currentAvgPrice;
+            const newInvested = currentInvested + costBasisReturned;
+            
+            updates = {
+                quantidade: newQty,
+                valor_investido: newInvested,
+                preco_medio: newQty > 0 ? newInvested / newQty : 0,
+                valor_atual: newQty * (investment.cotacao_atual || 0)
+            };
+        } else if (['rendimento', 'dividendo', 'jcp'].includes(transaction.tipo_operacao)) {
+             updates = {
+                 valor_atual: currentCurrentValue - transaction.valor_total
+             };
+        } else if (transaction.tipo_operacao === 'amortizacao') {
+            const newInvested = currentInvested + transaction.valor_total;
+            updates = {
+                valor_investido: newInvested,
+                preco_medio: currentQty > 0 ? newInvested / currentQty : 0
+            };
+        }
+
+        // Recalculate profitability
+        if (updates.valor_atual !== undefined || updates.valor_investido !== undefined) {
+            const valAtual = updates.valor_atual !== undefined ? updates.valor_atual : currentCurrentValue;
+            const valInv = updates.valor_investido !== undefined ? updates.valor_investido : currentInvested;
+            updates.rentabilidade_valor = valAtual - valInv;
+            updates.rentabilidade_percentual = valInv > 0 ? ((valAtual / valInv) - 1) * 100 : 0;
+        }
+
+        if (Object.keys(updates).length > 0) {
+            await base44.entities.Investment.update(investmentId, updates);
+            queryClient.invalidateQueries({ queryKey: ['investment', investmentId] });
+        }
+      }
+      return base44.entities.InvestmentTransaction.delete(id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['investmentTransactions', investmentId] });
       setDeleteTransactionId(null);
-      toast.success('Operação excluída');
+      toast.success('Operação excluída e valores revertidos');
     }
   });
 
@@ -429,16 +440,10 @@ export default function InvestmentDetail() {
           <Pencil className="h-4 w-4 mr-2" />
           Editar
         </Button>
-        {investment.ticker && (
-          <Button variant="outline" onClick={updateQuote} disabled={isUpdating}>
-            {isUpdating ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
-            )}
-            Atualizar Cotação
-          </Button>
-        )}
+        <Button variant="outline" onClick={() => setShowQuoteDialog(true)}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Atualizar Cotação Manual
+        </Button>
         <Button variant="outline" onClick={() => setShowTransactionDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Registrar Operação
@@ -848,8 +853,36 @@ export default function InvestmentDetail() {
         onConfirm={() => deleteTransactionMutation.mutate(deleteTransactionId)}
         isDeleting={deleteTransactionMutation.isPending}
         title="Excluir operação"
-        description="Tem certeza que deseja excluir esta operação? O saldo da conta vinculada (se houver) NÃO será revertido automaticamente."
+        description="Tem certeza que deseja excluir esta operação? Os valores do investimento serão revertidos, mas o saldo da conta vinculada (se houver) NÃO será revertido automaticamente."
       />
+
+      {/* Dialog Cotação Manual */}
+      <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Atualizar Cotação Manualmente</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Nova Cotação</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={manualQuote}
+              onChange={(e) => setManualQuote(e.target.value)}
+              placeholder={`Atual: ${investment.cotacao_atual || 0}`}
+              className="mt-1.5"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuoteDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleManualQuoteUpdate} className="bg-blue-600 hover:bg-blue-700">
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
