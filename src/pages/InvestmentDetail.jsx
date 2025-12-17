@@ -94,7 +94,12 @@ export default function InvestmentDetail() {
   const [showTransactionDialog, setShowTransactionDialog] = useState(false);
   const [showQuoteDialog, setShowQuoteDialog] = useState(false);
   const [manualQuote, setManualQuote] = useState('');
+  const [indicators, setIndicators] = useState(null);
   const [deleteTransactionId, setDeleteTransactionId] = useState(null);
+
+  useEffect(() => {
+    fetchEconomicIndicators().then(setIndicators).catch(console.error);
+  }, []);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [newTransaction, setNewTransaction] = useState({
     tipo_operacao: 'compra',
