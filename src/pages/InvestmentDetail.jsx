@@ -145,6 +145,23 @@ export default function InvestmentDetail() {
           cotacaoUSD = quote.price;
           cotacaoBRL = quote.price * usdBrl;
           valorAtualUSD = investment.quantidade ? investment.quantidade * cotacaoUSD : cotacaoUSD;
+        } else {
+           // Se veio em BRL mas é crypto/intl, calcular o USD reverso
+           if (['renda_variavel_int', 'crypto'].includes(investment.categoria)) {
+              // Buscar taxa se não tivermos
+              const indicatorsRes = await base44.integrations.Core.InvokeLLM({
+                prompt: 'Qual a cotação atual do dólar (USD/BRL)?',
+                add_context_from_internet: true,
+                response_json_schema: {
+                  type: "object",
+                  properties: { dolar: { type: "number" } }
+                }
+              });
+              const usdBrl = indicatorsRes?.dolar || 5.0;
+              
+              cotacaoUSD = cotacaoBRL / usdBrl;
+              valorAtualUSD = investment.quantidade ? investment.quantidade * cotacaoUSD : cotacaoUSD;
+           }
         }
 
         const valorAtual = investment.quantidade ? investment.quantidade * cotacaoBRL : cotacaoBRL;

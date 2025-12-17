@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -123,7 +122,21 @@ export default function Investments() {
         return;
       }
 
-      const quotes = await fetchQuotes(tickersToUpdate);
+      // Batch requests to avoid LLM limits (chunk size 5)
+      const chunkSize = 5;
+      let allQuotes = {};
+      
+      for (let i = 0; i < tickersToUpdate.length; i += chunkSize) {
+         const chunk = tickersToUpdate.slice(i, i + chunkSize);
+         try {
+            const chunkQuotes = await fetchQuotes(chunk);
+            allQuotes = { ...allQuotes, ...chunkQuotes };
+         } catch (e) {
+            console.error("Erro ao buscar chunk", chunk, e);
+         }
+      }
+
+      const quotes = allQuotes;
       const usdBrl = quotes['USD_BRL']?.price || (indicators?.dolar || 5.50);
 
       for (const inv of investments) {

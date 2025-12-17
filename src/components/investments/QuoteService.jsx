@@ -89,12 +89,24 @@ export async function fetchSingleQuote(ticker, categoria) {
   }
 
   const response = await base44.integrations.Core.InvokeLLM({
-    prompt: `Utilize o Yahoo Finance para buscar a cotação atual do ${context} com ticker/código "${ticker}".
+    prompt: `Atue como um especialista financeiro. Busque a cotação mais recente do ativo "${ticker}" (${context}) em fontes confiáveis (Google Finance, Yahoo Finance).
+
+    IMPORTANTE:
+    1. Para Criptomoedas (BTC, ETH, etc):
+       - Tente buscar o preço em BRL (Reais).
+       - Se encontrar em BRL, retorne price em BRL e currency = "BRL".
+       - Se só encontrar em USD, retorne em USD.
     
-    Retorne:
-    - price: preço atual
-    - currency: moeda (BRL ou USD)
-    - change_percent: variação percentual do dia
+    2. Para Ações BR e FIIs:
+       - Preço em BRL.
+    
+    3. Para Ativos Internacionais:
+       - Preço em USD.
+
+    Retorne um JSON com:
+    - price: preço atual (numérico)
+    - currency: "BRL" ou "USD"
+    - change_percent: variação % do dia
     - name: nome completo do ativo`,
     add_context_from_internet: true,
     response_json_schema: {
