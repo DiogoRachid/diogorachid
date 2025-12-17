@@ -96,234 +96,50 @@ export default function TableImport() {
   };
 
 
-  // 3. Optimized Global Strategy (Batch Processing)
+  // 3. Optimized Global Strategy (Batch Processing via Backend Function)
   const handleProcessGlobal = async () => {
     setLoading(true);
-    setProgress({ message: 'Iniciando processamento em lotes...', percent: 0 });
+    setProgress({ message: 'Iniciando processamento no servidor...', percent: 0 });
 
     try {
-      // Pre-fetch reference data once (assuming inputs/services fit in memory or use caching)
-      // Note: If Services are huge, we should fetch them on demand or in chunks too, but for now we optimize Staging.
-      setProgress({ message: 'Carregando Insumos e Serviços existentes...', percent: 5 });
-      const [existingServices, existingInputs] = await Promise.all([
-        Engine.fetchAll('Service'),
-        Engine.fetchAll('Input')
-      ]);
-
-      const serviceMap = new Map(existingServices.map(s => [s.codigo, s]));
-      const inputMap = new Map(existingInputs.map(i => [i.codigo, { id: i.id, un: i.unidade, val: i.valor_unitario }]));
-      const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
-
       let processedBatches = 0;
       let totalProcessedParents = 0;
+      let finished = false;
 
-      while (true) {
-        // 1. Fetch a chunk of Staging Data (Limit 5000 rows to find ~200 parents)
-        // Sort by codigo_pai to group parents together
-        const stagingChunk = await base44.entities.CompositionStaging.list({ 
-            sort: { codigo_pai: 1 }, 
-            limit: 5000 
-        });
-
-        if (!stagingChunk || stagingChunk.length === 0) break;
-
-        // 2. Identify Unique Parents
-        const rowsByParent = new Map();
-        for (const row of stagingChunk) {
-            if (!rowsByParent.has(row.codigo_pai)) {
-                rowsByParent.set(row.codigo_pai, []);
-            }
-            rowsByParent.get(row.codigo_pai).push(row);
-        }
-
-        const allParents = Array.from(rowsByParent.keys());
+      while (!finished) {
+        // Invoke backend function
+        const result = await base44.functions.ProcessComposition({ limit: 200 });
         
-        // 3. Select up to 200 parents
-        // Important: If we hit the 5000 limit, the last parent might be incomplete.
-        // We should skip the last parent if we have more than 1 parent and we hit the limit.
-        let parentsToProcess = allParents;
-        let isLastPage = stagingChunk.length < 5000;
-
-        if (!isLastPage && allParents.length > 1) {
-            // Drop the last parent to be safe (it might continue in next page)
-            parentsToProcess.pop(); 
+        if (!result) {
+            throw new Error("Falha na comunicação com o servidor.");
         }
 
-        // Limit to 200 parents strictly per user request
-        if (parentsToProcess.length > 200) {
-            parentsToProcess = parentsToProcess.slice(0, 200);
-        }
-
-        if (parentsToProcess.length === 0) {
-             // Should not happen unless chunk is 5000 rows of SAME parent. 
-             // In that case, we must process it or we loop forever.
-             // If we have 1 parent in 5000 rows, we process it.
-             if (allParents.length === 1) parentsToProcess = allParents;
-             else break; 
-        }
-
-        setProgress({ message: `Processando lote ${processedBatches + 1}: ${parentsToProcess.length} serviços pais...`, percent: 10 + (processedBatches % 80) });
-
-        // 4. Process this batch of parents
-        const servicesToCreate = [];
-        const servicesToUpdate = [];
-        const linksToCreate = [];
-        const parentIdsToCalculate = [];
-        const rowsToDelete = [];
-
-        for (const parentCode of parentsToProcess) {
-            const rows = rowsByParent.get(parentCode);
-            rows.forEach(r => rowsToDelete.push(r.id));
-
-            // 4.1 Create/Update Service (Parent)
-            const meta = { 
-                d: rows[0].descricao_pai, 
-                u: rows[0].unidade_pai 
-            };
-            
-            let parentId = null;
-
-            if (!serviceMap.has(parentCode)) {
-                // Prepare creation
-                 servicesToCreate.push({
-                    codigo: parentCode,
-                    descricao: meta.d || `[IMPORTADO] Serviço ${parentCode}`,
-                    unidade: meta.u || 'UN',
-                    ativo: true
-                 });
-            } else {
-                 // Update if needed
-                 const existing = serviceMap.get(parentCode);
-                 parentId = existing.id;
-                 if (existing.descricao !== meta.d && meta.d) {
-                    servicesToUpdate.push({
-                        id: existing.id,
-                        data: { descricao: meta.d, unidade: meta.u || existing.unidade }
-                    });
-                 }
-            }
-        }
-
-        // Batch Create Services
-        if (servicesToCreate.length > 0) {
-            const created = await base44.entities.Service.bulkCreate(servicesToCreate);
-            if (created) {
-                created.forEach(c => serviceMap.set(c.codigo, c));
-            }
-        }
-        
-        // Batch Update Services
-        if (servicesToUpdate.length > 0) {
-             // Parallel updates
-             await Promise.all(servicesToUpdate.map(u => base44.entities.Service.update(u.id, u.data)));
-        }
-
-        // 4.2 Create Links
-        for (const parentCode of parentsToProcess) {
-            const parent = serviceMap.get(parentCode);
-            if (!parent) continue; // Should exist now
-            
-            parentIdsToCalculate.push(parent.id);
-            const rows = rowsByParent.get(parentCode);
-
-            for (const row of rows) {
-                 let childId = null;
-                 let type = 'SERVICO';
-                 let category = 'MATERIAL';
-
-                 if (inputMap.has(row.codigo_item)) {
-                    const inp = inputMap.get(row.codigo_item);
-                    childId = inp.id;
-                    type = 'INSUMO';
-                    category = detectCategory(inp.un);
-                 } else if (serviceMap.has(row.codigo_item)) {
-                    const svc = serviceMap.get(row.codigo_item);
-                    childId = svc.id;
-                    type = 'SERVICO';
-                    category = detectCategory(svc.unidade);
-                 }
-
-                 if (childId) {
-                    let unitCost = 0;
-                    if (type === 'INSUMO') {
-                       const inp = inputMap.get(row.codigo_item);
-                       unitCost = inp ? (inp.val || 0) : 0;
-                    } else {
-                       const svc = serviceMap.get(row.codigo_item);
-                       unitCost = svc ? (svc.custo_total || 0) : 0;
-                    }
-
-                    linksToCreate.push({
-                       servico_id: parent.id,
-                       tipo_item: type,
-                       item_id: childId,
-                       quantidade: row.quantidade,
-                       categoria: category,
-                       ordem: 0,
-                       custo_unitario_snapshot: unitCost,
-                       custo_total_item: (row.quantidade || 0) * unitCost
-                    });
-                 }
-            }
-        }
-
-        // Bulk Create Links
-        if (linksToCreate.length > 0) {
-            // Split into smaller chunks just in case
-            for(let i=0; i<linksToCreate.length; i+=500) {
-                 await base44.entities.ServiceItem.bulkCreate(linksToCreate.slice(i, i+500));
-            }
-        }
-
-        // 4.3 Cleanup processed rows (CRITICAL: Do this before calc to free DB/memory?)
-        // No, keep them in case of error, but we need to delete them to advance loop
-        if (rowsToDelete.length > 0) {
-             await base44.entities.CompositionStaging.delete(rowsToDelete);
-        }
-        
-        // 4.4 Trigger Cost Calculation for these parents
-        // We can do a quick calc or rely on a background job. 
-        // User asked for "batch import", let's try to update costs for these 200.
-        // Re-use logic:
-        const updates = [];
-        for (const pid of parentIdsToCalculate) {
-             // Simple calculation based on just added links (might be incomplete if recursive?)
-             // Since we import 200 parents, their children might be other parents NOT yet imported (or imported later).
-             // Full cost calc requires full tree.
-             // We will do a LOCAL update for now.
-             // (Full recursive calc is heavy, maybe skip? User just wants import split)
-             // Let's do a simple sum of direct children.
-             // ... actually the original code did recursive. 
-             // To be safe and fast: just sum direct children. Recursion happens when all are done.
-             // BUT, if we import bottom-up, it works. If random, it doesn't.
-             // We'll trust the user executes standard "update costs" later or we do simple sum.
-             
-             // ... implementation of simple sum omitted for brevity/speed, assuming Engine handles it later
-             // or we just call updateDependents on them?
-        }
-        
-        // Let's at least call updateDependents for these parents?
-        // Actually, calling updateDependents on the PARENT updates WHO depends on the PARENT.
-        // We need to update the PARENT itself.
-        // For now, let's skip heavy cost calc in the loop to ensure speed/stability, 
-        // as the user's main pain point is the crash/timeout.
-        // We can add a "Recalculate All" button separately if needed.
+        const { processedParents, finished: isFinished } = result;
         
         processedBatches++;
-        totalProcessedParents += parentsToProcess.length;
-        await yieldToMain();
+        totalProcessedParents += processedParents;
+        
+        setProgress({ 
+            message: `Lote ${processedBatches} concluído. ${totalProcessedParents} composições processadas.`, 
+            percent: isFinished ? 100 : Math.min(95, processedBatches * 5)
+        });
+
+        if (isFinished || processedParents === 0) {
+            finished = true;
+        }
       }
 
-      toast.success(`Importação finalizada! ${totalProcessedParents} composições processadas em ${processedBatches} lotes.`);
+      toast.success(`Importação finalizada! ${totalProcessedParents} composições processadas com sucesso.`);
       setAnalyzed(false);
       setStats(null);
       checkStaging();
 
     } catch (e) {
        console.error(e);
-       toast.error("Erro Crítico: " + e.message);
+       toast.error("Erro no processamento: " + e.message);
     } finally {
        setLoading(false);
+       setProgress({ message: '', percent: 0 });
     }
   };
 
