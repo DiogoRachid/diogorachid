@@ -193,9 +193,19 @@ export default function Investments() {
 
   // Cálculo de Variação Diária (comparado com o registro anterior mais recente)
   const sortedHistory = [...history].sort((a,b) => new Date(b.data) - new Date(a.data));
+  
+  // Pre-processar histórico para incluir diffs
+  const historyWithDiffs = React.useMemo(() => {
+      return sortedHistory.map((item, index) => {
+          const prevItem = sortedHistory[index + 1];
+          const prevTotal = prevItem ? prevItem.valor_total_atual : 0;
+          const diffValue = prevTotal > 0 ? item.valor_total_atual - prevTotal : 0;
+          const diffPercent = prevTotal > 0 ? (diffValue / prevTotal) * 100 : 0;
+          return { ...item, diffValue, diffPercent, prevTotal };
+      });
+  }, [sortedHistory]);
+
   const todayStr = format(new Date(), 'yyyy-MM-dd');
-  // Encontrar o último registro que não seja de hoje (para comparar o hoje real-time com o fechamento anterior)
-  // Ou se hoje já foi salvo, compara com o anterior a ele.
   const previousRecord = sortedHistory.find(h => h.data < todayStr);
   const previousValue = previousRecord ? previousRecord.valor_total_atual : 0;
   const dailyDiffValue = previousValue > 0 ? totalAtual - previousValue : 0;
@@ -203,7 +213,6 @@ export default function Investments() {
 
   const previousAssetsMap = React.useMemo(() => {
       if (!previousRecord || !previousRecord.detalhes || !previousRecord.detalhes.assets) return {};
-      // Se detalhes.assets for array (formato novo) ou objeto (se houver formato antigo, mas defini como array no save)
       const assets = Array.isArray(previousRecord.detalhes.assets) ? previousRecord.detalhes.assets : [];
       return assets.reduce((acc, asset) => {
           acc[asset.id] = asset.valor_atual;
