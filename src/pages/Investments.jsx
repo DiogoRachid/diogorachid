@@ -82,7 +82,15 @@ export default function Investments() {
 
   const { data: history = [] } = useQuery({
     queryKey: ['investment_history'],
-    queryFn: () => base44.entities.InvestmentHistory.list('data', 30) // Últimos 30 registros
+    queryFn: () => base44.entities.InvestmentHistory.list('-data', 30) // Últimos 30 registros, ordem decrescente
+  });
+
+  const deleteHistoryMutation = useMutation({
+    mutationFn: (id) => base44.entities.InvestmentHistory.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['investment_history'] });
+      toast.success('Registro do histórico excluído');
+    }
   });
 
   const { data: bankAccounts = [] } = useQuery({
