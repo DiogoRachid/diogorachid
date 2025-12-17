@@ -317,12 +317,40 @@ export default function Investments() {
       render: (row) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_total_investido || 0)
     },
     {
-      header: 'Total Atual',
+      header: 'Total Atual (Dia)',
       className: 'min-w-[140px]',
-      render: (row) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_total_atual || 0)
+      render: (row) => (
+         <span className="font-bold text-slate-700">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_total_atual || 0)}
+         </span>
+      )
     },
     {
-      header: 'Rentabilidade',
+      header: 'Variação vs Anterior',
+      className: 'min-w-[140px]',
+      render: (row) => {
+         const { diffValue, diffPercent, prevTotal } = row;
+         if (!prevTotal) return <span className="text-slate-300 text-xs">-</span>;
+         
+         const isPos = diffValue >= 0;
+         const isZero = Math.abs(diffValue) < 0.01;
+         
+         if (isZero) return <span className="text-slate-400 text-xs">-</span>;
+
+         return (
+            <div className={`flex flex-col ${isPos ? 'text-emerald-600' : 'text-red-600'}`}>
+               <span className="font-medium text-sm">
+                  {isPos ? '+' : ''}{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(diffValue)}
+               </span>
+               <span className="text-xs">
+                  {isPos ? '+' : ''}{diffPercent.toFixed(2)}%
+               </span>
+            </div>
+         );
+      }
+    },
+    {
+      header: 'Rentabilidade Acum.',
       className: 'min-w-[140px]',
       render: (row) => {
          const isPositive = (row.rentabilidade_valor || 0) >= 0;
