@@ -107,23 +107,43 @@ export default function Investments() {
     }
   });
 
-  // Carregar indicadores econômicos
+  // Carregar indicadores econômicos (Prioriza banco de dados, fallback para API se vazio)
   const loadIndicators = async () => {
       setLoadingIndicators(true);
       try {
-        const data = await fetchEconomicIndicators();
-        setIndicators(data);
-        toast.success("Indicadores atualizados com sucesso");
+        // Tenta buscar do banco primeiro
+        const dbIndicators = await base44.entities.EconomicIndicators.list('-data_referencia', 1);
+        
+        if (dbIndicators && dbIndicators.length > 0) {
+            setIndicators(dbIndicators[0]);
+        } else {
+            // Se não tiver no banco, busca da API
+            const data = await fetchEconomicIndicators();
+            setIndicators(data);
+            
+            // Salva no banco para persistência futura
+            if (data) {
+                await base44.entities.EconomicIndicators.create({
+                    dolar: data.dolar,
+                    euro: data.euro,
+                    ibovespa: data.ibovespa,
+                    selic: data.selic,
+                    cdi: data.cdi,
+                    ipca: data.ipca,
+                    data_referencia: new Date().toISOString()
+                });
+            }
+        }
       } catch (error) {
         console.error('Erro ao carregar indicadores:', error);
-        toast.error("Erro ao atualizar indicadores");
       }
       setLoadingIndicators(false);
   };
 
+  // Escuta invalidação de query para recarregar
   useEffect(() => {
     loadIndicators();
-  }, []);
+  }, [queryClient.getQueryState(['economic_indicators'])]); // Recarrega se a query for invalidada
 
   // Removida atualização automática de cotações em favor da manual
 
@@ -470,22 +490,12 @@ export default function Investments() {
     {
       header: 'Rentabilidade',
       render: (row) => {
-        const isInternational = ['renda_variavel_int', 'crypto'].includes(row.categoria);
+        // Usar rentabilidade calculada salva no banco (BRL)
         let rentPercent = row.rentabilidade_percentual || 0;
         let rentValue = row.rentabilidade_valor || 0;
-        let isUSD = false;
-
-        // Cálculo específico para ativos internacionais em Dólar
-        if (isInternational && row.valor_atual_usd > 0 && row.quantidade > 0 && row.preco_medio > 0) {
-           const investidoUSD = row.quantidade * row.preco_medio;
-           const atualUSD = row.valor_atual_usd;
-           rentValue = atualUSD - investidoUSD;
-           rentPercent = investidoUSD > 0 ? (rentValue / investidoUSD) * 100 : 0;
-           isUSD = true;
-        }
 
         const isPositive = rentPercent >= 0;
-        
+
         return (
           <div className="flex flex-col">
             <div className="flex items-center gap-1">
@@ -500,10 +510,7 @@ export default function Investments() {
             </div>
             <span className={`text-xs ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
               {isPositive ? '+' : ''}
-              {isUSD 
-                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(rentValue)
-                : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(rentValue)
-              }
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(rentValue)}
             </span>
           </div>
         );
@@ -590,12 +597,6 @@ export default function Investments() {
             <div>
               <p className="text-slate-500">IBOVESPA</p>
               <p className="font-semibold">{indicators.ibovespa?.toLocaleString('pt-BR')}</p>
-            </div>
-            <div>
-              <p className="text-slate-500">IBOV Var.</p>
-              <p className={`font-semibold ${(indicators.ibovespa_change || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {(indicators.ibovespa_change || 0) >= 0 ? '+' : ''}{indicators.ibovespa_change?.toFixed(2)}%
-              </p>
             </div>
           </div>
         </div>

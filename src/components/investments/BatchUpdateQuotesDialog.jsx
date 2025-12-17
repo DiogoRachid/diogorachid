@@ -10,8 +10,28 @@ import { useQueryClient } from '@tanstack/react-query';
 
 export default function BatchUpdateQuotesDialog({ open, onOpenChange, investments }) {
     const [values, setValues] = useState({});
+    const [indicators, setIndicators] = useState({
+        dolar: '',
+        euro: '',
+        ibovespa: ''
+    });
     const [saving, setSaving] = useState(false);
     const queryClient = useQueryClient();
+
+    // Carregar indicadores recentes
+    useEffect(() => {
+        if (open) {
+            base44.entities.EconomicIndicators.list('-data_referencia', 1).then(res => {
+                if (res && res.length > 0) {
+                    setIndicators({
+                        dolar: res[0].dolar || '',
+                        euro: res[0].euro || '',
+                        ibovespa: res[0].ibovespa || ''
+                    });
+                }
+            });
+        }
+    }, [open]);
 
     // Identifica se o investimento deve ser atualizado por cotação unitária
     const isQuoteBased = (inv) => {
@@ -40,15 +60,36 @@ export default function BatchUpdateQuotesDialog({ open, onOpenChange, investment
     const handleSave = async () => {
         setSaving(true);
         try {
+            // Salvar indicadores
+            if (indicators.dolar || indicators.euro || indicators.ibovespa) {
+                await base44.entities.EconomicIndicators.create({
+                    dolar: parseFloat(indicators.dolar) || 0,
+                    euro: parseFloat(indicators.euro) || 0,
+                    ibovespa: parseFloat(indicators.ibovespa) || 0,
+                    data_referencia: new Date().toISOString()
+                });
+            }
+
             const updates = investments.map(async (inv) => {
                 const inputVal = parseFloat(values[inv.id]);
                 if (isNaN(inputVal)) return null;
                 
-                let valorAtual, cotacaoAtual;
+                let valorAtual, cotacaoAtual, valorAtualUSD, cotacaoAtualUSD;
+                const isIntl = ['renda_variavel_int', 'crypto'].includes(inv.categoria);
+                const dolar = parseFloat(indicators.dolar) || 0;
                 
                 if (isQuoteBased(inv)) {
-                    cotacaoAtual = inputVal;
-                    valorAtual = inputVal * inv.quantidade;
+                    // Se for internacional e tiver dólar, o input é considerado em USD (ou moeda original)
+                    if (isIntl && dolar > 0) {
+                        cotacaoAtualUSD = inputVal;
+                        valorAtualUSD = inputVal * inv.quantidade;
+                        // Converte para BRL
+                        cotacaoAtual = cotacaoAtualUSD * dolar;
+                        valorAtual = valorAtualUSD * dolar;
+                    } else {
+                        cotacaoAtual = inputVal;
+                        valorAtual = inputVal * inv.quantidade;
+                    }
                 } else {
                     valorAtual = inputVal;
                     // Tenta calcular cotação reversa se houver quantidade
@@ -59,18 +100,26 @@ export default function BatchUpdateQuotesDialog({ open, onOpenChange, investment
                 const rentabilidadeValor = valorAtual - valorInvestido;
                 const rentabilidadePercent = valorInvestido > 0 ? ((valorAtual / valorInvestido) - 1) * 100 : 0;
 
-                return base44.entities.Investment.update(inv.id, {
+                const payload = {
                     valor_atual: valorAtual,
                     cotacao_atual: cotacaoAtual,
                     rentabilidade_valor: rentabilidadeValor,
                     rentabilidade_percentual: rentabilidadePercent,
                     ultima_atualizacao: new Date().toISOString()
-                });
+                };
+
+                if (isIntl && dolar > 0) {
+                    payload.valor_atual_usd = valorAtualUSD;
+                    payload.cotacao_atual_usd = cotacaoAtualUSD;
+                }
+
+                return base44.entities.Investment.update(inv.id, payload);
             });
 
             await Promise.all(updates);
             
             queryClient.invalidateQueries({ queryKey: ['investments'] });
+            queryClient.invalidateQueries({ queryKey: ['economic_indicators'] }); // Invalida indicadores se houver query
             toast.success('Valores atualizados com sucesso!');
             onOpenChange(false);
         } catch (error) {
@@ -91,6 +140,40 @@ export default function BatchUpdateQuotesDialog({ open, onOpenChange, investment
                     <DialogTitle>Atualizar Valores (Manual)</DialogTitle>
                 </DialogHeader>
                 
+                {/* Inputs de Indicadores */}
+                <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg mb-2">
+                    <div>
+                        <label className="text-xs font-medium text-slate-500 block mb-1">Dólar (USD)</label>
+                        <Input 
+                            type="number" 
+                            step="0.001"
+                            value={indicators.dolar}
+                            onChange={(e) => setIndicators(prev => ({...prev, dolar: e.target.value}))}
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-slate-500 block mb-1">Euro (EUR)</label>
+                        <Input 
+                            type="number" 
+                            step="0.001"
+                            value={indicators.euro}
+                            onChange={(e) => setIndicators(prev => ({...prev, euro: e.target.value}))}
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-slate-500 block mb-1">Ibovespa (Pontos)</label>
+                        <Input 
+                            type="number" 
+                            step="1"
+                            value={indicators.ibovespa}
+                            onChange={(e) => setIndicators(prev => ({...prev, ibovespa: e.target.value}))}
+                            placeholder="0"
+                        />
+                    </div>
+                </div>
+
                 <div className="flex-1 overflow-hidden p-1 border rounded-md mt-2">
                     <div className="grid grid-cols-12 gap-4 font-medium text-sm text-slate-500 bg-slate-50 p-3 border-b">
                         <div className="col-span-4">Investimento</div>
