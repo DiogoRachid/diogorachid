@@ -24,6 +24,7 @@ import {
   Trash2,
   MoreHorizontal
 } from 'lucide-react';
+import { fetchEconomicIndicators } from '@/components/investments/QuoteService';
 import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import EmptyState from '@/components/ui/EmptyState';
