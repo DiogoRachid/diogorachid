@@ -28,6 +28,7 @@ import {
 
 export default function Services() {
   const [search, setSearch] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [openBulk, setOpenBulk] = useState(false);
   const [bulkDate, setBulkDate] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
@@ -38,11 +39,36 @@ export default function Services() {
     queryFn: () => base44.entities.Service.list()
   });
 
-  const filtered = services.filter(s => 
-    !search || 
-    s.descricao?.toLowerCase().includes(search.toLowerCase()) ||
-    s.codigo?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = React.useMemo(() => {
+    let result = services.filter(s => 
+      !search || 
+      s.descricao?.toLowerCase().includes(search.toLowerCase()) ||
+      s.codigo?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [services, search, sortConfig]);
+
+  const handleSort = (key) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
 
   const handleBulkUpdate = async () => {
     if (!bulkDate) return toast.error("Informe a data");
@@ -74,26 +100,29 @@ export default function Services() {
   };
 
   const columns = [
-    { header: 'Código', accessor: 'codigo', className: 'w-24 font-mono text-xs' },
-    { header: 'Descrição', accessor: 'descricao' },
-    { header: 'Unidade', accessor: 'unidade', className: 'w-16' },
-    { header: 'Data Base', accessor: 'data_base', className: 'w-24 text-xs' },
+    { header: 'Código', accessor: 'codigo', className: 'w-24 font-mono text-xs', sortable: true },
+    { header: 'Descrição', accessor: 'descricao', sortable: true },
+    { header: 'Unidade', accessor: 'unidade', className: 'w-16', sortable: true },
+    { header: 'Data Base', accessor: 'data_base', className: 'w-24 text-xs', sortable: true },
     { 
       header: 'Material', 
       accessor: 'custo_material', 
       className: 'text-right',
+      sortable: true,
       render: r => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(r.custo_material)
     },
     { 
       header: 'Mão de Obra', 
       accessor: 'custo_mao_obra', 
       className: 'text-right',
+      sortable: true,
       render: r => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(r.custo_mao_obra)
     },
     { 
       header: 'Total', 
       accessor: 'custo_total', 
       className: 'text-right font-bold',
+      sortable: true,
       render: r => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(r.custo_total)
     },
     {
@@ -154,6 +183,9 @@ export default function Services() {
         columns={columns} 
         data={filtered} 
         isLoading={isLoading}
+        onSort={handleSort}
+        sortColumn={sortConfig.key}
+        sortDirection={sortConfig.direction}
         emptyComponent={
           <EmptyState 
             title="Nenhum serviço" 
