@@ -398,7 +398,8 @@ export default function Investments() {
 
   // Dados para o gráfico de evolução (ordena cronologicamente)
   const evolutionData = [...history].sort((a,b) => new Date(a.data) - new Date(b.data)).map(h => ({
-     data: format(new Date(h.data), 'dd/MM'),
+     // Adicionar T00:00:00 para garantir que seja interpretado como hora local e não UTC
+     data: format(new Date(h.data.includes('T') ? h.data : h.data + 'T00:00:00'), 'dd/MM'),
      total: h.valor_total_atual,
      investido: h.valor_total_investido
   }));
@@ -437,7 +438,7 @@ export default function Investments() {
     {
       header: 'Data',
       className: 'min-w-[100px]',
-      render: (row) => format(new Date(row.data), 'dd/MM/yyyy', { locale: ptBR })
+      render: (row) => format(new Date(row.data.includes('T') ? row.data : row.data + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })
     },
     {
       header: 'Total Investido',
