@@ -155,6 +155,24 @@ export default function Investments() {
     return matchSearch && matchCategory;
   });
 
+  const totalInvestido = investments.reduce((sum, inv) => sum + (inv.valor_investido || 0), 0);
+  const totalInvestimentos = investments.reduce((sum, inv) => sum + (inv.valor_atual || inv.valor_investido || 0), 0);
+  
+  const totalBankBalance = bankAccounts.reduce((sum, acc) => {
+    let saldo = acc.saldo_atual || 0;
+    if (acc.moeda === 'USD' && indicators?.dolar) {
+      saldo = saldo * indicators.dolar;
+    } else if (acc.moeda === 'EUR' && indicators?.euro) {
+      saldo = saldo * indicators.euro;
+    }
+    return sum + saldo;
+  }, 0);
+  
+  const totalAtual = totalInvestimentos + totalBankBalance;
+  // Rentabilidade considera apenas investimentos para não distorcer com saldo em conta
+  const totalRentabilidade = totalInvestimentos - totalInvestido;
+  const rentabilidadePercent = totalInvestido > 0 ? ((totalInvestimentos / totalInvestido) - 1) * 100 : 0;
+
   // Totais por categoria
   const totalsByCategory = useMemo(() => {
     const list = Object.keys(CATEGORY_CONFIG).map(cat => {
@@ -214,23 +232,7 @@ export default function Investments() {
     .filter(item => item.value > 0)
     .sort((a, b) => b.value - a.value);
 
-  const totalInvestido = investments.reduce((sum, inv) => sum + (inv.valor_investido || 0), 0);
-  const totalInvestimentos = investments.reduce((sum, inv) => sum + (inv.valor_atual || inv.valor_investido || 0), 0);
-  
-  const totalBankBalance = bankAccounts.reduce((sum, acc) => {
-    let saldo = acc.saldo_atual || 0;
-    if (acc.moeda === 'USD' && indicators?.dolar) {
-      saldo = saldo * indicators.dolar;
-    } else if (acc.moeda === 'EUR' && indicators?.euro) {
-      saldo = saldo * indicators.euro;
-    }
-    return sum + saldo;
-  }, 0);
-  
-  const totalAtual = totalInvestimentos + totalBankBalance;
-  // Rentabilidade considera apenas investimentos para não distorcer com saldo em conta
-  const totalRentabilidade = totalInvestimentos - totalInvestido;
-  const rentabilidadePercent = totalInvestido > 0 ? ((totalInvestimentos / totalInvestido) - 1) * 100 : 0;
+
 
   // Cálculo de Variação Diária (comparado com o registro anterior mais recente)
   const sortedHistory = [...history].sort((a,b) => new Date(b.data) - new Date(a.data));
