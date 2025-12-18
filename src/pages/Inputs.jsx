@@ -29,6 +29,7 @@ import * as Engine from '@/components/logic/CompositionEngine';
 
 export default function Inputs() {
   const [search, setSearch] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [editing, setEditing] = useState(null);
   const [open, setOpen] = useState(false);
   const [openBulk, setOpenBulk] = useState(false);
@@ -42,11 +43,36 @@ export default function Inputs() {
     queryFn: () => base44.entities.Input.list()
   });
 
-  const filtered = inputs.filter(i => 
-    !search || 
-    i.descricao?.toLowerCase().includes(search.toLowerCase()) || 
-    i.codigo?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = React.useMemo(() => {
+    let result = inputs.filter(i => 
+      !search || 
+      i.descricao?.toLowerCase().includes(search.toLowerCase()) || 
+      i.codigo?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [inputs, search, sortConfig]);
+
+  const handleSort = (key) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
 
   const handleSave = async () => {
     try {
@@ -111,23 +137,25 @@ export default function Inputs() {
   };
 
   const columns = [
-    { header: 'Código', accessor: 'codigo', className: 'w-24 font-mono text-xs' },
-    { header: 'Descrição', accessor: 'descricao' },
-    { header: 'Unidade', accessor: 'unidade', className: 'w-16' },
+    { header: 'Código', accessor: 'codigo', className: 'w-24 font-mono text-xs', sortable: true },
+    { header: 'Descrição', accessor: 'descricao', sortable: true },
+    { header: 'Unidade', accessor: 'unidade', className: 'w-16', sortable: true },
     { 
       header: 'Categoria', 
       accessor: 'categoria', 
       className: 'w-32',
+      sortable: true,
       render: (row) => row.categoria === 'MAO_OBRA' ? 'Mão de Obra' : 'Material'
     },
     { 
       header: 'Valor Unitário', 
       accessor: 'valor_unitario', 
       className: 'text-right',
+      sortable: true,
       render: r => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(r.valor_unitario)
     },
-    { header: 'Data Base', accessor: 'data_base', className: 'w-24 text-xs' },
-    { header: 'Fonte', accessor: 'fonte', className: 'w-24 text-xs' },
+    { header: 'Data Base', accessor: 'data_base', className: 'w-24 text-xs', sortable: true },
+    { header: 'Fonte', accessor: 'fonte', className: 'w-24 text-xs', sortable: true },
     {
       header: '',
       className: 'w-12',
@@ -165,7 +193,14 @@ export default function Inputs() {
             <Calendar className="mr-2 h-4 w-4" /> Alterar Data Base Global
          </Button>
       </div>
-      <DataTable columns={columns} data={filtered} isLoading={isLoading} />
+      <DataTable 
+        columns={columns} 
+        data={filtered} 
+        isLoading={isLoading} 
+        onSort={handleSort}
+        sortColumn={sortConfig.key}
+        sortDirection={sortConfig.direction}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
