@@ -156,12 +156,33 @@ export default function Investments() {
   });
 
   // Totais por categoria
-  const totalsByCategory = Object.keys(CATEGORY_CONFIG).map(cat => {
-    const total = investments
-      .filter(inv => inv.categoria === cat)
-      .reduce((sum, inv) => sum + (inv.valor_atual || inv.valor_investido || 0), 0);
-    return { name: CATEGORY_CONFIG[cat].label, value: total, categoria: cat };
-  }).filter(c => c.value > 0);
+  const totalsByCategory = useMemo(() => {
+    const list = Object.keys(CATEGORY_CONFIG).map(cat => {
+      const total = investments
+        .filter(inv => inv.categoria === cat)
+        .reduce((sum, inv) => sum + (inv.valor_atual || inv.valor_investido || 0), 0);
+      return { 
+        name: CATEGORY_CONFIG[cat].label, 
+        value: total, 
+        categoria: cat,
+        ...CATEGORY_CONFIG[cat]
+      };
+    }).filter(c => c.value > 0);
+
+    // Adicionar Saldo em Conta
+    if (totalBankBalance > 0) {
+      list.push({
+        name: 'Saldo em Conta',
+        value: totalBankBalance,
+        categoria: 'saldo',
+        label: 'Saldo em Conta',
+        icon: Wallet,
+        color: 'bg-slate-500'
+      });
+    }
+
+    return list.sort((a, b) => b.value - a.value);
+  }, [investments, totalBankBalance]);
 
   // Totais por conta (Instituição)
   const totalsByAccount = investments.reduce((acc, inv) => {
@@ -630,30 +651,23 @@ export default function Investments() {
                 </TabsList>
 
                 <TabsContent value="category" className="mt-0 space-y-3">
-                    {Object.keys(CATEGORY_CONFIG).map(cat => {
-                      const totalCat = investments
-                        .filter(inv => inv.categoria === cat)
-                        .reduce((sum, inv) => sum + (inv.valor_atual || inv.valor_investido || 0), 0);
-                      
-                      if (totalCat === 0) return null;
-                      
-                      const config = CATEGORY_CONFIG[cat];
-                      const Icon = config.icon;
-                      const percent = totalAtual > 0 ? (totalCat / totalAtual) * 100 : 0;
+                    {totalsByCategory.map(item => {
+                      const Icon = item.icon;
+                      const percent = totalAtual > 0 ? (item.value / totalAtual) * 100 : 0;
 
                       return (
-                        <div key={cat} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                        <div key={item.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
                           <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${config.color} bg-opacity-10`}>
-                              <Icon className={`h-4 w-4 ${config.color.replace('bg-', 'text-')}`} />
+                            <div className={`p-2 rounded-lg ${item.color} bg-opacity-10`}>
+                              <Icon className={`h-4 w-4 ${item.color.replace('bg-', 'text-')}`} />
                             </div>
                             <div className="flex flex-col">
-                               <span className="text-sm font-medium text-slate-700">{config.label}</span>
+                               <span className="text-sm font-medium text-slate-700">{item.label}</span>
                                <span className="text-xs text-slate-400">{percent.toFixed(1)}%</span>
                             </div>
                           </div>
                           <span className="font-semibold text-slate-900 text-sm">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCat)}
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
                           </span>
                         </div>
                       );
@@ -832,7 +846,13 @@ export default function Investments() {
                         ))}
                       </Pie>
                       <Tooltip 
-                        formatter={(value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
+                        formatter={(value) => {
+                          const percent = totalAtual > 0 ? (value / totalAtual) * 100 : 0;
+                          return [
+                            `${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} (${percent.toFixed(1)}%)`,
+                            'Valor'
+                          ];
+                        }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
