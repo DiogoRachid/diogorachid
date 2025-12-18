@@ -889,57 +889,7 @@ export default function Investments() {
       {/* Evolução Patrimonial & Ações */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="space-y-6 lg:col-span-3">
-           {/* Carteira por Categoria (Pie) */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Alocação</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {totalsByCategory.length > 0 ? (
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={totalsByCategory}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
-                        paddingAngle={2}
-                        dataKey="value"
-                      >
-                        {totalsByCategory.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        formatter={(value) => {
-                          const percent = totalAtual > 0 ? (value / totalAtual) * 100 : 0;
-                          return [
-                            `${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} (${percent.toFixed(1)}%)`,
-                            'Valor'
-                          ];
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
-                  Nenhum investimento
-                </div>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-4"
-                onClick={() => setShowBatchUpdate(true)}
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Atualizar Valores (Manual)
-              </Button>
-            </CardContent>
-          </Card>
+           {/* Carteira por Categoria (Pie) - Removido */}
 
           {/* Mini Filtro */}
            <Card>
