@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { Layers, Plus, Search, MoreHorizontal, Pencil, Trash2, Calendar, Loader2 } from 'lucide-react';
+import { Layers, Plus, Search, MoreHorizontal, Pencil, Trash2, Calendar, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -35,6 +35,8 @@ export default function Services() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalcProgress, setRecalcProgress] = useState({ current: 0, total: 0 });
 
   const { data: services = [], isLoading, refetch } = useQuery({
     queryKey: ['services'],
@@ -131,6 +133,38 @@ export default function Services() {
        console.error(e);
     } finally {
        setBulkUpdating(false);
+    }
+  };
+
+  const handleRecalculateAll = async () => {
+    if (!confirm('Recalcular TODOS os custos de serviços? Isso pode demorar alguns minutos.')) return;
+    
+    setRecalculating(true);
+    setRecalcProgress({ current: 0, total: 0 });
+    
+    try {
+      // Buscar todos os serviços
+      const allServices = await Engine.fetchAll('Service');
+      const total = allServices.length;
+      setRecalcProgress({ current: 0, total });
+      
+      // Ordenar por nível de dependência (bottom-up)
+      allServices.sort((a, b) => (a.nivel_max_dependencia || 0) - (b.nivel_max_dependencia || 0));
+      
+      // Recalcular cada um
+      for (let i = 0; i < allServices.length; i++) {
+        await Engine.recalculateService(allServices[i].id);
+        setRecalcProgress({ current: i + 1, total });
+      }
+      
+      toast.success(`${total} serviços recalculados com sucesso!`);
+      refetch();
+    } catch (e) {
+      toast.error("Erro ao recalcular serviços");
+      console.error(e);
+    } finally {
+      setRecalculating(false);
+      setRecalcProgress({ current: 0, total: 0 });
     }
   };
 
@@ -232,6 +266,19 @@ export default function Services() {
                 <Trash2 className="mr-2 h-4 w-4" /> Excluir ({selectedIds.size})
              </Button>
           )}
+          <Button variant="outline" onClick={handleRecalculateAll} disabled={recalculating}>
+              {recalculating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Recalculando {recalcProgress.current}/{recalcProgress.total}
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Recalcular Todos
+                </>
+              )}
+          </Button>
           <Button variant="outline" onClick={() => setOpenBulk(true)}>
               <Calendar className="mr-2 h-4 w-4" /> Alterar Data Base Global
           </Button>
