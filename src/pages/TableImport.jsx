@@ -608,23 +608,11 @@ export default function TableImport() {
          }
      }
 
-     // 6. Cascade Updates
-     if (updates.length > 0) {
-         const total = updates.length;
-         for (let i = 0; i < total; i += 20) { 
-            const chunk = updates.slice(i, i + 20);
-            setProgress({ message: `Atualizando dependências ${i}/${total}...`, percent: 95 });
-            await yieldToMain();
-            
-            for (const u of chunk) {
-               try {
-                  await Engine.updateDependents('SERVICO', u.id);
-               } catch (err) {
-                  console.warn(`Skip cascade for ${u.id}`);
-               }
-            }
-         }
-     }
+     // 6. Cascade Updates - SKIPPED for performance during import
+     // Running updateDependents recursively here causes Rate Limit Exceeded on large imports.
+     // The local costs (Step 5) are already calculated and saved.
+     // External services depending on these imported items will be updated when they are next opened or recalculated.
+     console.log('Skipping cascade updates to prevent rate limits.');
 
      
      // Final Report
