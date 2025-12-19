@@ -149,6 +149,7 @@ export default function TableImport() {
      // 1. Parse Lines
      setProgress({ message: 'Analisando linhas...', percent: 5 });
      const items = [];
+     const parseErrors = [];
      
      let skippedCount = 0;
      for (const line of lines) {
@@ -238,16 +239,20 @@ export default function TableImport() {
            });
         } else {
            skippedCount++;
+           parseErrors.push({ line: cleanLine.substring(0, 100), error: 'Formato inválido' });
            console.warn('Skipped line (format unknown):', cleanLine);
         }
      }
 
      if (items.length === 0) {
         toast.error("Nenhum item válido identificado. Verifique se as colunas estão corretas (Código Pai | Descrição | Unid | Código Filho | Qtd).");
+        if (parseErrors.length > 0) {
+           console.error('Parse errors:', parseErrors);
+        }
         return;
      }
      if (skippedCount > 0) {
-        toast.warning(`${skippedCount} linhas foram ignoradas por formato inválido.`);
+        console.warn(`${skippedCount} linhas ignoradas:`, parseErrors);
      }
 
      // 2. Load Existing Data
@@ -328,12 +333,20 @@ export default function TableImport() {
      setProgress({ message: 'Processando vínculos...', percent: 40 });
      const linksToCreate = [];
      const missingCodes = new Set();
+     const linkErrors = [];
      const existingParentsToClear = new Set();
      
      for (const item of items) {
         const parent = serviceMap.get(item.codigo_pai);
-        if (!parent) continue;
-        
+        if (!parent) {
+           linkErrors.push({ 
+              parent: item.codigo_pai, 
+              child: item.codigo_item, 
+              error: 'Serviço pai não encontrado' 
+           });
+           continue;
+        }
+
         existingParentsToClear.add(parent.id);
 
         let childId = null;
@@ -354,16 +367,8 @@ export default function TableImport() {
            category = detectCategory(svc.unidade);
            unitCost = svc.custo_total || 0;
         } else {
-           // Item not found: Auto-create as Placeholder Input
-           // This ensures the link is created and the user can fix the input details later (or import the input list).
            const placeholderCode = item.codigo_item;
-           
-           // Check if we already staged this placeholder in this very batch
            if (!inputMap.has(placeholderCode)) {
-              // We'll create it "virtually" for now and add to a creation queue
-              // But we need an ID for the link. 
-              // We can't create link without ID.
-              // So we must actually create these inputs first.
               missingCodes.add(placeholderCode);
            }
         }
@@ -583,7 +588,40 @@ export default function TableImport() {
      }
 
      
-     toast.success(`Importação concluída! ${servicesToCreate.length} novos serviços e ${linksToCreate.length} itens vinculados.`);
+     // Final Report
+     const successMsg = `✅ ${servicesToCreate.length} serviços criados, ${linksToCreate.length} vínculos estabelecidos`;
+     
+     if (linkErrors.length > 0) {
+        const errorSample = linkErrors.slice(0, 5);
+        console.error('Erros de vínculo:', linkErrors);
+        toast.error(
+           <div className="space-y-2">
+              <div className="font-bold">❌ {linkErrors.length} composições falharam:</div>
+              {errorSample.map((e, i) => (
+                 <div key={i} className="text-xs">
+                    {e.parent} → {e.child}: {e.error}
+                 </div>
+              ))}
+              {linkErrors.length > 5 && <div className="text-xs">+{linkErrors.length - 5} outros erros</div>}
+           </div>,
+           { duration: 8000 }
+        );
+     }
+     
+     if (parseErrors.length > 0) {
+        const errorSample = parseErrors.slice(0, 3);
+        toast.warning(
+           <div className="space-y-2">
+              <div className="font-bold">⚠️ {parseErrors.length} linhas ignoradas:</div>
+              {errorSample.map((e, i) => (
+                 <div key={i} className="text-xs truncate">{e.line}...</div>
+              ))}
+           </div>,
+           { duration: 6000 }
+        );
+     }
+     
+     toast.success(successMsg);
   };
 
   const handleFileRead = (e) => {
