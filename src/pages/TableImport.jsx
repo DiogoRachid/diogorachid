@@ -387,7 +387,7 @@ export default function TableImport() {
         // 5. Recalculate Service Costs
         setProgress({ message: 'Calculando custos dos serviços...', percent: 90 });
         const uniqueParentIds = [...new Set(items.map(i => mapping[i.codigo_pai]?.id).filter(Boolean))];
-        
+
         // Sort by dependency level (bottom-up)
         const servicesWithLevel = [];
         for (const parentId of uniqueParentIds) {
@@ -401,10 +401,17 @@ export default function TableImport() {
             await Engine.recalculateService(service.id);
             recalculated++;
             if (recalculated % 10 === 0) {
-                setProgress({ message: `Calculando custos ${recalculated}/${servicesWithLevel.length}...`, percent: 90 + Math.floor((recalculated/servicesWithLevel.length)*10) });
+                setProgress({ message: `Calculando custos ${recalculated}/${servicesWithLevel.length}...`, percent: 90 + Math.floor((recalculated/servicesWithLevel.length)*7) });
                 await yieldToMain();
             }
         }
+
+        // 6. Propagate cost changes to other compositions that use these services
+        setProgress({ message: 'Atualizando composições dependentes...', percent: 97 });
+        await base44.functions.invoke('importHelpers', {
+            action: 'update_service_costs_cascade',
+            service_ids: uniqueParentIds
+        });
 
         setProgress({ message: 'Concluído!', percent: 100 });
         toast.success(`Importação finalizada! ${linksCreatedCount} vínculos e ${recalculated} serviços calculados.`);

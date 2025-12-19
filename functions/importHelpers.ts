@@ -8,6 +8,41 @@ Deno.serve(async (req) => {
 
         const { action, codes, items_info, parentCodes } = await req.json();
 
+        if (action === 'update_service_costs_cascade') {
+            // Update all ServiceItems that reference the given service IDs
+            const { service_ids } = body;
+            
+            if (!service_ids || !Array.isArray(service_ids)) {
+                return Response.json({ error: 'service_ids required' }, { status: 400 });
+            }
+            
+            let updatedCount = 0;
+            
+            for (const serviceId of service_ids) {
+                // Get the service to get its current cost
+                const service = await base44.asServiceRole.entities.Service.filter({ id: serviceId }).then(r => r[0]);
+                if (!service) continue;
+                
+                // Find all ServiceItems that reference this service
+                const dependentItems = await base44.asServiceRole.entities.ServiceItem.filter({
+                    tipo_item: 'SERVICO',
+                    item_id: serviceId
+                });
+                
+                // Update each dependent item's snapshot
+                for (const item of dependentItems) {
+                    const newTotal = item.quantidade * service.custo_total;
+                    await base44.asServiceRole.entities.ServiceItem.update(item.id, {
+                        custo_unitario_snapshot: service.custo_total,
+                        custo_total_item: newTotal
+                    });
+                    updatedCount++;
+                }
+            }
+            
+            return Response.json({ updated: updatedCount });
+        }
+
         if (action === 'resolve_and_create') {
             const uniqueCodes = [...new Set(codes || [])];
             
