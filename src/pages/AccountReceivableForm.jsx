@@ -46,7 +46,7 @@ export default function AccountReceivableForm() {
 
   const { data: account, isLoading } = useQuery({
     queryKey: ['accountReceivable', accountId],
-    queryFn: () => base44.entities.AccountReceivable.list({ id: accountId }).then(res => res[0]),
+    queryFn: () => base44.entities.AccountReceivable.filter({ id: accountId }).then(res => res[0]),
     enabled: isEdit
   });
 

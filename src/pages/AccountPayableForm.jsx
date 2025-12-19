@@ -46,7 +46,7 @@ export default function AccountPayableForm() {
 
   const { data: account, isLoading } = useQuery({
     queryKey: ['accountPayable', accountId],
-    queryFn: () => base44.entities.AccountPayable.list({ id: accountId }).then(res => res[0]),
+    queryFn: () => base44.entities.AccountPayable.filter({ id: accountId }).then(res => res[0]),
     enabled: isEdit
   });
 

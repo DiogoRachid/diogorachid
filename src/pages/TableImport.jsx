@@ -150,28 +150,36 @@ export default function TableImport() {
            let cols = [];
            let parsed = false;
            
-           // 1. Exact Tab Split
+           // Detect separator automatically per line if mixed, or global
+           // Fallback logic:
+           // 1. Tab
            if (cleanLine.includes('\t')) {
               const parts = cleanLine.split('\t').map(c => c.trim()).filter(c => c.length > 0);
-              if (parts.length === 5) {
-                 cols = parts;
-                 parsed = true;
-              } else if (parts.length > 5) {
-                 // Assume Description got split
-                 cols = [
-                    parts[0], 
-                    parts.slice(1, parts.length - 3).join(' '), 
-                    parts[parts.length - 3], 
-                    parts[parts.length - 2], 
-                    parts[parts.length - 1]
-                 ];
+              // Expected 5 columns: Parent, Desc, Unit, Child, Qty
+              // If Description has tabs, it might split into more.
+              if (parts.length >= 5) {
+                 // Assume Last is Qty, 2nd Last is Child, 3rd Last is Unit, First is Parent
+                 // Everything in middle is Desc.
+                 const qty = parts[parts.length - 1];
+                 const child = parts[parts.length - 2];
+                 const unit = parts[parts.length - 3];
+                 const parent = parts[0];
+                 const desc = parts.slice(1, parts.length - 3).join(' ');
+                 
+                 cols = [parent, desc, unit, child, qty];
                  parsed = true;
               }
            }
 
-           // 2. Whitespace Tokenizer (Fallback)
+           // 2. Whitespace Tokenizer (Fallback for copy-paste where tabs became spaces)
            if (!parsed) {
-               const tokens = cleanLine.split(/\s+/);
+               // Split by 2+ spaces to be safer than single space (Desc might have single spaces)
+               // If that fails, try single space.
+               let tokens = cleanLine.split(/\s{2,}/);
+               if (tokens.length < 5) {
+                   tokens = cleanLine.split(/\s+/);
+               }
+
                if (tokens.length >= 5) {
                    const qty = tokens[tokens.length - 1];
                    const child = tokens[tokens.length - 2];
@@ -183,27 +191,36 @@ export default function TableImport() {
                }
            }
 
+           // 3. Semicolon (CSV)
+           if (!parsed && cleanLine.includes(';')) {
+               const parts = cleanLine.split(';');
+               if (parts.length >= 5) {
+                   cols = [parts[0], parts[1], parts[2], parts[3], parts[4]];
+                   parsed = true;
+               }
+           }
+
            if (parsed) {
               const qty = parseBrlNumber(cols[4]);
               items.push({
-                  codigo_pai: cols[0],
-                  descricao_pai: cols[1],
-                  unidade_pai: cols[2],
-                  codigo_item: cols[3],
+                  codigo_pai: cols[0]?.trim(),
+                  descricao_pai: cols[1]?.trim()?.replace(/^["']|["']$/g, ''), // Remove quotes
+                  unidade_pai: cols[2]?.trim(),
+                  codigo_item: cols[3]?.trim(),
                   quantidade: qty
               });
            } else {
               skippedCount++;
-              console.warn("Ignorado:", cleanLine);
+              console.warn("Linha ignorada (formato não reconhecido):", cleanLine);
            }
         }
 
         if (items.length === 0) {
-           throw new Error("Nenhum item válido encontrado. Verifique a formatação.");
+           throw new Error("Nenhum item válido identificado. Verifique se o texto copiado contém as colunas necessárias.");
         }
 
         // 2. Load Data
-        setProgress({ message: 'Carregando dados...', percent: 15 });
+        setProgress({ message: 'Carregando dados existentes...', percent: 15 });
         const [existingServices, existingInputs] = await Promise.all([
            Engine.fetchAll('Service'),
            Engine.fetchAll('Input')
@@ -217,11 +234,13 @@ export default function TableImport() {
         const parentsToCreate = new Map();
         
         for (const item of items) {
+            // Se já existe, não precisamos fazer nada (ou poderíamos atualizar a descrição)
+            // Se não existe, cria.
             if (!serviceMap.has(item.codigo_pai)) {
                 parentsToCreate.set(item.codigo_pai, {
                     codigo: item.codigo_pai,
-                    descricao: item.descricao_pai,
-                    unidade: item.unidade_pai,
+                    descricao: item.descricao_pai || `Serviço ${item.codigo_pai}`,
+                    unidade: item.unidade_pai || 'UN',
                     ativo: true,
                     custo_total: 0
                 });
@@ -235,13 +254,14 @@ export default function TableImport() {
                 const created = await base44.entities.Service.bulkCreate(chunk);
                 if (created) created.forEach(c => serviceMap.set(c.codigo, c));
             }
-            toast.success(`${arr.length} novos serviços criados.`);
+            toast.success(`${arr.length} novos serviços pais criados.`);
         }
 
         // 4. Ensure Children Exist
         setProgress({ message: 'Verificando itens filhos...', percent: 50 });
         const missingChildren = new Set();
         for (const item of items) {
+            if (!item.codigo_item) continue;
             if (!inputMap.has(item.codigo_item) && !serviceMap.has(item.codigo_item)) {
                 missingChildren.add(item.codigo_item);
             }
@@ -250,7 +270,7 @@ export default function TableImport() {
         if (missingChildren.size > 0) {
             const arr = Array.from(missingChildren).map(code => ({
                 codigo: code,
-                descricao: `[AUTO] Item ${code}`,
+                descricao: `[AUTO-IMPORT] Item ${code}`,
                 unidade: 'UN',
                 valor_unitario: 0,
                 categoria: 'MATERIAL',
@@ -263,7 +283,7 @@ export default function TableImport() {
                 const created = await base44.entities.Input.bulkCreate(chunk);
                 if (created) created.forEach(c => inputMap.set(c.codigo, c));
             }
-            toast.warning(`${arr.length} itens desconhecidos criados automaticamente.`);
+            toast.warning(`${arr.length} itens desconhecidos foram criados automaticamente como Insumos.`);
         }
 
         // 5. Create Links
@@ -319,7 +339,7 @@ export default function TableImport() {
         }
 
         setProgress({ message: 'Concluído!', percent: 100 });
-        toast.success(`Importação finalizada! ${linksCreatedCount} vínculos criados.`);
+        toast.success(`Importação finalizada! ${linksCreatedCount} vínculos processados.`);
 
      } catch (err) {
         console.error("Erro fatal:", err);

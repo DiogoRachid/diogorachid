@@ -53,8 +53,69 @@ export default function Transactions() {
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list('-data')
+    queryFn: () => base44.entities.Transaction.list('-data', 100)
   });
+
+  const [editingTransaction, setEditingTransaction] = useState(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.Transaction.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast.success('Transação excluída');
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data) => {
+        const payload = {
+            ...data,
+            valor: parseFloat(data.valor)
+        };
+        // Note: Editing manual transactions does not automatically revert/apply balance changes to avoid complex inconsistencies.
+        // Ideally, we should, but for now we just update the record as requested.
+        return base44.entities.Transaction.update(editingTransaction.id, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      setShowNewDialog(false);
+      setEditingTransaction(null);
+      resetForm();
+      toast.success('Transação atualizada');
+    }
+  });
+
+  const resetForm = () => {
+    setNewTransaction({
+        tipo: 'saida',
+        descricao: '',
+        valor: '',
+        data: format(new Date(), 'yyyy-MM-dd'),
+        conta_bancaria_id: '',
+        conta_bancaria_nome: '',
+        conta_destino_id: '',
+        conta_destino_nome: '',
+        centro_custo_id: '',
+        centro_custo_nome: ''
+    });
+  };
+
+  const handleEdit = (transaction) => {
+      setEditingTransaction(transaction);
+      setNewTransaction({
+          tipo: transaction.tipo,
+          descricao: transaction.descricao,
+          valor: transaction.valor,
+          data: transaction.data,
+          conta_bancaria_id: transaction.conta_bancaria_id || '',
+          conta_bancaria_nome: transaction.conta_bancaria_nome || '',
+          conta_destino_id: transaction.conta_destino_id || '',
+          conta_destino_nome: transaction.conta_destino_nome || '',
+          centro_custo_id: transaction.centro_custo_id || '',
+          centro_custo_nome: transaction.centro_custo_nome || ''
+      });
+      setShowNewDialog(true);
+  };
 
   const { data: bankAccounts = [] } = useQuery({
     queryKey: ['bankAccounts'],
@@ -150,7 +211,11 @@ export default function Transactions() {
   const columns = [
     {
       header: 'Data',
-      render: (row) => format(new Date(row.data), 'dd/MM/yyyy', { locale: ptBR })
+      render: (row) => {
+         if (!row.data) return '-';
+         const [y, m, d] = row.data.split('-');
+         return `${d}/${m}/${y}`;
+      }
     },
     {
       header: 'Tipo',
@@ -200,6 +265,31 @@ export default function Transactions() {
           checked={row.conciliado}
           onCheckedChange={(checked) => toggleConciliado.mutate({ id: row.id, conciliado: checked })}
         />
+      )
+    },
+    {
+      header: '',
+      className: 'w-12',
+      render: (row) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleEdit(row)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+                if(confirm('Excluir transação?')) deleteMutation.mutate(row.id);
+            }} className="text-red-600">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )
     }
   ];
@@ -435,12 +525,12 @@ export default function Transactions() {
               Cancelar
             </Button>
             <Button 
-              onClick={() => createMutation.mutate(newTransaction)}
-              disabled={createMutation.isPending || !newTransaction.descricao || !newTransaction.valor}
+              onClick={() => editingTransaction ? updateMutation.mutate(newTransaction) : createMutation.mutate(newTransaction)}
+              disabled={createMutation.isPending || updateMutation.isPending || !newTransaction.descricao || !newTransaction.valor}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Salvar
+              {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {editingTransaction ? 'Atualizar' : 'Salvar'}
             </Button>
           </DialogFooter>
         </DialogContent>
