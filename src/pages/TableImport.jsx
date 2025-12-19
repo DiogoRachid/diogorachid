@@ -303,6 +303,9 @@ export default function TableImport() {
         let mapping = {};
         const chunkSize = 5000;
 
+        // Prepare parentCodes for this chunk (if needed by backend, though backend now defaults to Service)
+        const parentCodeList = Array.from(parentCodes);
+
         for (let i = 0; i < codeList.length; i += chunkSize) {
             const chunk = codeList.slice(i, i + chunkSize);
 
@@ -310,11 +313,15 @@ export default function TableImport() {
             const chunkInfo = {};
             chunk.forEach(c => chunkInfo[c] = itemsInfo[c]);
 
+            // Filter parentCodes relevant to this chunk (optimization)
+            const chunkParents = parentCodeList.filter(p => chunk.includes(p));
+
             setProgress({ message: `Resolvendo bloco ${Math.floor(i/chunkSize)+1}/${Math.ceil(codeList.length/chunkSize)}...`, percent: 20 + Math.floor((i/codeList.length)*30) });
 
             const response = await base44.functions.invoke('importHelpers', {
                 action: 'resolve_and_create',
                 codes: chunk,
+                parentCodes: chunkParents,
                 items_info: chunkInfo
             });
 

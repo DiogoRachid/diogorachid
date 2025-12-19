@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
         const user = await base44.auth.me();
         if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-        const { action, codes, items_info } = await req.json();
+        const { action, codes, items_info, parentCodes } = await req.json();
 
         if (action === 'resolve_and_create') {
             const uniqueCodes = [...new Set(codes || [])];
@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
             // 2. Resolve
             for (const code of uniqueCodes) {
                 if (inputMap.has(code)) {
+                    // It's an Input
                     const i = inputMap.get(code);
                     mapping[code] = { 
                         id: i.id, 
@@ -46,6 +47,7 @@ Deno.serve(async (req) => {
                         cost: i.valor_unitario || 0
                     };
                 } else if (serviceMap.has(code)) {
+                    // It's a Service
                     const s = serviceMap.get(code);
                     mapping[code] = { 
                         id: s.id, 
@@ -55,6 +57,9 @@ Deno.serve(async (req) => {
                     };
                 } else {
                     // Missing! Create as Service.
+                    // We DO NOT create Inputs here anymore.
+                    // Assumption: All Inputs are already imported.
+                    
                     const info = items_info && items_info[code] ? items_info[code] : {};
                     
                     servicesToCreate.push({
@@ -62,7 +67,7 @@ Deno.serve(async (req) => {
                         descricao: info.description || `Service ${code} (Auto)`,
                         unidade: info.unit || 'UN',
                         ativo: true,
-                        custo_total: 0 // New service starts with 0
+                        custo_total: 0
                     });
                 }
             }
@@ -77,7 +82,7 @@ Deno.serve(async (req) => {
                  }
             }
 
-            // 4. Update Mapping for created services
+            // 4. Update Mapping
             createdServices.forEach(s => {
                 mapping[s.codigo] = { 
                     id: s.id, 
