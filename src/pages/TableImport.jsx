@@ -336,8 +336,18 @@ export default function TableImport() {
 
         // 3. Create Links
         setProgress({ message: 'Preparando vínculos...', percent: 60 });
+
+        // Fetch all existing ServiceItems to check for duplicates
+        const existingItems = await base44.entities.ServiceItem.list('', 100000);
+        const existingMap = new Map();
+        existingItems.forEach(item => {
+            const key = `${item.servico_id}|${item.tipo_item}|${item.item_id}`;
+            existingMap.set(key, item);
+        });
+
         const linksToCreate = [];
         let linksCreatedCount = 0;
+        let skippedDuplicates = 0;
 
         // Helper to detect category if needed (though backend mapping might not have unit, we added unit to backend return)
         // mapping[code] = { id, type, unit }
@@ -348,6 +358,13 @@ export default function TableImport() {
 
             if (!parentData || !childData) {
                 // Should not happen if backend did its job
+                continue;
+            }
+
+            // Check for duplicates
+            const key = `${parentData.id}|${childData.type}|${childData.id}`;
+            if (existingMap.has(key)) {
+                skippedDuplicates++;
                 continue;
             }
 
@@ -414,7 +431,8 @@ export default function TableImport() {
         });
 
         setProgress({ message: 'Concluído!', percent: 100 });
-        toast.success(`Importação finalizada! ${linksCreatedCount} vínculos e ${recalculated} serviços calculados.`);
+        const msg = `Importação finalizada! ${linksCreatedCount} vínculos criados, ${recalculated} serviços calculados${skippedDuplicates > 0 ? `, ${skippedDuplicates} duplicatas ignoradas` : ''}.`;
+        toast.success(msg);
 
      } catch (err) {
         console.error("Erro fatal:", err);
