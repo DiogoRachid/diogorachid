@@ -158,68 +158,88 @@ export default function TableImport() {
         let cols = [];
         let parsed = false;
 
-        // 1. Try Tab Split (Most reliable)
+        // Strategy: Try exact delimiters first, then fallback to smart tokenizing.
+        // We look for 5 distinct fields: PARENT | DESC | UNIT | CHILD | QTY
+
+        // 1. Tab Split
         if (cleanLine.includes('\t')) {
-           cols = cleanLine.split('\t');
-           // Filter empty if we have enough cols (sometimes tabs double up)
-           if (cols.length >= 5) parsed = true;
-        } 
-        // 2. Try Semicolon
-        else if (cleanLine.includes(';')) {
-           cols = cleanLine.split(';');
-           if (cols.length >= 5) parsed = true;
-        } 
-        
-        // 3. Fallback: Smart Space Splitting
-        // Logic: The last 3 columns (Unit, ChildCode, Qty) are usually usually short tokens without spaces.
-        // The first column (ParentCode) is also a token.
-        // The middle (Description) has spaces.
-        if (!parsed) {
-           const parts = cleanLine.split(/\s+/);
+           const parts = cleanLine.split('\t').map(c => c.trim()).filter(c => c !== '');
            if (parts.length >= 5) {
-               // Strategy: Eat from ends
-               const qty = parts.pop();
-               const childCode = parts.pop();
-               const parentUnit = parts.pop(); // Assuming Parent Unit is 3rd from last
-               const parentCode = parts.shift();
-               const desc = parts.join(' ');
+              // Assuming standard order: PARENT, DESC, UNIT, CHILD, QTY
+              // Sometimes tab data has empty fields, we filtered them.
+              // We take First, Last 3, and middle is Desc.
+              // Or just take indices 0,1,2,3,4 if length is exactly 5.
+              if (parts.length === 5) {
+                 cols = parts;
+                 parsed = true;
+              } else {
+                 // > 5 parts (maybe desc has tabs?) - Unlikely but possible.
+                 // Let's fallback to smart extraction from ends.
+              }
+           }
+        }
+        
+        // 2. Semicolon
+        if (!parsed && cleanLine.includes(';')) {
+           const parts = cleanLine.split(';').map(c => c.trim());
+           if (parts.length >= 5) {
+              cols = parts;
+              parsed = true;
+           }
+        }
+
+        // 3. Smart Token Split (Whitespace) - Best for copy-paste from PDF/Excel
+        if (!parsed) {
+           // Tokenize by whitespace
+           const tokens = cleanLine.split(/\s+/);
+           
+           if (tokens.length >= 5) {
+               // Strategy: 
+               // Qty = Last token
+               // ChildCode = 2nd Last
+               // Unit = 3rd Last
+               // ParentCode = First token
+               // Description = Everything in between
                
-               cols = [parentCode, desc, parentUnit, childCode, qty];
+               const qty = tokens[tokens.length - 1];
+               const child = tokens[tokens.length - 2];
+               const unit = tokens[tokens.length - 3];
+               const parent = tokens[0];
+               
+               // Validate if they look like what we expect to avoid false positives
+               // Qty should be number-ish (allow comma)
+               // Parent/Child usually alphanumeric/numeric
+               // Unit usually short
+               
+               const descTokens = tokens.slice(1, tokens.length - 3);
+               const desc = descTokens.join(' ');
+               
+               cols = [parent, desc, unit, child, qty];
                parsed = true;
            }
         }
 
-        cols = cols.map(c => c?.trim().replace(/"/g, ''));
-
-        // Validation: We need at least 5 cols for a valid composition link (Parent, Desc, Unit, Child, Qty)
-        if (!parsed || cols.length < 5) {
-           // Try one last desperate attempt for the specific 5627 case if it matches known pattern
-           if (cleanLine.startsWith('5627') && cleanLine.includes('10685')) {
-              // Manual patch for the reported error case
-              console.log("Applying manual patch for 5627");
-              const parts = cleanLine.split(/\s+/);
-              // Expected: 5627 ... H 10685 0,000056
-              const qty = parts[parts.length - 1];
-              const child = parts[parts.length - 2];
-              const unit = parts[parts.length - 3];
-              const code = parts[0];
-              const desc = parts.slice(1, parts.length - 3).join(' ');
-              cols = [code, desc, unit, child, qty];
-              parsed = true;
-           } else {
-              skippedCount++;
-              console.warn('Skipped line:', cleanLine);
-              continue;
-           }
+        if (parsed) {
+           cols = cols.map(c => c?.trim().replace(/"/g, ''));
+           
+           // Ensure Qty is parsed correctly
+           const rawQty = cols[4];
+           const qty = parseBrlNumber(rawQty);
+           
+           // Extra check: if Qty is 0 but raw string wasn't empty/zero, maybe parsing failed?
+           // For 0,000056 it works.
+           
+           items.push({
+               codigo_pai: cols[0],
+               descricao_pai: cols[1],
+               unidade_pai: cols[2] || 'UN',
+               codigo_item: cols[3],
+               quantidade: qty
+           });
+        } else {
+           skippedCount++;
+           console.warn('Skipped line (format unknown):', cleanLine);
         }
-
-        items.push({
-           codigo_pai: cols[0],
-           descricao_pai: cols[1],
-           unidade_pai: cols[2] || 'UN',
-           codigo_item: cols[3],
-           quantidade: parseBrlNumber(cols[4])
-        });
      }
 
      if (items.length === 0) {
