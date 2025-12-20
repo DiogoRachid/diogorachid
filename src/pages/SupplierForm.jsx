@@ -57,13 +57,19 @@ export default function SupplierForm() {
     queryKey: ['supplier', supplierId],
     queryFn: async () => {
       if (!supplierId) return null;
+      console.log('Buscando fornecedor com ID:', supplierId);
       const allSuppliers = await base44.entities.Supplier.list();
-      const found = allSuppliers.find(s => s.id === supplierId);
+      console.log('Total de fornecedores:', allSuppliers.length);
+      console.log('IDs dos fornecedores:', allSuppliers.map(s => s.id));
+      const found = allSuppliers.find(s => String(s.id) === String(supplierId));
       console.log('Fornecedor encontrado:', found);
+      if (!found) {
+        console.error('ID não encontrado na lista');
+      }
       return found;
     },
-    enabled: isEdit,
-    retry: false
+    enabled: !!supplierId,
+    retry: 1
   });
 
   useEffect(() => {

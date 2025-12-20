@@ -44,13 +44,15 @@ export default function ClientForm() {
     queryKey: ['client', clientId],
     queryFn: async () => {
       if (!clientId) return null;
+      console.log('Buscando cliente com ID:', clientId);
       const allClients = await base44.entities.Client.list();
-      const found = allClients.find(c => c.id === clientId);
+      console.log('Total de clientes:', allClients.length);
+      const found = allClients.find(c => String(c.id) === String(clientId));
       console.log('Cliente encontrado:', found);
       return found;
     },
-    enabled: isEdit,
-    retry: false
+    enabled: !!clientId,
+    retry: 1
   });
 
   const { data: projects = [] } = useQuery({

@@ -39,13 +39,15 @@ export default function ProjectForm() {
     queryKey: ['project', projectId],
     queryFn: async () => {
       if (!projectId) return null;
+      console.log('Buscando obra com ID:', projectId);
       const allProjects = await base44.entities.Project.list();
-      const found = allProjects.find(p => p.id === projectId);
+      console.log('Total de obras:', allProjects.length);
+      const found = allProjects.find(p => String(p.id) === String(projectId));
       console.log('Obra encontrada:', found);
       return found;
     },
-    enabled: isEdit,
-    retry: false
+    enabled: !!projectId,
+    retry: 1
   });
 
   useEffect(() => {

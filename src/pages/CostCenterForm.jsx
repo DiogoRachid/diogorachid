@@ -35,13 +35,15 @@ export default function CostCenterForm() {
     queryKey: ['costCenter', centerId],
     queryFn: async () => {
       if (!centerId) return null;
+      console.log('Buscando centro de custo com ID:', centerId);
       const allCenters = await base44.entities.CostCenter.list();
-      const found = allCenters.find(c => c.id === centerId);
+      console.log('Total de centros:', allCenters.length);
+      const found = allCenters.find(c => String(c.id) === String(centerId));
       console.log('Centro de custo encontrado:', found);
       return found;
     },
-    enabled: isEdit,
-    retry: false
+    enabled: !!centerId,
+    retry: 1
   });
 
   useEffect(() => {

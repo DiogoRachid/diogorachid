@@ -37,13 +37,15 @@ export default function BankAccountForm() {
     queryKey: ['bankAccount', accountId],
     queryFn: async () => {
       if (!accountId) return null;
+      console.log('Buscando conta com ID:', accountId);
       const allAccounts = await base44.entities.BankAccount.list();
-      const found = allAccounts.find(a => a.id === accountId);
+      console.log('Total de contas:', allAccounts.length);
+      const found = allAccounts.find(a => String(a.id) === String(accountId));
       console.log('Conta encontrada:', found);
       return found;
     },
-    enabled: isEdit,
-    retry: false
+    enabled: !!accountId,
+    retry: 1
   });
 
   useEffect(() => {
