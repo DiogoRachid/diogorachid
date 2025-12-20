@@ -22,7 +22,7 @@ import {
 
 export default function Projects() {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('active');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [deleteId, setDeleteId] = useState(null);
   const [sortColumn, setSortColumn] = useState('nome');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -202,7 +202,7 @@ export default function Projects() {
         ]}
         onClearFilters={() => {
           setSearch('');
-          setStatusFilter('active');
+          setStatusFilter('all');
         }}
       />
 

@@ -2,16 +2,20 @@ import React, { useState, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { format, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   FileText,
-  Download,
   Filter,
   Printer,
   Calendar,
   ArrowUpCircle,
-  ArrowDownCircle
+  ArrowDownCircle,
+  HardHat,
+  PieChart,
+  LayoutTemplate,
+  Download,
+  ChevronLeft
 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import { Button } from "@/components/ui/button";
@@ -33,11 +37,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatusBadge from '@/components/ui/StatusBadge';
 
 export default function Reports() {
-  const [reportType, setReportType] = useState('financial');
+  const [activeReport, setActiveReport] = useState(null);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [costCenterFilter, setCostCenterFilter] = useState('all');
@@ -82,7 +85,7 @@ export default function Reports() {
     queryFn: () => base44.entities.Project.list()
   });
 
-  // Filtrar dados pelo período
+  // Filtragem
   const filterByDate = (items, dateField) => {
     return items.filter(item => {
       const itemDate = new Date(item[dateField]);
@@ -91,8 +94,7 @@ export default function Reports() {
   };
 
   const filteredTransactions = filterByDate(transactions, 'data').filter(t => {
-    const matchCC = costCenterFilter === 'all' || t.centro_custo_id === costCenterFilter;
-    return matchCC;
+    return costCenterFilter === 'all' || t.centro_custo_id === costCenterFilter;
   });
 
   const filteredPayables = filterByDate(payables, 'data_vencimento').filter(p => {
@@ -111,7 +113,7 @@ export default function Reports() {
     return matchClient && matchCC && matchStatus && matchProject;
   });
 
-  // Totais
+  // Cálculos para os relatórios
   const totalEntradas = filteredTransactions
     .filter(t => t.tipo === 'entrada')
     .reduce((sum, t) => sum + (t.valor || 0), 0);
@@ -123,7 +125,7 @@ export default function Reports() {
   const totalPayables = filteredPayables.reduce((sum, p) => sum + (p.valor || 0), 0);
   const totalReceivables = filteredReceivables.reduce((sum, r) => sum + (r.valor || 0), 0);
 
-  // Agrupar por centro de custo
+  // Dados Centro de Custo
   const byCostCenter = costCenters.map(cc => {
     const despesas = filteredTransactions
       .filter(t => t.tipo === 'saida' && t.centro_custo_id === cc.id)
@@ -134,14 +136,10 @@ export default function Reports() {
     return { ...cc, despesas, receitas, saldo: receitas - despesas };
   }).filter(cc => cc.despesas > 0 || cc.receitas > 0);
 
-  // Agrupar por Obra e Centro de Custo (Usando Payables e Receivables PAGOS/RECEBIDOS como proxy, ou usando transações se tivessem obra_id. 
-  // Como transações não tem obra_id direto, vou usar Payables/Receivables com status de pago/recebido para o relatório detalhado solicitado pelo usuário)
-  const reportData = [];
-  
-  // Collect realized expenses from Payables (status=pago)
+  // Dados Detalhados por Obra
   const paidPayables = filterByDate(payables, 'data_pagamento').filter(p => p.status === 'pago');
   const receivedReceivables = filterByDate(receivables, 'data_recebimento').filter(r => r.status === 'recebido');
-
+  
   const allRelevantProjects = projects.filter(p => projectFilter === 'all' || p.id === projectFilter);
   const allRelevantCCs = costCenters.filter(cc => costCenterFilter === 'all' || cc.id === costCenterFilter);
 
@@ -180,14 +178,14 @@ export default function Reports() {
     };
   }).filter(Boolean);
 
-  // Totais do Relatório Detalhado
   const detailedTotalExpenses = detailedReport.reduce((sum, r) => sum + r.totalExpenses, 0);
   const detailedTotalIncomes = detailedReport.reduce((sum, r) => sum + r.totalIncomes, 0);
   const detailedBalance = detailedTotalIncomes - detailedTotalExpenses;
 
-
   const handlePrint = () => {
     const printContent = reportRef.current;
+    if (!printContent) return;
+    
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -211,8 +209,6 @@ export default function Reports() {
             .summary-card { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; }
             .summary-card h3 { margin: 0 0 5px 0; font-size: 14px; color: #64748b; }
             .summary-card p { margin: 0; font-size: 24px; font-weight: bold; }
-            .project-section { margin-bottom: 30px; }
-            .project-header { background: #e0f2fe; padding: 10px; font-weight: bold; color: #0369a1; border-radius: 4px; margin-bottom: 10px; }
             @media print { body { padding: 20px; } }
           </style>
         </head>
@@ -229,30 +225,309 @@ export default function Reports() {
       </html>
     `);
     printWindow.document.close();
-    // Aguardar carregamento das imagens antes de imprimir (opcional, mas boa prática)
     setTimeout(() => {
         printWindow.print();
     }, 500);
   };
 
+  const ReportCard = ({ title, description, icon: Icon, colorClass, count, onClick, onExport }) => (
+    <div 
+      className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-slate-200 cursor-pointer group"
+      onClick={onClick}
+    >
+      <div className={`p-6 text-white relative h-32 flex flex-col justify-between ${colorClass}`}>
+        <div>
+          <h3 className="font-bold text-lg leading-tight mb-1">{title}</h3>
+          <p className="text-xs opacity-90 leading-snug max-w-[80%]">{description}</p>
+        </div>
+        <Icon className="absolute top-6 right-6 h-8 w-8 opacity-80 group-hover:scale-110 transition-transform" />
+      </div>
+      <div className="p-6 flex items-center justify-between bg-white">
+        <div>
+          <p className="text-2xl font-bold text-slate-800">{count}</p>
+          <p className="text-xs text-slate-500 uppercase font-semibold tracking-wider">registros</p>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="gap-2 hover:bg-slate-50 border-slate-200 text-slate-600"
+          onClick={(e) => {
+            e.stopPropagation();
+            onExport();
+          }}
+        >
+          <Download className="h-4 w-4" />
+          Exportar
+        </Button>
+      </div>
+    </div>
+  );
+
+  if (activeReport) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="outline" onClick={() => setActiveReport(null)} className="gap-2">
+            <ChevronLeft className="h-4 w-4" />
+            Voltar
+          </Button>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {activeReport === 'detailed' && 'Relatório Detalhado por Obra'}
+            {activeReport === 'resumo' && 'Resumo Financeiro Geral'}
+            {activeReport === 'centros' && 'Relatório por Centro de Custo'}
+            {activeReport === 'pagar' && 'Relatório de Contas a Pagar'}
+            {activeReport === 'receber' && 'Relatório de Contas a Receber'}
+          </h1>
+          <Button onClick={handlePrint} className="ml-auto bg-blue-600 hover:bg-blue-700">
+            <Printer className="h-4 w-4 mr-2" />
+            Imprimir
+          </Button>
+        </div>
+
+        <div ref={reportRef}>
+          {activeReport === 'detailed' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Detalhamento por Obra e Centro de Custo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4 mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="text-center">
+                    <p className="text-sm text-slate-500 mb-1">Entradas</p>
+                    <p className="text-xl font-bold text-emerald-600">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(detailedTotalIncomes)}
+                    </p>
+                  </div>
+                  <div className="text-center border-l border-r border-slate-200">
+                    <p className="text-sm text-slate-500 mb-1">Saídas</p>
+                    <p className="text-xl font-bold text-red-600">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(detailedTotalExpenses)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-slate-500 mb-1">Resultado</p>
+                    <p className={`text-xl font-bold ${detailedBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(detailedBalance)}
+                    </p>
+                  </div>
+                </div>
+
+                {detailedReport.map((proj, idx) => (
+                  <div key={idx} className="mb-8 border rounded-lg overflow-hidden">
+                    <div className="bg-slate-100 p-3 font-bold text-slate-800 flex justify-between">
+                      <span>{proj.projectName}</span>
+                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proj.balance)}</span>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Centro de Custo</TableHead>
+                          <TableHead className="text-right">Entradas</TableHead>
+                          <TableHead className="text-right">Saídas</TableHead>
+                          <TableHead className="text-right">Saldo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {proj.ccs.map((cc, ccIdx) => (
+                          <TableRow key={ccIdx}>
+                            <TableCell>{cc.ccName}</TableCell>
+                            <TableCell className="text-right text-emerald-600">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.incomes)}
+                            </TableCell>
+                            <TableCell className="text-right text-red-600">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.expenses)}
+                            </TableCell>
+                            <TableCell className={`text-right font-medium ${cc.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.balance)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeReport === 'resumo' && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-3 gap-6 mb-8">
+                   {/* Summary Cards */}
+                   <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 text-center">
+                      <p className="text-emerald-800 text-sm font-medium uppercase tracking-wide">Total Entradas</p>
+                      <p className="text-2xl font-bold text-emerald-600 mt-1">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalEntradas)}
+                      </p>
+                   </div>
+                   <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-center">
+                      <p className="text-red-800 text-sm font-medium uppercase tracking-wide">Total Saídas</p>
+                      <p className="text-2xl font-bold text-red-600 mt-1">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSaidas)}
+                      </p>
+                   </div>
+                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
+                      <p className="text-blue-800 text-sm font-medium uppercase tracking-wide">Saldo Final</p>
+                      <p className={`text-2xl font-bold mt-1 ${totalEntradas - totalSaidas >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalEntradas - totalSaidas)}
+                      </p>
+                   </div>
+                </div>
+
+                <h3 className="font-bold text-lg mb-4">Movimentações</h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Centro de Custo</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTransactions.map(t => (
+                      <TableRow key={t.id}>
+                        <TableCell>{format(new Date(t.data), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                        <TableCell><StatusBadge status={t.tipo} /></TableCell>
+                        <TableCell>{t.descricao}</TableCell>
+                        <TableCell>{t.centro_custo_nome || '-'}</TableCell>
+                        <TableCell className={`text-right font-medium ${t.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {t.tipo === 'entrada' ? '+' : '-'}
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.valor)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeReport === 'centros' && (
+             <Card>
+               <CardContent className="pt-6">
+                 <Table>
+                   <TableHeader>
+                     <TableRow>
+                       <TableHead>Centro de Custo</TableHead>
+                       <TableHead className="text-right">Receitas</TableHead>
+                       <TableHead className="text-right">Despesas</TableHead>
+                       <TableHead className="text-right">Saldo</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {byCostCenter.map(cc => (
+                       <TableRow key={cc.id}>
+                         <TableCell className="font-medium">{cc.nome}</TableCell>
+                         <TableCell className="text-right text-emerald-600">
+                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.receitas)}
+                         </TableCell>
+                         <TableCell className="text-right text-red-600">
+                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.despesas)}
+                         </TableCell>
+                         <TableCell className={`text-right font-medium ${cc.saldo >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.saldo)}
+                         </TableCell>
+                       </TableRow>
+                     ))}
+                   </TableBody>
+                 </Table>
+               </CardContent>
+             </Card>
+          )}
+
+          {activeReport === 'pagar' && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="mb-4 text-right">
+                  <span className="text-slate-500 mr-2">Total a Pagar:</span>
+                  <span className="text-xl font-bold text-red-600">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPayables)}
+                  </span>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Fornecedor</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPayables.map(p => (
+                      <TableRow key={p.id}>
+                        <TableCell>{format(new Date(p.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                        <TableCell>{p.descricao}</TableCell>
+                        <TableCell>{p.fornecedor_nome || '-'}</TableCell>
+                        <TableCell><StatusBadge status={p.status} /></TableCell>
+                        <TableCell className="text-right font-medium">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeReport === 'receber' && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="mb-4 text-right">
+                  <span className="text-slate-500 mr-2">Total a Receber:</span>
+                  <span className="text-xl font-bold text-emerald-600">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalReceivables)}
+                  </span>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vencimento</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredReceivables.map(r => (
+                      <TableRow key={r.id}>
+                        <TableCell>{format(new Date(r.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                        <TableCell>{r.descricao}</TableCell>
+                        <TableCell>{r.cliente_nome || '-'}</TableCell>
+                        <TableCell><StatusBadge status={r.status} /></TableCell>
+                        <TableCell className="text-right font-medium">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(r.valor)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
         title="Relatórios"
-        subtitle="Gere relatórios financeiros personalizados"
+        subtitle="Exporte relatórios em PDF ou imprima diretamente"
         icon={FileText}
       />
 
-      {/* Filtros */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Filtros Globais */}
+      <Card className="mb-8 border-slate-200 shadow-sm">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <Label>Data Inicial</Label>
               <Input
@@ -286,6 +561,20 @@ export default function Reports() {
               </Select>
             </div>
             <div>
+              <Label>Obra</Label>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label>Status</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="mt-1.5">
@@ -300,336 +589,83 @@ export default function Reports() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Obra</Label>
-              <Select value={projectFilter} onValueChange={setProjectFilter}>
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex gap-3 mt-4">
-            <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700">
-              <Printer className="h-4 w-4 mr-2" />
-              Imprimir / PDF
-            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Relatório */}
-      <div ref={reportRef}>
-        <Tabs defaultValue="detailed" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="detailed">Por Obra e CC</TabsTrigger>
-            <TabsTrigger value="resumo">Resumo Geral</TabsTrigger>
-            <TabsTrigger value="centros">Por Centro de Custo</TabsTrigger>
-            <TabsTrigger value="pagar">Contas a Pagar</TabsTrigger>
-            <TabsTrigger value="receber">Contas a Receber</TabsTrigger>
-          </TabsList>
+      {/* Grid de Relatórios */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <ReportCard
+          title="Relatório Detalhado"
+          description="Fluxo de caixa consolidado por Obra e Centro de Custo"
+          icon={HardHat}
+          colorClass="bg-gradient-to-r from-violet-500 to-fuchsia-600"
+          count={detailedReport.length}
+          onClick={() => setActiveReport('detailed')}
+          onExport={() => {
+            setActiveReport('detailed');
+            setTimeout(handlePrint, 100);
+          }}
+        />
 
-          <TabsContent value="detailed">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Relatório Detalhado por Obra e Centro de Custo (Regime de Caixa)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Resumo Final no Topo para facilitar */}
-                <div className="grid grid-cols-3 gap-4 mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="text-center">
-                    <p className="text-sm text-slate-500 mb-1">Total Entradas</p>
-                    <p className="text-2xl font-bold text-emerald-600">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(detailedTotalIncomes)}
-                    </p>
-                  </div>
-                  <div className="text-center border-l border-r border-slate-200">
-                    <p className="text-sm text-slate-500 mb-1">Total Saídas</p>
-                    <p className="text-2xl font-bold text-red-600">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(detailedTotalExpenses)}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-slate-500 mb-1">Resultado</p>
-                    <p className={`text-2xl font-bold ${detailedBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(detailedBalance)}
-                    </p>
-                  </div>
-                </div>
+        <ReportCard
+          title="Resumo Financeiro"
+          description="Todas as transações financeiras realizadas no período"
+          icon={LayoutTemplate}
+          colorClass="bg-gradient-to-r from-cyan-500 to-blue-600"
+          count={filteredTransactions.length}
+          onClick={() => setActiveReport('resumo')}
+          onExport={() => {
+            setActiveReport('resumo');
+            setTimeout(handlePrint, 100);
+          }}
+        />
 
-                {detailedReport.length > 0 ? (
-                  detailedReport.map((proj, idx) => (
-                    <div key={idx} className="mb-8 border rounded-lg overflow-hidden">
-                      <div className="bg-slate-100 p-3 font-bold text-slate-800 flex justify-between">
-                        <span>OBRA: {proj.projectName}</span>
-                        <span>Saldo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proj.balance)}</span>
-                      </div>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Centro de Custo</TableHead>
-                            <TableHead className="text-right">Entradas (R$)</TableHead>
-                            <TableHead className="text-right">Saídas (R$)</TableHead>
-                            <TableHead className="text-right">Resultado (R$)</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {proj.ccs.map((cc, ccIdx) => (
-                            <TableRow key={ccIdx}>
-                              <TableCell>{cc.ccName}</TableCell>
-                              <TableCell className="text-right text-emerald-600">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.incomes)}
-                              </TableCell>
-                              <TableCell className="text-right text-red-600">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.expenses)}
-                              </TableCell>
-                              <TableCell className={`text-right font-medium ${cc.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.balance)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          <TableRow className="bg-slate-50 font-semibold">
-                            <TableCell>TOTAL OBRA</TableCell>
-                            <TableCell className="text-right text-emerald-600">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proj.totalIncomes)}
-                            </TableCell>
-                            <TableCell className="text-right text-red-600">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proj.totalExpenses)}
-                            </TableCell>
-                            <TableCell className={`text-right ${proj.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proj.balance)}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-center text-slate-500 py-8">Nenhuma movimentação encontrada para o período selecionado.</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+        <ReportCard
+          title="Por Centro de Custo"
+          description="Análise de receitas e despesas por categoria"
+          icon={PieChart}
+          colorClass="bg-gradient-to-r from-emerald-500 to-teal-600"
+          count={byCostCenter.length}
+          onClick={() => setActiveReport('centros')}
+          onExport={() => {
+            setActiveReport('centros');
+            setTimeout(handlePrint, 100);
+          }}
+        />
 
-          <TabsContent value="resumo">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                      <ArrowUpCircle className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-500">Total Entradas</p>
-                      <p className="text-xl font-bold text-emerald-600">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalEntradas)}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        <ReportCard
+          title="Contas a Pagar"
+          description="Relatório de pendências e contas pagas a fornecedores"
+          icon={ArrowDownCircle}
+          colorClass="bg-gradient-to-r from-orange-500 to-red-600"
+          count={filteredPayables.length}
+          onClick={() => setActiveReport('pagar')}
+          onExport={() => {
+            setActiveReport('pagar');
+            setTimeout(handlePrint, 100);
+          }}
+        />
 
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-red-100 flex items-center justify-center">
-                      <ArrowDownCircle className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-500">Total Saídas</p>
-                      <p className="text-xl font-bold text-red-600">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSaidas)}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        <ReportCard
+          title="Contas a Receber"
+          description="Histórico de recebimentos e previsões de clientes"
+          icon={ArrowUpCircle}
+          colorClass="bg-gradient-to-r from-green-500 to-emerald-600"
+          count={filteredReceivables.length}
+          onClick={() => setActiveReport('receber')}
+          onExport={() => {
+            setActiveReport('receber');
+            setTimeout(handlePrint, 100);
+          }}
+        />
+      </div>
 
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                      <Calendar className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-500">Saldo do Período</p>
-                      <p className={`text-xl font-bold ${totalEntradas - totalSaidas >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalEntradas - totalSaidas)}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Movimentações do Período</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Centro de Custo</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTransactions.map(t => (
-                      <TableRow key={t.id}>
-                        <TableCell>{format(new Date(t.data), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                        <TableCell><StatusBadge status={t.tipo} /></TableCell>
-                        <TableCell>{t.descricao}</TableCell>
-                        <TableCell>{t.centro_custo_nome || '-'}</TableCell>
-                        <TableCell className={`text-right font-medium ${t.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {t.tipo === 'entrada' ? '+' : '-'}
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.valor)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="centros">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Análise por Centro de Custo</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Centro de Custo</TableHead>
-                      <TableHead className="text-right">Receitas</TableHead>
-                      <TableHead className="text-right">Despesas</TableHead>
-                      <TableHead className="text-right">Saldo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {byCostCenter.map(cc => (
-                      <TableRow key={cc.id}>
-                        <TableCell className="font-medium">{cc.nome}</TableCell>
-                        <TableCell className="text-right text-emerald-600">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.receitas)}
-                        </TableCell>
-                        <TableCell className="text-right text-red-600">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.despesas)}
-                        </TableCell>
-                        <TableCell className={`text-right font-medium ${cc.saldo >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cc.saldo)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-slate-50 font-bold">
-                      <TableCell>TOTAL</TableCell>
-                      <TableCell className="text-right text-emerald-600">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalEntradas)}
-                      </TableCell>
-                      <TableCell className="text-right text-red-600">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSaidas)}
-                      </TableCell>
-                      <TableCell className={`text-right ${totalEntradas - totalSaidas >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalEntradas - totalSaidas)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="pagar">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Contas a Pagar</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Fornecedor</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPayables.map(p => (
-                      <TableRow key={p.id}>
-                        <TableCell>{format(new Date(p.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                        <TableCell>{p.descricao}</TableCell>
-                        <TableCell>{p.fornecedor_nome || '-'}</TableCell>
-                        <TableCell><StatusBadge status={p.status} /></TableCell>
-                        <TableCell className="text-right font-medium">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-slate-50 font-bold">
-                      <TableCell colSpan={4}>TOTAL</TableCell>
-                      <TableCell className="text-right">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPayables)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="receber">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Contas a Receber</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredReceivables.map(r => (
-                      <TableRow key={r.id}>
-                        <TableCell>{format(new Date(r.data_vencimento), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
-                        <TableCell>{r.descricao}</TableCell>
-                        <TableCell>{r.cliente_nome || '-'}</TableCell>
-                        <TableCell><StatusBadge status={r.status} /></TableCell>
-                        <TableCell className="text-right font-medium">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(r.valor)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-slate-50 font-bold">
-                      <TableCell colSpan={4}>TOTAL</TableCell>
-                      <TableCell className="text-right">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalReceivables)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+      {/* Container invisível para impressão */}
+      <div style={{ display: 'none' }}>
+        <div ref={reportRef}>
+           {/* O conteúdo será renderizado dinamicamente quando um relatório for selecionado */}
+        </div>
       </div>
     </div>
   );
