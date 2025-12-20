@@ -44,7 +44,7 @@ export default function AccountsReceivable() {
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ['accountsReceivable'],
-    queryFn: () => base44.entities.AccountReceivable.list('-data_vencimento')
+    queryFn: () => base44.entities.AccountReceivable.list('data_vencimento')
   });
 
   const { data: costCenters = [] } = useQuery({

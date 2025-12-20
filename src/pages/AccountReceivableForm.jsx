@@ -25,10 +25,12 @@ export default function AccountReceivableForm() {
   const clientId = urlParams.get('client');
   const isEdit = !!accountId;
 
+  const today = new Date().toISOString().split('T')[0];
+  
   const [formData, setFormData] = useState({
     descricao: '',
     valor: '',
-    data_vencimento: '',
+    data_vencimento: today,
     data_recebimento: '',
     cliente_id: clientId || '',
     cliente_nome: '',

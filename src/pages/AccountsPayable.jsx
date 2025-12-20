@@ -44,7 +44,7 @@ export default function AccountsPayable() {
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ['accountsPayable'],
-    queryFn: () => base44.entities.AccountPayable.list('-data_vencimento')
+    queryFn: () => base44.entities.AccountPayable.list('data_vencimento')
   });
 
   const { data: costCenters = [] } = useQuery({
