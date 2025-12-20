@@ -40,7 +40,7 @@ export default function CostCenterForm() {
       console.log('Total de centros:', allCenters.length);
       const found = allCenters.find(c => String(c.id) === String(centerId));
       console.log('Centro de custo encontrado:', found);
-      return found;
+      return found || null;
     },
     enabled: !!centerId,
     retry: 1

@@ -42,7 +42,7 @@ export default function BankAccountForm() {
       console.log('Total de contas:', allAccounts.length);
       const found = allAccounts.find(a => String(a.id) === String(accountId));
       console.log('Conta encontrada:', found);
-      return found;
+      return found || null;
     },
     enabled: !!accountId,
     retry: 1

@@ -49,7 +49,7 @@ export default function ClientForm() {
       console.log('Total de clientes:', allClients.length);
       const found = allClients.find(c => String(c.id) === String(clientId));
       console.log('Cliente encontrado:', found);
-      return found;
+      return found || null;
     },
     enabled: !!clientId,
     retry: 1

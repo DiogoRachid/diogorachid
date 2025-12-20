@@ -44,7 +44,7 @@ export default function ProjectForm() {
       console.log('Total de obras:', allProjects.length);
       const found = allProjects.find(p => String(p.id) === String(projectId));
       console.log('Obra encontrada:', found);
-      return found;
+      return found || null;
     },
     enabled: !!projectId,
     retry: 1
