@@ -65,33 +65,39 @@ export default function SupplierForm() {
         console.log('Sem ID - modo criação');
         return null;
       }
-      console.log('=== CARREGANDO FORNECEDOR ===');
-      console.log('ID procurado:', supplierId, 'Tipo:', typeof supplierId);
       
-      const allSuppliers = await base44.entities.Supplier.list();
-      console.log('Fornecedores carregados:', allSuppliers.length);
-      
-      if (allSuppliers.length > 0) {
-        console.log('Primeiro fornecedor (exemplo):', {
-          id: allSuppliers[0].id,
-          tipo: typeof allSuppliers[0].id,
-          nome: allSuppliers[0].razao_social
-        });
-      }
-      
-      const found = allSuppliers.find(s => String(s.id) === String(supplierId));
-      
-      if (found) {
-        console.log('✓ Fornecedor ENCONTRADO:', found);
+      try {
+        console.log('=== CARREGANDO FORNECEDOR ===');
+        console.log('ID procurado:', supplierId, 'Tipo:', typeof supplierId);
+        
+        const allSuppliers = await base44.entities.Supplier.list();
+        console.log('Fornecedores carregados:', allSuppliers.length);
+        
+        if (allSuppliers.length > 0) {
+          console.log('Primeiro fornecedor (exemplo):', {
+            id: allSuppliers[0].id,
+            tipo: typeof allSuppliers[0].id,
+            nome: allSuppliers[0].razao_social
+          });
+        }
+        
+        const found = allSuppliers.find(s => String(s.id) === String(supplierId)) || null;
+        
+        if (found) {
+          console.log('✓ Fornecedor ENCONTRADO:', found);
+        } else {
+          console.error('✗ Fornecedor NÃO ENCONTRADO');
+          console.log('Lista completa de IDs:', allSuppliers.map(s => ({id: s.id, nome: s.razao_social})));
+        }
+        
         return found;
-      } else {
-        console.error('✗ Fornecedor NÃO ENCONTRADO');
-        console.log('Lista completa de IDs:', allSuppliers.map(s => ({id: s.id, nome: s.razao_social})));
+      } catch (err) {
+        console.error('Erro ao buscar fornecedor:', err);
         return null;
       }
     },
     enabled: !!supplierId,
-    retry: 1
+    retry: false
   });
 
   useEffect(() => {
