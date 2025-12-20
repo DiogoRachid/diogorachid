@@ -22,6 +22,8 @@ export default function Suppliers() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteId, setDeleteId] = useState(null);
+  const [sortColumn, setSortColumn] = useState('razao_social');
+  const [sortDirection, setSortDirection] = useState('asc');
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -43,11 +45,29 @@ export default function Suppliers() {
       s.cnpj?.includes(search);
     const matchStatus = statusFilter === 'all' || s.status === statusFilter;
     return matchSearch && matchStatus;
+  }).sort((a, b) => {
+    if (!sortColumn) return 0;
+    const aValue = a[sortColumn];
+    const bValue = b[sortColumn];
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
   });
+
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
 
   const columns = [
     {
       header: 'Fornecedor',
+      accessor: 'razao_social',
+      sortable: true,
       render: (row) => (
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
@@ -62,12 +82,16 @@ export default function Suppliers() {
     },
     {
       header: 'Tipo de Serviço',
+      accessor: 'tipo_servico',
+      sortable: true,
       render: (row) => (
         <span className="text-slate-700">{row.tipo_servico || '-'}</span>
       )
     },
     {
       header: 'Contato',
+      accessor: 'email',
+      sortable: true,
       render: (row) => (
         <div className="space-y-1">
           {row.telefone && (
@@ -87,6 +111,8 @@ export default function Suppliers() {
     },
     {
       header: 'Status',
+      accessor: 'status',
+      sortable: true,
       render: (row) => <StatusBadge status={row.status} />
     },
     {
@@ -113,7 +139,10 @@ export default function Suppliers() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem 
-              onClick={() => setDeleteId(row.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteId(row.id);
+              }}
               className="text-red-600"
             >
               <Trash2 className="h-4 w-4 mr-2" />
@@ -161,6 +190,9 @@ export default function Suppliers() {
         data={filteredSuppliers}
         isLoading={isLoading}
         onRowClick={(row) => window.location.href = createPageUrl(`SupplierDetail?id=${row.id}`)}
+        onSort={handleSort}
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
         emptyComponent={
           <EmptyState
             icon={Building2}
