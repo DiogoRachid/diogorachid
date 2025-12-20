@@ -138,6 +138,19 @@ export default function ClientForm() {
     );
   }
 
+  if (isEdit && !isLoading && !client) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-slate-600">Cliente não encontrado</p>
+          <Button onClick={() => window.location.href = createPageUrl('Clients')} className="mt-4">
+            Voltar para Clientes
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader

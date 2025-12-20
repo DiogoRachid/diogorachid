@@ -92,6 +92,19 @@ export default function BankAccountForm() {
     );
   }
 
+  if (isEdit && !isLoading && !account) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-slate-600">Conta bancária não encontrada</p>
+          <Button onClick={() => window.location.href = createPageUrl('BankAccounts')} className="mt-4">
+            Voltar para Contas Bancárias
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader

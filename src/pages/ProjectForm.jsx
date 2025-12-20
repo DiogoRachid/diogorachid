@@ -94,6 +94,19 @@ export default function ProjectForm() {
     );
   }
 
+  if (isEdit && !isLoading && !project) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-slate-600">Obra não encontrada</p>
+          <Button onClick={() => window.location.href = createPageUrl('Projects')} className="mt-4">
+            Voltar para Obras
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader

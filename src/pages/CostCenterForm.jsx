@@ -86,6 +86,19 @@ export default function CostCenterForm() {
     );
   }
 
+  if (isEdit && !isLoading && !center) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-slate-600">Centro de custo não encontrado</p>
+          <Button onClick={() => window.location.href = createPageUrl('CostCenters')} className="mt-4">
+            Voltar para Centros de Custo
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader

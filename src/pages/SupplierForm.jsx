@@ -120,6 +120,19 @@ export default function SupplierForm() {
     );
   }
 
+  if (isEdit && !isLoading && !supplier) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-slate-600">Fornecedor não encontrado</p>
+          <Button onClick={() => window.location.href = createPageUrl('Suppliers')} className="mt-4">
+            Voltar para Fornecedores
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
