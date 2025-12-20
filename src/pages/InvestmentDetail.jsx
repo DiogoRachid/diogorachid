@@ -297,24 +297,140 @@ export default function InvestmentDetail() {
 
   const updateTransactionMutation = useMutation({
     mutationFn: async ({ id, data }) => {
+      const oldTransaction = transactions.find(t => t.id === id);
+      const valorNovo = parseFloat(data.valor_total);
+
+      // Reverter efeito da transação antiga
+      if (oldTransaction) {
+         const currentQty = investment.quantidade || 0;
+         const currentInvested = investment.valor_investido || 0;
+         const currentCurrentValue = investment.valor_atual || 0;
+         let updates = {};
+         
+         // Lógica inversa da criação/delete
+         if (oldTransaction.tipo_operacao === 'compra') {
+            const newQty = currentQty - (oldTransaction.quantidade || 0);
+            const newInvested = currentInvested - oldTransaction.valor_total;
+            updates = {
+               quantidade: newQty,
+               valor_investido: newInvested,
+               preco_medio: newQty > 0 ? newInvested / newQty : 0,
+               valor_atual: newQty * (investment.cotacao_atual || 0)
+            };
+         } else if (oldTransaction.tipo_operacao === 'venda') {
+            const newQty = currentQty + (oldTransaction.quantidade || 0);
+            // Reverter venda: adicionar volta o custo proporcional
+            // Aprox: usar preço médio atual ou recalcular? 
+            // Para ser exato precisaria do PM da época. Vamos usar o atual como best effort para evitar complexidade extrema
+            const currentAvg = investment.preco_medio || 0;
+            const costReturned = (oldTransaction.quantidade || 0) * currentAvg;
+            const newInvested = currentInvested + costReturned;
+            
+            updates = {
+               quantidade: newQty,
+               valor_investido: newInvested,
+               preco_medio: newQty > 0 ? newInvested / newQty : 0,
+               valor_atual: newQty * (investment.cotacao_atual || 0)
+            };
+         } else if (['rendimento', 'dividendo', 'jcp'].includes(oldTransaction.tipo_operacao)) {
+            updates = { valor_atual: currentCurrentValue - oldTransaction.valor_total };
+         } else if (oldTransaction.tipo_operacao === 'amortizacao') {
+             updates = { 
+                 valor_investido: currentInvested + oldTransaction.valor_total,
+                 preco_medio: currentQty > 0 ? (currentInvested + oldTransaction.valor_total) / currentQty : 0
+             };
+         }
+
+         if (Object.keys(updates).length > 0) {
+            await base44.entities.Investment.update(investmentId, updates);
+         }
+      }
+
+      // Atualizar transação
       await base44.entities.InvestmentTransaction.update(id, {
         ...data,
         quantidade: data.quantidade ? parseFloat(data.quantidade) : null,
         preco_unitario: data.preco_unitario ? parseFloat(data.preco_unitario) : null,
-        valor_total: parseFloat(data.valor_total),
+        valor_total: valorNovo,
         moeda: data.moeda,
         valor_origem: data.valor_origem ? parseFloat(data.valor_origem) : null,
         cotacao_aplicada: data.cotacao_aplicada ? parseFloat(data.cotacao_aplicada) : null,
         taxas: data.taxas ? parseFloat(data.taxas) : 0
       });
+
+      // Aplicar nova transação (fetch atualizado do investment seria ideal, mas vamos usar o estado calculado se possível ou refetch)
+      // Como não podemos confiar no estado local após update parcial, o ideal é disparar o recalculate total.
+      // Vamos fazer isso no onSuccess.
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Recalcular totais baseados no histórico para garantir consistência após edição
+      await handleRecalculateFromHistory(); 
       queryClient.invalidateQueries({ queryKey: ['investmentTransactions', investmentId] });
+      queryClient.invalidateQueries({ queryKey: ['investment', investmentId] });
       setShowTransactionDialog(false);
       resetForm();
-      toast.success('Operação atualizada!');
+      toast.success('Operação atualizada e saldos recalculados!');
     }
   });
+
+  const handleRecalculateFromHistory = async () => {
+      try {
+          // Buscar todas as transações atualizadas
+          const allTrans = await base44.entities.InvestmentTransaction.filter({ investimento_id: investmentId }, 'data_operacao'); // ordem cronológica (asc)
+          
+          let qty = 0;
+          let invested = 0;
+          let currentValueBuffer = 0; // Acumulador para rendimentos que somam ao valor atual
+
+          // Replay transactions
+          for (const t of allTrans) {
+              const val = t.valor_total || 0;
+              const q = t.quantidade || 0;
+
+              if (t.tipo_operacao === 'compra') {
+                  qty += q;
+                  invested += val;
+              } else if (t.tipo_operacao === 'venda') {
+                  // Redução proporcional do custo
+                  if (qty > 0) {
+                      const avgPrice = invested / qty;
+                      const costSold = q * avgPrice;
+                      invested -= costSold;
+                      qty -= q;
+                  }
+              } else if (t.tipo_operacao === 'amortizacao') {
+                  invested -= val;
+              } else if (['rendimento', 'dividendo', 'jcp'].includes(t.tipo_operacao)) {
+                  currentValueBuffer += val;
+              }
+          }
+          
+          // Ensure precision
+          qty = Math.round(qty * 100000000) / 100000000;
+          invested = Math.round(invested * 100) / 100;
+
+          // Valor atual base = Qty * Cotação Atual
+          const currentQuote = investment.cotacao_atual || 0;
+          let currentVal = (qty * currentQuote) + currentValueBuffer;
+          currentVal = Math.round(currentVal * 100) / 100;
+
+          const rentVal = currentVal - invested;
+          const rentPerc = invested > 0 ? ((currentVal / invested) - 1) * 100 : 0;
+
+          await base44.entities.Investment.update(investmentId, {
+              quantidade: qty,
+              valor_investido: invested,
+              preco_medio: qty > 0 ? invested / qty : 0,
+              valor_atual: currentVal,
+              rentabilidade_valor: rentVal,
+              rentabilidade_percentual: rentPerc,
+              ultima_atualizacao: new Date().toISOString()
+          });
+          
+      } catch (error) {
+          console.error("Erro ao recalcular:", error);
+      }
+  };
 
   const deleteTransactionMutation = useMutation({
     mutationFn: async (id) => {
@@ -767,6 +883,22 @@ export default function InvestmentDetail() {
         </TabsContent>
 
         <TabsContent value="history">
+          <div className="flex justify-end mb-4">
+             <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={async () => {
+                   if (confirm("Isso irá recalcular o saldo do investimento somando todas as transações do histórico. Se houver saldo inicial não registrado em transações, ele será perdido. Deseja continuar?")) {
+                      await handleRecalculateFromHistory();
+                      queryClient.invalidateQueries({ queryKey: ['investment', investmentId] });
+                      toast.success("Saldos recalculados com sucesso!");
+                   }
+                }}
+             >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sincronizar Saldo com Histórico
+             </Button>
+          </div>
           <DataTable
             columns={transactionColumns}
             data={transactions}
