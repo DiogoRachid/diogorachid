@@ -106,11 +106,9 @@ export default function Suppliers() {
                 Visualizar
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to={createPageUrl(`SupplierForm?id=${row.id}`)} className="flex items-center gap-2">
-                <Pencil className="h-4 w-4" />
-                Editar
-              </Link>
+            <DropdownMenuItem onClick={() => window.location.href = createPageUrl(`SupplierForm?id=${row.id}`)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => setDeleteId(row.id)}
