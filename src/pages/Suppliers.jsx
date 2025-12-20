@@ -106,7 +106,10 @@ export default function Suppliers() {
                 Visualizar
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.location.href = createPageUrl(`SupplierForm?id=${row.id}`)}>
+            <DropdownMenuItem onClick={() => {
+              console.log('Editando fornecedor ID:', row.id, 'Nome:', row.razao_social);
+              window.location.href = createPageUrl(`SupplierForm?id=${row.id}`);
+            }}>
               <Pencil className="h-4 w-4 mr-2" />
               Editar
             </DropdownMenuItem>

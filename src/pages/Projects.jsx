@@ -115,7 +115,10 @@ export default function Projects() {
                 Visualizar
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.location.href = createPageUrl(`ProjectForm?id=${row.id}`)}>
+            <DropdownMenuItem onClick={() => {
+              console.log('Editando obra ID:', row.id, 'Nome:', row.nome);
+              window.location.href = createPageUrl(`ProjectForm?id=${row.id}`);
+            }}>
               <Pencil className="h-4 w-4 mr-2" />
               Editar
             </DropdownMenuItem>

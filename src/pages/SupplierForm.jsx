@@ -38,6 +38,11 @@ export default function SupplierForm() {
   const supplierId = urlParams.get('id');
   const isEdit = !!supplierId;
 
+  console.log('=== SUPPLIER FORM INICIADO ===');
+  console.log('URL:', window.location.href);
+  console.log('Supplier ID da URL:', supplierId);
+  console.log('É edição?', isEdit);
+
   const [formData, setFormData] = useState({
     razao_social: '',
     cnpj: '',
@@ -56,16 +61,33 @@ export default function SupplierForm() {
   const { data: supplier, isLoading, error } = useQuery({
     queryKey: ['supplier', supplierId],
     queryFn: async () => {
-      if (!supplierId) return null;
-      console.log('Buscando fornecedor com ID:', supplierId);
-      const allSuppliers = await base44.entities.Supplier.list();
-      console.log('Total de fornecedores:', allSuppliers.length);
-      console.log('IDs dos fornecedores:', allSuppliers.map(s => s.id));
-      const found = allSuppliers.find(s => String(s.id) === String(supplierId));
-      console.log('Fornecedor encontrado:', found);
-      if (!found) {
-        console.error('ID não encontrado na lista');
+      if (!supplierId) {
+        console.log('Sem ID - modo criação');
+        return null;
       }
+      console.log('=== CARREGANDO FORNECEDOR ===');
+      console.log('ID procurado:', supplierId, 'Tipo:', typeof supplierId);
+      
+      const allSuppliers = await base44.entities.Supplier.list();
+      console.log('Fornecedores carregados:', allSuppliers.length);
+      
+      if (allSuppliers.length > 0) {
+        console.log('Primeiro fornecedor (exemplo):', {
+          id: allSuppliers[0].id,
+          tipo: typeof allSuppliers[0].id,
+          nome: allSuppliers[0].razao_social
+        });
+      }
+      
+      const found = allSuppliers.find(s => String(s.id) === String(supplierId));
+      
+      if (found) {
+        console.log('✓ Fornecedor ENCONTRADO:', found);
+      } else {
+        console.error('✗ Fornecedor NÃO ENCONTRADO');
+        console.log('Lista completa de IDs:', allSuppliers.map(s => ({id: s.id, nome: s.razao_social})));
+      }
+      
       return found;
     },
     enabled: !!supplierId,
