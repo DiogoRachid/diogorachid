@@ -22,6 +22,8 @@ export default function Clients() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteId, setDeleteId] = useState(null);
+  const [sortColumn, setSortColumn] = useState('nome');
+  const [sortDirection, setSortDirection] = useState('asc');
   const queryClient = useQueryClient();
 
   const { data: clients = [], isLoading } = useQuery({
@@ -43,11 +45,33 @@ export default function Clients() {
       c.documento?.includes(search);
     const matchStatus = statusFilter === 'all' || c.status === statusFilter;
     return matchSearch && matchStatus;
+  }).sort((a, b) => {
+    if (!sortColumn) return 0;
+    let aValue = a[sortColumn];
+    let bValue = b[sortColumn];
+    
+    if (Array.isArray(aValue)) aValue = aValue.length;
+    if (Array.isArray(bValue)) bValue = bValue.length;
+    
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
   });
+
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
 
   const columns = [
     {
       header: 'Cliente',
+      accessor: 'nome',
+      sortable: true,
       render: (row) => (
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold">
@@ -62,6 +86,8 @@ export default function Clients() {
     },
     {
       header: 'Contato',
+      accessor: 'email',
+      sortable: true,
       render: (row) => (
         <div className="space-y-1">
           {row.telefone && (
@@ -81,6 +107,8 @@ export default function Clients() {
     },
     {
       header: 'Obras',
+      accessor: 'obras_vinculadas',
+      sortable: true,
       render: (row) => (
         <span className="text-slate-700">
           {row.obras_vinculadas?.length || 0} obra(s)
@@ -89,6 +117,8 @@ export default function Clients() {
     },
     {
       header: 'Status',
+      accessor: 'status',
+      sortable: true,
       render: (row) => <StatusBadge status={row.status || 'ativo'} />
     },
     {
@@ -115,7 +145,10 @@ export default function Clients() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem 
-              onClick={() => setDeleteId(row.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteId(row.id);
+              }}
               className="text-red-600"
             >
               <Trash2 className="h-4 w-4 mr-2" />
@@ -163,6 +196,9 @@ export default function Clients() {
         data={filteredClients}
         isLoading={isLoading}
         onRowClick={(row) => window.location.href = createPageUrl(`ClientDetail?id=${row.id}`)}
+        onSort={handleSort}
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
         emptyComponent={
           <EmptyState
             icon={Users}
