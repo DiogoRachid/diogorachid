@@ -169,7 +169,7 @@ export default function AccountReceivableForm() {
             ...data,
             descricao: `${data.descricao} - Parcela ${inst.numero}/${installmentCount}`,
             valor: inst.valor,
-            data_vencimento: inst.data_vencimento
+            data_vencimento: adjustToBusinessDay(inst.data_vencimento)
           };
           delete payload.data_recebimento;
           return base44.entities.AccountReceivable.create(payload);
@@ -178,7 +178,8 @@ export default function AccountReceivableForm() {
       } else {
         const payload = {
           ...data,
-          valor: data.valor ? parseFloat(data.valor) : 0
+          valor: data.valor ? parseFloat(data.valor) : 0,
+          data_vencimento: adjustToBusinessDay(data.data_vencimento)
         };
         if (isEdit) {
           return base44.entities.AccountReceivable.update(accountId, payload);
@@ -292,10 +293,7 @@ export default function AccountReceivableForm() {
                   id="data_vencimento"
                   type="date"
                   value={formData.data_vencimento}
-                  onChange={(e) => {
-                    const adjusted = adjustToBusinessDay(e.target.value);
-                    handleChange('data_vencimento', adjusted);
-                  }}
+                  onChange={(e) => handleChange('data_vencimento', e.target.value)}
                   required
                   className="mt-1.5"
                 />

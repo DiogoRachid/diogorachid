@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownCircle, MoreHorizontal, Pencil, Trash2, Eye, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ArrowDownCircle, MoreHorizontal, Pencil, Trash2, Eye, AlertTriangle, CheckCircle, CalendarCheck } from 'lucide-react';
+import { toast } from "sonner";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format, isAfter, isBefore, addDays } from 'date-fns';
@@ -49,6 +50,41 @@ export default function AccountsPayable() {
   const { data: costCenters = [] } = useQuery({
     queryKey: ['costCenters'],
     queryFn: () => base44.entities.CostCenter.list()
+  });
+
+  const adjustToBusinessDay = (dateStr) => {
+    if (!dateStr) return dateStr;
+    const d = new Date(dateStr + 'T12:00:00');
+    const dayOfWeek = d.getDay();
+    if (dayOfWeek === 0) { // Domingo
+      d.setDate(d.getDate() + 1);
+    } else if (dayOfWeek === 6) { // Sábado
+      d.setDate(d.getDate() + 2);
+    }
+    return d.toISOString().split('T')[0];
+  };
+
+  const fixExistingDatesMutation = useMutation({
+    mutationFn: async () => {
+      const allAccounts = await base44.entities.AccountPayable.list('', 10000);
+      let fixed = 0;
+      
+      for (const acc of allAccounts) {
+        if (acc.data_vencimento) {
+          const adjusted = adjustToBusinessDay(acc.data_vencimento);
+          if (adjusted !== acc.data_vencimento) {
+            await base44.entities.AccountPayable.update(acc.id, { data_vencimento: adjusted });
+            fixed++;
+          }
+        }
+      }
+      
+      return fixed;
+    },
+    onSuccess: (fixed) => {
+      queryClient.invalidateQueries({ queryKey: ['accountsPayable'] });
+      toast.success(`${fixed} contas corrigidas para dias úteis`);
+    }
   });
 
   // Atualizar status de atrasados e voltar para em_aberto se vencimento for futuro
@@ -272,6 +308,18 @@ export default function AccountsPayable() {
         actionLabel="Nova Conta"
         onAction={() => window.location.href = createPageUrl('AccountPayableForm')}
       />
+
+      <div className="mb-4 flex justify-end">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => fixExistingDatesMutation.mutate()}
+          disabled={fixExistingDatesMutation.isPending}
+        >
+          <CalendarCheck className="h-4 w-4 mr-2" />
+          {fixExistingDatesMutation.isPending ? 'Corrigindo...' : 'Corrigir Datas p/ Dias Úteis'}
+        </Button>
+      </div>
 
       {/* Alertas */}
       {upcomingPayments.length > 0 && (
