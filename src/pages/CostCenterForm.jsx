@@ -1,26 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { createPageUrl } from '@/utils';
-import { PieChart, Loader2 } from 'lucide-react';
-import PageHeader from '@/components/ui/PageHeader';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createPageUrl } from '../utils';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import PageHeader from '../components/ui/PageHeader';
+import { PieChart, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function CostCenterForm() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  
   const urlParams = new URLSearchParams(window.location.search);
-  const centerId = urlParams.get('id');
-  const isEdit = !!centerId;
+  const costCenterId = urlParams.get('id');
+  const isEditing = !!costCenterId;
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -31,131 +30,112 @@ export default function CostCenterForm() {
     status: 'ativo'
   });
 
-  const { data: center, isLoading, error } = useQuery({
-    queryKey: ['costCenter', centerId],
-    queryFn: async () => {
-      if (!centerId) return null;
-      console.log('Buscando centro de custo com ID:', centerId);
-      const allCenters = await base44.entities.CostCenter.list();
-      console.log('Total de centros:', allCenters.length);
-      const found = allCenters.find(c => String(c.id) === String(centerId));
-      console.log('Centro de custo encontrado:', found);
-      return found || null;
-    },
-    enabled: !!centerId,
-    retry: 1
+  const { data: costCenters } = useQuery({
+    queryKey: ['costCenters'],
+    queryFn: () => base44.entities.CostCenter.list()
   });
 
   useEffect(() => {
-    if (center) {
-      setFormData({
-        nome: center.nome || '',
-        codigo: center.codigo || '',
-        tipo: center.tipo || 'outros',
-        descricao: center.descricao || '',
-        orcamento_mensal: center.orcamento_mensal || '',
-        status: center.status || 'ativo'
-      });
-    }
-  }, [center]);
-
-  const saveMutation = useMutation({
-    mutationFn: (data) => {
-      const payload = {
-        ...data,
-        orcamento_mensal: data.orcamento_mensal ? parseFloat(data.orcamento_mensal) : null
-      };
-      if (isEdit) {
-        return base44.entities.CostCenter.update(centerId, payload);
+    if (isEditing && costCenters) {
+      const costCenter = costCenters.find(c => c.id === costCenterId);
+      if (costCenter) {
+        setFormData({
+          nome: costCenter.nome || '',
+          codigo: costCenter.codigo || '',
+          tipo: costCenter.tipo || 'outros',
+          descricao: costCenter.descricao || '',
+          orcamento_mensal: costCenter.orcamento_mensal || '',
+          status: costCenter.status || 'ativo'
+        });
       }
-      return base44.entities.CostCenter.create(payload);
+    }
+  }, [isEditing, costCenterId, costCenters]);
+
+  const mutation = useMutation({
+    mutationFn: async (data) => {
+      const submitData = {
+        ...data,
+        orcamento_mensal: data.orcamento_mensal ? parseFloat(data.orcamento_mensal) : 0
+      };
+
+      if (isEditing) {
+        return await base44.entities.CostCenter.update(costCenterId, submitData);
+      } else {
+        return await base44.entities.CostCenter.create(submitData);
+      }
     },
     onSuccess: () => {
-      window.location.href = createPageUrl('CostCenters');
+      queryClient.invalidateQueries({ queryKey: ['costCenters'] });
+      toast.success(isEditing ? 'Centro de custo atualizado!' : 'Centro de custo cadastrado!');
+      navigate(createPageUrl('CostCenters'));
+    },
+    onError: (error) => {
+      toast.error('Erro ao salvar centro de custo');
+      console.error(error);
     }
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    saveMutation.mutate(formData);
+    mutation.mutate(formData);
   };
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  if (isEdit && isLoading) {
+  if (isEditing && !costCenters) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
-  if (isEdit && !isLoading && !center) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <p className="text-slate-600">Centro de custo não encontrado</p>
-          <Button onClick={() => window.location.href = createPageUrl('CostCenters')} className="mt-4">
-            Voltar para Centros de Custo
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div>
+    <div className="max-w-5xl mx-auto">
       <PageHeader
-        title={isEdit ? 'Editar Centro de Custo' : 'Novo Centro de Custo'}
-        subtitle={isEdit ? 'Atualize os dados do centro de custo' : 'Preencha os dados do novo centro de custo'}
-        icon={PieChart}
+        title={isEditing ? 'Editar Centro de Custo' : 'Novo Centro de Custo'}
+        subtitle={isEditing ? 'Atualize as informações do centro de custo' : 'Cadastre um novo centro de custo'}
         backUrl={createPageUrl('CostCenters')}
+        icon={PieChart}
       />
 
-      <form onSubmit={handleSubmit} className="max-w-2xl">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Dados do Centro de Custo</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <Label htmlFor="nome">Nome *</Label>
-                <Input
-                  id="nome"
-                  value={formData.nome}
-                  onChange={(e) => handleChange('nome', e.target.value)}
-                  required
-                  className="mt-1.5"
-                />
-              </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Dados do Centro de Custo</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Nome *</Label>
+              <Input
+                value={formData.nome}
+                onChange={(e) => handleChange('nome', e.target.value)}
+                placeholder="Ex: Obras - Projeto X"
+                required
+              />
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="codigo">Código</Label>
+                <Label>Código</Label>
                 <Input
-                  id="codigo"
                   value={formData.codigo}
                   onChange={(e) => handleChange('codigo', e.target.value)}
-                  placeholder="Ex: CC001"
-                  className="mt-1.5"
+                  placeholder="Ex: CC-001"
                 />
               </div>
-
               <div>
-                <Label htmlFor="tipo">Tipo *</Label>
-                <Select
-                  value={formData.tipo}
-                  onValueChange={(value) => handleChange('tipo', value)}
-                >
-                  <SelectTrigger className="mt-1.5">
+                <Label>Tipo *</Label>
+                <Select value={formData.tipo} onValueChange={(value) => handleChange('tipo', value)}>
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="administrativo">Administrativo</SelectItem>
                     <SelectItem value="obras">Obras</SelectItem>
-                    <SelectItem value="rh">Recursos Humanos</SelectItem>
+                    <SelectItem value="rh">RH</SelectItem>
                     <SelectItem value="logistica">Logística</SelectItem>
                     <SelectItem value="comercial">Comercial</SelectItem>
                     <SelectItem value="financeiro">Financeiro</SelectItem>
@@ -163,27 +143,22 @@ export default function CostCenterForm() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="orcamento_mensal">Orçamento Mensal</Label>
+                <Label>Orçamento Mensal (R$)</Label>
                 <Input
-                  id="orcamento_mensal"
                   type="number"
                   step="0.01"
                   value={formData.orcamento_mensal}
                   onChange={(e) => handleChange('orcamento_mensal', e.target.value)}
-                  placeholder="0,00"
-                  className="mt-1.5"
                 />
               </div>
-
               <div>
-                <Label htmlFor="status">Status *</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => handleChange('status', value)}
-                >
-                  <SelectTrigger className="mt-1.5">
+                <Label>Status</Label>
+                <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -192,37 +167,42 @@ export default function CostCenterForm() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
-              <div className="md:col-span-2">
-                <Label htmlFor="descricao">Descrição</Label>
-                <Textarea
-                  id="descricao"
-                  value={formData.descricao}
-                  onChange={(e) => handleChange('descricao', e.target.value)}
-                  rows={3}
-                  className="mt-1.5"
-                />
-              </div>
-            </CardContent>
-          </Card>
+            <div>
+              <Label>Descrição</Label>
+              <Textarea
+                value={formData.descricao}
+                onChange={(e) => handleChange('descricao', e.target.value)}
+                rows={4}
+                placeholder="Descrição do centro de custo..."
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-          <div className="flex items-center gap-4">
-            <Button
-              type="submit"
-              disabled={saveMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {isEdit ? 'Salvar Alterações' : 'Cadastrar Centro de Custo'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => window.location.href = createPageUrl('CostCenters')}
-            >
-              Cancelar
-            </Button>
-          </div>
+        <div className="flex gap-3 justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate(createPageUrl('CostCenters'))}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            disabled={mutation.isPending}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {mutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              isEditing ? 'Salvar Alterações' : 'Cadastrar Centro de Custo'
+            )}
+          </Button>
         </div>
       </form>
     </div>
