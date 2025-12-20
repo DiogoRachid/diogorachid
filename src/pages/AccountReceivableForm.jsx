@@ -31,6 +31,7 @@ export default function AccountReceivableForm() {
     descricao: '',
     valor: '',
     data_vencimento: today,
+    data_compra: today,
     data_recebimento: '',
     cliente_id: clientId || '',
     cliente_nome: '',
@@ -83,6 +84,7 @@ export default function AccountReceivableForm() {
         descricao: account.descricao || '',
         valor: account.valor || '',
         data_vencimento: account.data_vencimento || '',
+        data_compra: account.data_compra || account.created_date?.split('T')[0] || '',
         data_recebimento: account.data_recebimento || '',
         cliente_id: account.cliente_id || '',
         cliente_nome: account.cliente_nome || '',
@@ -285,6 +287,18 @@ export default function AccountReceivableForm() {
                   onChange={(e) => handleChange('valor', e.target.value)}
                   required
                   placeholder="0,00"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="data_compra">Data de Venda *</Label>
+                <Input
+                  id="data_compra"
+                  type="date"
+                  value={formData.data_compra}
+                  onChange={(e) => handleChange('data_compra', e.target.value)}
+                  required
                   className="mt-1.5"
                 />
               </div>

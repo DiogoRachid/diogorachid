@@ -70,12 +70,25 @@ export default function AccountsPayable() {
       let fixed = 0;
       
       for (const acc of allAccounts) {
+        const updates = {};
+        let needsUpdate = false;
+
         if (acc.data_vencimento) {
           const adjusted = adjustToBusinessDay(acc.data_vencimento);
           if (adjusted !== acc.data_vencimento) {
-            await base44.entities.AccountPayable.update(acc.id, { data_vencimento: adjusted });
-            fixed++;
+            updates.data_vencimento = adjusted;
+            needsUpdate = true;
           }
+        }
+
+        if (!acc.data_compra && acc.created_date) {
+          updates.data_compra = acc.created_date.split('T')[0];
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          await base44.entities.AccountPayable.update(acc.id, updates);
+          fixed++;
         }
       }
       
@@ -83,7 +96,7 @@ export default function AccountsPayable() {
     },
     onSuccess: (fixed) => {
       queryClient.invalidateQueries({ queryKey: ['accountsPayable'] });
-      toast.success(`${fixed} contas corrigidas para dias úteis`);
+      toast.success(`${fixed} contas corrigidas`);
     }
   });
 
@@ -317,7 +330,7 @@ export default function AccountsPayable() {
           disabled={fixExistingDatesMutation.isPending}
         >
           <CalendarCheck className="h-4 w-4 mr-2" />
-          {fixExistingDatesMutation.isPending ? 'Corrigindo...' : 'Corrigir Datas p/ Dias Úteis'}
+{fixExistingDatesMutation.isPending ? 'Corrigindo...' : 'Corrigir Datas Existentes'}
         </Button>
       </div>
 

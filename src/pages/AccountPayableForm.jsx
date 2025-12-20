@@ -31,6 +31,7 @@ export default function AccountPayableForm() {
     descricao: '',
     valor: '',
     data_vencimento: today,
+    data_compra: today,
     data_pagamento: '',
     fornecedor_id: supplierId || '',
     fornecedor_nome: '',
@@ -83,6 +84,7 @@ export default function AccountPayableForm() {
         descricao: account.descricao || '',
         valor: account.valor || '',
         data_vencimento: account.data_vencimento || '',
+        data_compra: account.data_compra || account.created_date?.split('T')[0] || '',
         data_pagamento: account.data_pagamento || '',
         fornecedor_id: account.fornecedor_id || '',
         fornecedor_nome: account.fornecedor_nome || '',
@@ -285,6 +287,18 @@ export default function AccountPayableForm() {
                   onChange={(e) => handleChange('valor', e.target.value)}
                   required
                   placeholder="0,00"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="data_compra">Data de Compra *</Label>
+                <Input
+                  id="data_compra"
+                  type="date"
+                  value={formData.data_compra}
+                  onChange={(e) => handleChange('data_compra', e.target.value)}
+                  required
                   className="mt-1.5"
                 />
               </div>

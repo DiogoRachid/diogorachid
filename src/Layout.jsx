@@ -106,7 +106,7 @@ const menuItems = [
 
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState(['Cadastros', 'Financeiro', 'RH']);
+  const [expandedMenus, setExpandedMenus] = useState([]);
   const [user, setUser] = useState(null);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
