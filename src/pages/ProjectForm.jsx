@@ -37,7 +37,10 @@ export default function ProjectForm() {
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
-    queryFn: () => base44.entities.Project.filter({ id: projectId }).then(res => res[0]),
+    queryFn: async () => {
+      const projects = await base44.entities.Project.list();
+      return projects.find(p => p.id === projectId);
+    },
     enabled: isEdit
   });
 

@@ -33,7 +33,10 @@ export default function CostCenterForm() {
 
   const { data: center, isLoading } = useQuery({
     queryKey: ['costCenter', centerId],
-    queryFn: () => base44.entities.CostCenter.filter({ id: centerId }).then(res => res[0]),
+    queryFn: async () => {
+      const centers = await base44.entities.CostCenter.list();
+      return centers.find(c => c.id === centerId);
+    },
     enabled: isEdit
   });
 

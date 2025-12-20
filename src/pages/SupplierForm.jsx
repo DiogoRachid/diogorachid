@@ -55,7 +55,10 @@ export default function SupplierForm() {
 
   const { data: supplier, isLoading } = useQuery({
     queryKey: ['supplier', supplierId],
-    queryFn: () => base44.entities.Supplier.filter({ id: supplierId }).then(res => res[0]),
+    queryFn: async () => {
+      const suppliers = await base44.entities.Supplier.list();
+      return suppliers.find(s => s.id === supplierId);
+    },
     enabled: isEdit
   });
 
