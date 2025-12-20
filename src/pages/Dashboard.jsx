@@ -42,23 +42,30 @@ export default function Dashboard() {
     queryFn: () => base44.entities.BankAccount.list()
   });
 
-  const { data: payables = [], isLoading: loadingPayables } = useQuery({
-    queryKey: ['accountsPayable'],
+  // Queries para cálculo de totais (sem limite de 50)
+  const { data: allPayables = [] } = useQuery({
+    queryKey: ['allAccountsPayable'],
     queryFn: () => base44.entities.AccountPayable.filter(
       { status: { $in: ['em_aberto', 'atrasado'] } },
       'data_vencimento',
-      50
+      1000
     )
   });
 
-  const { data: receivables = [], isLoading: loadingReceivables } = useQuery({
-    queryKey: ['accountsReceivable'],
+  const { data: allReceivables = [] } = useQuery({
+    queryKey: ['allAccountsReceivable'],
     queryFn: () => base44.entities.AccountReceivable.filter(
       { status: { $in: ['em_aberto', 'atrasado'] } },
       'data_vencimento',
-      50
+      1000
     )
   });
+
+  // Queries para as listas de "Próximos" (pode manter limite menor se quiser otimizar render, mas já usamos os dados acima)
+  const payables = allPayables.slice(0, 50); 
+  const receivables = allReceivables.slice(0, 50);
+  const loadingPayables = false;
+  const loadingReceivables = false;
 
   const { data: transactions = [] } = useQuery({
     queryKey: ['transactions'],
@@ -88,16 +95,16 @@ export default function Dashboard() {
   // Cálculos
   const totalSaldo = bankAccounts.reduce((sum, acc) => sum + (acc.saldo_atual || 0), 0);
   
-  const totalAPagar = payables
+  const totalAPagar = allPayables
     .filter(p => p.status === 'em_aberto' || p.status === 'atrasado')
     .reduce((sum, p) => sum + (p.valor || 0), 0);
   
-  const totalAReceber = receivables
+  const totalAReceber = allReceivables
     .filter(r => r.status === 'em_aberto' || r.status === 'atrasado')
     .reduce((sum, r) => sum + (r.valor || 0), 0);
 
-  const contasAtrasadasPagar = payables.filter(p => p.status === 'atrasado').length;
-  const contasAtrasadasReceber = receivables.filter(r => r.status === 'atrasado').length;
+  const contasAtrasadasPagar = allPayables.filter(p => p.status === 'atrasado').length;
+  const contasAtrasadasReceber = allReceivables.filter(r => r.status === 'atrasado').length;
 
   // Dados para gráfico de fluxo
   const last6Months = Array.from({ length: 6 }, (_, i) => {
