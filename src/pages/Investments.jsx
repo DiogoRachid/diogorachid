@@ -616,6 +616,7 @@ export default function Investments() {
       header: 'Investimento',
       accessor: 'nome',
       sortable: true,
+      className: 'min-w-[200px]',
       render: (row) => {
         const config = CATEGORY_CONFIG[row.categoria];
         const Icon = config?.icon || Wallet;
@@ -624,9 +625,9 @@ export default function Investments() {
             <div className={`h-10 w-10 rounded-xl ${config?.color || 'bg-slate-500'} bg-opacity-20 flex items-center justify-center flex-shrink-0`}>
               <Icon className={`h-5 w-5 ${config?.color?.replace('bg-', 'text-') || 'text-slate-600'}`} />
             </div>
-            <div>
-              <p className="font-medium text-slate-900">{row.nome}</p>
-              <p className="text-sm text-slate-500">{row.ticker || row.tipo}</p>
+            <div className="min-w-0">
+              <p className="font-medium text-slate-900 truncate">{row.nome}</p>
+              <p className="text-sm text-slate-500 truncate">{row.ticker || row.tipo}</p>
             </div>
           </div>
         );
@@ -636,6 +637,8 @@ export default function Investments() {
       header: 'Tipo',
       accessor: 'tipo',
       sortable: true,
+      className: 'hidden md:table-cell min-w-[120px]',
+      cellClassName: 'hidden md:table-cell',
       render: (row) => (
         <span className="text-slate-700">{row.tipo}</span>
       )
@@ -644,8 +647,10 @@ export default function Investments() {
       header: 'Instituição',
       accessor: 'instituicao',
       sortable: true,
+      className: 'hidden lg:table-cell min-w-[140px]',
+      cellClassName: 'hidden lg:table-cell',
       render: (row) => (
-        <span className="text-slate-700 text-sm">
+        <span className="text-slate-700 text-sm truncate block max-w-[140px]">
           {row.instituicao || row.conta_bancaria_nome || '-'}
         </span>
       )
@@ -654,6 +659,8 @@ export default function Investments() {
       header: 'Valor Investido',
       accessor: 'valor_investido',
       sortable: true,
+      className: 'hidden sm:table-cell min-w-[140px]',
+      cellClassName: 'hidden sm:table-cell',
       render: (row) => (
         <span className="font-medium text-slate-900">
           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_investido || 0)}
@@ -664,6 +671,7 @@ export default function Investments() {
       header: 'Valor Atual',
       accessor: 'valor_atual',
       sortable: true,
+      className: 'min-w-[140px]',
       render: (row) => {
         // Removed 'crypto' from isInternational to not show USD
         const isInternational = ['renda_variavel_int'].includes(row.categoria);
@@ -672,17 +680,17 @@ export default function Investments() {
         const valorAtualUSD = row.valor_atual_usd;
 
         return (
-          <div>
-            <span className="font-medium text-slate-900">
+          <div className="min-w-0">
+            <span className="font-medium text-slate-900 block truncate">
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_atual || row.valor_investido || 0)}
             </span>
             {isInternational && valorAtualUSD > 0 && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 truncate">
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(valorAtualUSD)}
               </p>
             )}
             {isCrypto && (
-               <p className="text-xs text-slate-500">
+               <p className="text-xs text-slate-500 truncate">
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.cotacao_atual || 0)} / un
                </p>
             )}
@@ -695,6 +703,8 @@ export default function Investments() {
       header: 'Rentabilidade',
       accessor: 'rentabilidade', // Custom sort key logic
       sortable: true,
+      className: 'hidden md:table-cell min-w-[140px]',
+      cellClassName: 'hidden md:table-cell',
       render: (row) => {
         if (row.isAccount) {
           return <span className="text-slate-400 text-sm">-</span>;
@@ -709,18 +719,18 @@ export default function Investments() {
         const isPositive = rentValue >= 0;
 
         return (
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1">
               {isPositive ? (
-                <TrendingUp className="h-3 w-3 text-emerald-600" />
+                <TrendingUp className="h-3 w-3 text-emerald-600 flex-shrink-0" />
               ) : (
-                <TrendingDown className="h-3 w-3 text-red-600" />
+                <TrendingDown className="h-3 w-3 text-red-600 flex-shrink-0" />
               )}
               <span className={`font-semibold text-sm ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
                 {isPositive ? '+' : ''}{rentPercent.toFixed(2)}%
               </span>
             </div>
-            <span className={`text-xs ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
+            <span className={`text-xs truncate ${isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
               {isPositive ? '+' : ''}
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(rentValue)}
             </span>
