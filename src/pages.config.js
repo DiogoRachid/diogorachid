@@ -44,6 +44,8 @@ import Teams from './pages/Teams';
 import TimeRecords from './pages/TimeRecords';
 import TimeSheet from './pages/TimeSheet';
 import Transactions from './pages/Transactions';
+import Payrolls from './pages/Payrolls';
+import PayrollForm from './pages/PayrollForm';
 import __Layout from './Layout.jsx';
 
 
@@ -94,6 +96,8 @@ export const PAGES = {
     "TimeRecords": TimeRecords,
     "TimeSheet": TimeSheet,
     "Transactions": Transactions,
+    "Payrolls": Payrolls,
+    "PayrollForm": PayrollForm,
 }
 
 export const pagesConfig = {
