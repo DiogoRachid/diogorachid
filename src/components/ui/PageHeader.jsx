@@ -12,33 +12,33 @@ export default function PageHeader({
   icon: Icon
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-      <div className="flex items-center gap-4">
+    <div className="flex flex-col gap-4 mb-6 sm:mb-8">
+      <div className="flex items-start gap-3">
         {backUrl && (
           <Link to={backUrl}>
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button variant="ghost" size="icon" className="rounded-full flex-shrink-0">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
         )}
-        <div>
-          <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
             {Icon && (
-              <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
                 <Icon className="h-5 w-5 text-blue-600" />
               </div>
             )}
-            <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">{title}</h1>
           </div>
           {subtitle && (
-            <p className="text-slate-500 mt-1 ml-0 sm:ml-13">{subtitle}</p>
+            <p className="text-sm sm:text-base text-slate-500 mt-2">{subtitle}</p>
           )}
         </div>
       </div>
       {actionLabel && onAction && (
         <Button 
           onClick={onAction}
-          className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/25"
+          className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/25 w-full sm:w-auto"
         >
           <Plus className="h-4 w-4 mr-2" />
           {actionLabel}

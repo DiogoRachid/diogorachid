@@ -103,6 +103,11 @@ const menuItems = [
     title: 'Relatórios',
     icon: FileText,
     page: 'Reports'
+  },
+  {
+    title: 'Versões',
+    icon: History,
+    page: 'VersionHistory'
   }
 ];
 
@@ -159,8 +164,24 @@ export default function Layout({ children, currentPageName }) {
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#0f172a] dark-mode-active' : 'bg-slate-50'}`}>
-      <style>{`
+      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#0f172a] dark-mode-active' : 'bg-slate-50'}`}>
+        <style>{`
+          /* Melhorias Mobile */
+          @media (max-width: 1024px) {
+            .responsive-card {
+              padding: 1rem !important;
+            }
+            .responsive-text-lg {
+              font-size: 1rem !important;
+            }
+            .responsive-text-2xl {
+              font-size: 1.25rem !important;
+            }
+            .hide-mobile {
+              display: none !important;
+            }
+          }
+
         :root {
           --primary: 221.2 83.2% 53.3%;
           --primary-foreground: 210 40% 98%;
@@ -254,7 +275,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed top-0 left-0 h-full w-72 border-r z-50 transition-all duration-300",
+        "fixed top-0 left-0 h-full w-80 sm:w-72 border-r z-50 transition-all duration-300",
         darkMode ? "bg-gradient-to-b from-[#1e3a5f] to-[#0f172a] border-[#2d4a6f]" : "bg-white border-slate-200",
         "lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -399,7 +420,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Main Content */}
       <main className={`lg:pl-72 pt-16 lg:pt-0 min-h-screen transition-colors ${darkMode ? 'text-slate-100' : ''}`}>
-        <div className="p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {children}
         </div>
       </main>

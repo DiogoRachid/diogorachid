@@ -46,6 +46,8 @@ import Teams from './pages/Teams';
 import TimeRecords from './pages/TimeRecords';
 import TimeSheet from './pages/TimeSheet';
 import Transactions from './pages/Transactions';
+import VersionHistory from './pages/VersionHistory';
+import VersionHistoryForm from './pages/VersionHistoryForm';
 import __Layout from './Layout.jsx';
 
 
@@ -98,6 +100,8 @@ export const PAGES = {
     "TimeRecords": TimeRecords,
     "TimeSheet": TimeSheet,
     "Transactions": Transactions,
+    "VersionHistory": VersionHistory,
+    "VersionHistoryForm": VersionHistoryForm,
 }
 
 export const pagesConfig = {

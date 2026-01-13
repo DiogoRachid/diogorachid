@@ -59,7 +59,7 @@ export default function DataTable({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 overflow-hidden">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
