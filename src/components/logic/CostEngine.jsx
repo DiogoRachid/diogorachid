@@ -166,9 +166,9 @@ export const recalculateCosts = async (
       // Calc Total for Item
       const totalItem = unitCost * comp.quantidade;
       
-      // Accumulate
+      // Accumulate - FIX: usar 'categoria' ao invés de 'tipo_custo'
       total += totalItem;
-      if (comp.tipo_custo === 'MATERIAL') mat += totalItem;
+      if (comp.categoria === 'MATERIAL') mat += totalItem;
       else labor += totalItem;
 
       // Prepare Composition Snapshot Update if changed
