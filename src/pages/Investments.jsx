@@ -406,9 +406,10 @@ export default function Investments() {
           // Buscar transações do dia do registro
           const dayTransactions = transactions.filter(t => t.data === item.data);
           const dayExpenses = dayTransactions.filter(t => t.tipo === 'saida').reduce((sum, t) => sum + (t.valor || 0), 0);
-          const dayIncome = dayTransactions.filter(t => t.tipo === 'entrada').reduce((sum, t) => sum + (t.valor || 0), 0);
+          // Recebimentos apenas de contas a receber (com conta_receber_id)
+          const dayIncome = dayTransactions.filter(t => t.tipo === 'entrada' && t.conta_receber_id).reduce((sum, t) => sum + (t.valor || 0), 0);
           
-          // Variação Real = (Valor Atual - Valor Anterior) + Despesas - Recebimentos
+          // Variação Real = (Valor Atual - Valor Anterior) + Despesas - Recebimentos de Contas a Receber
           const diffValue = prevTotal > 0 ? (item.valor_total_atual - prevTotal) + dayExpenses - dayIncome : 0;
           const diffPercent = prevTotal > 0 ? (diffValue / prevTotal) * 100 : 0;
           
@@ -424,8 +425,9 @@ export default function Investments() {
   const todayExpenses = transactions
     .filter(t => t.tipo === 'saida' && t.data === todayStr)
     .reduce((sum, t) => sum + (t.valor || 0), 0);
+  // Recebimentos apenas de contas a receber
   const todayIncome = transactions
-    .filter(t => t.tipo === 'entrada' && t.data === todayStr)
+    .filter(t => t.tipo === 'entrada' && t.conta_receber_id && t.data === todayStr)
     .reduce((sum, t) => sum + (t.valor || 0), 0);
   
   const dailyDiffValue = previousValue > 0 ? (totalAtual - previousValue) + todayExpenses - todayIncome : 0;
