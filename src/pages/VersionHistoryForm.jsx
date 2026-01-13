@@ -5,6 +5,7 @@ import { createPageUrl } from '@/utils';
 import { History, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/ui/PageHeader';
+import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -251,15 +252,6 @@ export default function VersionHistoryForm() {
           </div>
         </div>
       </form>
-
-      <DeleteConfirmDialog
-        open={!!deleteId}
-        onOpenChange={(open) => !open && setDeleteId(null)}
-        onConfirm={() => deleteMutation.mutate(deleteId)}
-        isDeleting={deleteMutation.isPending}
-        title="Excluir versão?"
-        description="Esta ação não pode ser desfeita."
-      />
     </div>
   );
 }
