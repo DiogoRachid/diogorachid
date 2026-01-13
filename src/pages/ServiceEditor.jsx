@@ -379,23 +379,21 @@ export default function ServiceEditor() {
                       <TableHead>Und</TableHead>
                       <TableHead>Qtd</TableHead>
                       <TableHead>Unit.</TableHead>
-                      <TableHead>Total MO</TableHead>
-                      <TableHead>Total Geral</TableHead>
+                      <TableHead>Total</TableHead>
                       <TableHead>Cat</TableHead>
                       <TableHead className="w-24">Ações</TableHead>
                       </TableRow>
                       </TableHeader>
                       <TableBody>
                       {items.map(item => {
-                        // Calculate labor portion for display
-                        let laborCost = 0;
+                        // Determinar categoria para exibição
+                        let displayCategoria = 'MAT';
                         if (item.tipo_item === 'INSUMO') {
-                           if (item.categoria === 'MAO_OBRA') laborCost = item.custo_total_item;
+                          const input = inputs.find(i => i.id === item.item_id);
+                          displayCategoria = (input?.categoria === 'MAO_OBRA') ? 'MO' : 'MAT';
                         } else {
-                           const subS = services.find(s => s.id === item.item_id);
-                           if (subS && subS.custo_total > 0) {
-                             laborCost = (subS.custo_mao_obra / subS.custo_total) * item.custo_total_item;
-                           }
+                          // Para serviços, mostramos a proporção
+                          displayCategoria = 'MISTO';
                         }
 
                         return (
@@ -406,9 +404,8 @@ export default function ServiceEditor() {
                           <TableCell className="text-xs">{getItemUnit(item)}</TableCell>
                           <TableCell>{item.quantidade}</TableCell>
                           <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_unitario_snapshot)}</TableCell>
-                          <TableCell className="text-slate-500">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(laborCost)}</TableCell>
                           <TableCell className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_total_item)}</TableCell>
-                          <TableCell className="text-xs">{item.categoria === 'MAO_OBRA' ? 'MO' : 'MAT'}</TableCell>
+                          <TableCell className="text-xs">{displayCategoria}</TableCell>
                           <TableCell className="flex gap-1">
                              <Button variant="ghost" size="sm" onClick={() => handleEditItem(item)} className="text-blue-600">
                                 <Pencil className="h-4 w-4" />
@@ -448,7 +445,7 @@ export default function ServiceEditor() {
                                   <SelectTrigger><SelectValue /></SelectTrigger>
                                   <SelectContent>
                                      <SelectItem value="MATERIAL">Material</SelectItem>
-                                     <SelectItem value="MAO_DE_OBRA">Mão de Obra</SelectItem>
+                                     <SelectItem value="MAO_OBRA">Mão de Obra</SelectItem>
                                   </SelectContent>
                                </Select>
                             </div>

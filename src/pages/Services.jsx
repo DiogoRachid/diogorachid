@@ -158,9 +158,109 @@ export default function Services() {
       }
       
       toast.success(`${total} serviços recalculados com sucesso!`);
+      
+      // Criar log de versão automaticamente
+      await base44.entities.VersionHistory.create({
+        versao: new Date().toISOString().split('T')[0].replace(/-/g, '.'),
+        data_lancamento: new Date().toISOString().split('T')[0],
+        titulo: "Recálculo de Custos",
+        descricao: `Recálculo em massa de ${total} serviços`,
+        alteracoes: [{ tipo: "correcao", descricao: `${total} serviços recalculados` }],
+        status: "ativo"
+      });
+      
       refetch();
     } catch (e) {
       toast.error("Erro ao recalcular serviços");
+      console.error(e);
+    } finally {
+      setRecalculating(false);
+      setRecalcProgress({ current: 0, total: 0 });
+    }
+  };
+
+  const handleRecalculateSelected = async () => {
+    const count = selectedIds.size;
+    if (!confirm(`Recalcular ${count} serviços selecionados?`)) return;
+    
+    setRecalculating(true);
+    setRecalcProgress({ current: 0, total: count });
+    
+    try {
+      const idsArray = Array.from(selectedIds);
+      const selectedServices = services.filter(s => idsArray.includes(s.id));
+      
+      // Ordenar por nível de dependência
+      selectedServices.sort((a, b) => (a.nivel_max_dependencia || 0) - (b.nivel_max_dependencia || 0));
+      
+      for (let i = 0; i < selectedServices.length; i++) {
+        await Engine.recalculateService(selectedServices[i].id);
+        setRecalcProgress({ current: i + 1, total: count });
+      }
+      
+      toast.success(`${count} serviços recalculados!`);
+      
+      // Criar log de versão
+      await base44.entities.VersionHistory.create({
+        versao: new Date().toISOString().split('T')[0].replace(/-/g, '.'),
+        data_lancamento: new Date().toISOString().split('T')[0],
+        titulo: "Recálculo Seletivo",
+        descricao: `Recálculo de ${count} serviços selecionados`,
+        alteracoes: [{ tipo: "melhoria", descricao: `${count} serviços recalculados manualmente` }],
+        status: "ativo"
+      });
+      
+      setSelectedIds(new Set());
+      refetch();
+    } catch (e) {
+      toast.error("Erro ao recalcular");
+      console.error(e);
+    } finally {
+      setRecalculating(false);
+      setRecalcProgress({ current: 0, total: 0 });
+    }
+  };
+
+  const handleRecalculateZero = async () => {
+    setRecalculating(true);
+    
+    try {
+      const allServices = await Engine.fetchAll('Service');
+      const zeroServices = allServices.filter(s => !s.custo_total || s.custo_total === 0);
+      const count = zeroServices.length;
+      
+      if (count === 0) {
+        toast.info("Não há serviços com custo zerado");
+        return;
+      }
+      
+      if (!confirm(`Recalcular ${count} serviços com custo zerado?`)) return;
+      
+      setRecalcProgress({ current: 0, total: count });
+      
+      // Ordenar por nível
+      zeroServices.sort((a, b) => (a.nivel_max_dependencia || 0) - (b.nivel_max_dependencia || 0));
+      
+      for (let i = 0; i < zeroServices.length; i++) {
+        await Engine.recalculateService(zeroServices[i].id);
+        setRecalcProgress({ current: i + 1, total: count });
+      }
+      
+      toast.success(`${count} serviços zerados recalculados!`);
+      
+      // Criar log de versão
+      await base44.entities.VersionHistory.create({
+        versao: new Date().toISOString().split('T')[0].replace(/-/g, '.'),
+        data_lancamento: new Date().toISOString().split('T')[0],
+        titulo: "Recálculo de Serviços Zerados",
+        descricao: `Recálculo de ${count} serviços com custo zerado`,
+        alteracoes: [{ tipo: "correcao", descricao: `${count} serviços zerados recalculados` }],
+        status: "ativo"
+      });
+      
+      refetch();
+    } catch (e) {
+      toast.error("Erro ao recalcular");
       console.error(e);
     } finally {
       setRecalculating(false);
@@ -276,6 +376,32 @@ export default function Services() {
                 <>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Recalcular Todos
+                </>
+              )}
+          </Button>
+          <Button variant="outline" onClick={handleRecalculateSelected} disabled={recalculating || selectedIds.size === 0}>
+              {recalculating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Recalcular Selecionados ({selectedIds.size})
+                </>
+              )}
+          </Button>
+          <Button variant="outline" onClick={handleRecalculateZero} disabled={recalculating}>
+              {recalculating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Recalcular Zerados
                 </>
               )}
           </Button>

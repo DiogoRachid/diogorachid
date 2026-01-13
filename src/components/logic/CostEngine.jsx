@@ -166,10 +166,27 @@ export const recalculateCosts = async (
       // Calc Total for Item
       const totalItem = unitCost * comp.quantidade;
       
-      // Accumulate
+      // Accumulate - CORRIGIDO: usar categoria do ServiceItem, não tipo_custo
       total += totalItem;
-      if (comp.tipo_custo === 'MATERIAL') mat += totalItem;
-      else labor += totalItem;
+      
+      // Para insumos diretos, usar a categoria do próprio item
+      if (comp.tipo_item === 'INSUMO') {
+        const input = inputMap.get(comp.item_id);
+        const categoria = input?.categoria || 'MATERIAL';
+        if (categoria === 'MATERIAL') mat += totalItem;
+        else labor += totalItem;
+      } else {
+        // Para serviços filhos, proporcionalizar os custos
+        const subService = serviceMap.get(comp.item_id);
+        if (subService && subService.custo_total > 0) {
+          const matProp = subService.custo_material / subService.custo_total;
+          const labProp = subService.custo_mao_obra / subService.custo_total;
+          mat += totalItem * matProp;
+          labor += totalItem * labProp;
+        } else {
+          mat += totalItem; // Fallback
+        }
+      }
 
       // Prepare Composition Snapshot Update if changed
       // We compare with existing fields
