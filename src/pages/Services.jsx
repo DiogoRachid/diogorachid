@@ -159,16 +159,6 @@ export default function Services() {
       
       toast.success(`${total} serviços recalculados com sucesso!`);
       
-      // Criar log de versão automaticamente
-      await base44.entities.VersionHistory.create({
-        versao: new Date().toISOString().split('T')[0].replace(/-/g, '.'),
-        data_lancamento: new Date().toISOString().split('T')[0],
-        titulo: "Recálculo de Custos",
-        descricao: `Recálculo em massa de ${total} serviços`,
-        alteracoes: [{ tipo: "correcao", descricao: `${total} serviços recalculados` }],
-        status: "ativo"
-      });
-      
       refetch();
     } catch (e) {
       toast.error("Erro ao recalcular serviços");
@@ -199,16 +189,6 @@ export default function Services() {
       }
       
       toast.success(`${count} serviços recalculados!`);
-      
-      // Criar log de versão
-      await base44.entities.VersionHistory.create({
-        versao: new Date().toISOString().split('T')[0].replace(/-/g, '.'),
-        data_lancamento: new Date().toISOString().split('T')[0],
-        titulo: "Recálculo Seletivo",
-        descricao: `Recálculo de ${count} serviços selecionados`,
-        alteracoes: [{ tipo: "melhoria", descricao: `${count} serviços recalculados manualmente` }],
-        status: "ativo"
-      });
       
       setSelectedIds(new Set());
       refetch();
@@ -247,16 +227,6 @@ export default function Services() {
       }
       
       toast.success(`${count} serviços zerados recalculados!`);
-      
-      // Criar log de versão
-      await base44.entities.VersionHistory.create({
-        versao: new Date().toISOString().split('T')[0].replace(/-/g, '.'),
-        data_lancamento: new Date().toISOString().split('T')[0],
-        titulo: "Recálculo de Serviços Zerados",
-        descricao: `Recálculo de ${count} serviços com custo zerado`,
-        alteracoes: [{ tipo: "correcao", descricao: `${count} serviços zerados recalculados` }],
-        status: "ativo"
-      });
       
       refetch();
     } catch (e) {
