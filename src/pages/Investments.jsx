@@ -38,9 +38,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { fetchEconomicIndicators } from '@/components/investments/QuoteService';
-import BatchUpdateQuotesDialog from '@/components/investments/BatchUpdateQuotesDialog';
 import {
   PieChart,
   Pie,
@@ -56,6 +65,7 @@ import {
 import { Calendar as CalendarIcon, Save } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import BatchUpdateQuotesDialog from '@/components/investments/BatchUpdateQuotesDialog';
 
 const CATEGORY_CONFIG = {
   renda_fixa: { label: 'Renda Fixa', icon: PiggyBank, color: 'bg-blue-500' },
