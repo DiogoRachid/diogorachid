@@ -137,151 +137,64 @@ export default function Services() {
   };
 
   const handleRecalculateAll = async () => {
-    if (!confirm('Recalcular TODOS os custos de serviços? Isso pode demorar alguns minutos.')) return;
+    if (!confirm('Adicionar TODOS os serviços à fila de recálculo? O processamento será feito em segundo plano.')) return;
     
     setRecalculating(true);
-    setRecalcProgress({ current: 0, total: 0 });
     
     try {
-      // Buscar todos os serviços
       const allServices = await Engine.fetchAll('Service');
       const total = allServices.length;
-      setRecalcProgress({ current: 0, total });
       
-      // Ordenar por nível de dependência (bottom-up)
-      allServices.sort((a, b) => (a.nivel_max_dependencia || 0) - (b.nivel_max_dependencia || 0));
-      
-      // Processar em lotes de 5 serviços
-      const BATCH_SIZE = 5;
-      const DELAY_BETWEEN_BATCHES = 5000; // 5 segundos
-      const RATE_LIMIT_DELAY = 20000; // 20 segundos
-      
-      for (let i = 0; i < allServices.length; i += BATCH_SIZE) {
-        const batch = allServices.slice(i, Math.min(i + BATCH_SIZE, allServices.length));
-        
-        // Processar sequencialmente cada item do lote
-        for (const service of batch) {
-          try {
-            await Engine.recalculateService(service.id);
-            setRecalcProgress({ current: i + batch.indexOf(service) + 1, total });
-          } catch (error) {
-            // Verificar se é rate limit
-            if (error.message?.includes('rate limit') || error.status === 429) {
-              toast.warning('Aguardando rate limit (20s)...');
-              await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
-              // Tentar novamente
-              await Engine.recalculateService(service.id);
-              setRecalcProgress({ current: i + batch.indexOf(service) + 1, total });
-            } else {
-              console.error('Erro ao recalcular serviço', service.id, error);
-            }
-          }
-        }
-        
-        // Aguardar 5 segundos entre lotes (exceto no último)
-        if (i + BATCH_SIZE < allServices.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
-        }
+      // Adicionar todos os serviços à fila de recálculo
+      for (const service of allServices) {
+        await base44.entities.RecalculationQueue.create({
+          service_id: service.id,
+          priority: service.nivel_max_dependencia || 0,
+          status: 'pending'
+        });
       }
       
-      toast.success(`${total} serviços recalculados com sucesso!`);
+      toast.success(`${total} serviços adicionados à fila! A automação processará em segundo plano.`);
       
       refetch();
     } catch (e) {
-      toast.error("Erro ao recalcular serviços");
+      toast.error("Erro ao adicionar à fila");
       console.error(e);
     } finally {
       setRecalculating(false);
-      setRecalcProgress({ current: 0, total: 0 });
     }
   };
 
   const handleRecalculateSelected = async () => {
     const count = selectedIds.size;
-    if (!confirm(`Recalcular ${count} serviços selecionados e suas composições?`)) return;
+    if (!confirm(`Adicionar ${count} serviços selecionados à fila de recálculo?`)) return;
     
     setRecalculating(true);
-    setRecalcProgress({ current: 0, total: count });
     
     try {
-      // Buscar todos os serviços para ter acesso às composições
       const allServices = await Engine.fetchAll('Service');
-      const allServiceItems = await Engine.fetchAll('ServiceItem');
       
-      // Função para buscar recursivamente todos os serviços que compõem um serviço
-      const getCompositionServices = (serviceId, visited = new Set()) => {
-        if (visited.has(serviceId)) return visited;
-        visited.add(serviceId);
-        
-        // Buscar itens que compõem este serviço
-        const items = allServiceItems.filter(item => item.servico_id === serviceId && item.tipo === 'servico');
-        
-        // Para cada serviço que compõe este, buscar recursivamente
-        items.forEach(item => {
-          getCompositionServices(item.item_id, visited);
-        });
-        
-        return visited;
-      };
-      
-      // Coletar todos os serviços selecionados e suas composições
-      const allServiceIds = new Set();
-      Array.from(selectedIds).forEach(id => {
-        const compositionIds = getCompositionServices(id);
-        compositionIds.forEach(cid => allServiceIds.add(cid));
-      });
-      
-      // Buscar os objetos completos e ordenar por nível
-      const servicesToRecalc = allServices
-        .filter(s => allServiceIds.has(s.id))
-        .sort((a, b) => (a.nivel_max_dependencia || 0) - (b.nivel_max_dependencia || 0));
-      
-      const total = servicesToRecalc.length;
-      setRecalcProgress({ current: 0, total });
-      
-      // Processar em lotes de 5 serviços
-      const BATCH_SIZE = 5;
-      const DELAY_BETWEEN_BATCHES = 5000; // 5 segundos
-      const RATE_LIMIT_DELAY = 20000; // 20 segundos
-      
-      for (let i = 0; i < servicesToRecalc.length; i += BATCH_SIZE) {
-        const batch = servicesToRecalc.slice(i, Math.min(i + BATCH_SIZE, servicesToRecalc.length));
-        
-        // Processar sequencialmente cada item do lote
-        for (const service of batch) {
-          try {
-            await Engine.recalculateService(service.id);
-            setRecalcProgress({ current: i + batch.indexOf(service) + 1, total });
-          } catch (error) {
-            // Verificar se é rate limit
-            if (error.message?.includes('rate limit') || error.status === 429) {
-              toast.warning('Aguardando rate limit (20s)...');
-              await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
-              // Tentar novamente
-              await Engine.recalculateService(service.id);
-              setRecalcProgress({ current: i + batch.indexOf(service) + 1, total });
-            } else {
-              console.error('Erro ao recalcular serviço', service.id, error);
-            }
-          }
-        }
-        
-        // Aguardar 5 segundos entre lotes (exceto no último)
-        if (i + BATCH_SIZE < servicesToRecalc.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+      // Adicionar serviços selecionados à fila
+      for (const serviceId of selectedIds) {
+        const service = allServices.find(s => s.id === serviceId);
+        if (service) {
+          await base44.entities.RecalculationQueue.create({
+            service_id: service.id,
+            priority: service.nivel_max_dependencia || 0,
+            status: 'pending'
+          });
         }
       }
       
-      toast.success(`${total} serviços recalculados (incluindo composições)!`);
+      toast.success(`${count} serviços adicionados à fila! A automação processará em segundo plano.`);
       
       setSelectedIds(new Set());
       refetch();
     } catch (e) {
-      toast.error("Erro ao recalcular");
+      toast.error("Erro ao adicionar à fila");
       console.error(e);
     } finally {
       setRecalculating(false);
-      setRecalcProgress({ current: 0, total: 0 });
     }
   };
 
@@ -299,58 +212,28 @@ export default function Services() {
         return;
       }
       
-      if (!confirm(`Recalcular ${count} serviços com custo zerado?`)) {
+      if (!confirm(`Adicionar ${count} serviços zerados à fila de recálculo?`)) {
         setRecalculating(false);
         return;
       }
       
-      setRecalcProgress({ current: 0, total: count });
-      
-      // Ordenar por nível
-      zeroServices.sort((a, b) => (a.nivel_max_dependencia || 0) - (b.nivel_max_dependencia || 0));
-      
-      // Processar em lotes de 5 serviços
-      const BATCH_SIZE = 5;
-      const DELAY_BETWEEN_BATCHES = 5000; // 5 segundos
-      const RATE_LIMIT_DELAY = 20000; // 20 segundos
-      
-      for (let i = 0; i < zeroServices.length; i += BATCH_SIZE) {
-        const batch = zeroServices.slice(i, Math.min(i + BATCH_SIZE, zeroServices.length));
-        
-        // Processar sequencialmente cada item do lote
-        for (const service of batch) {
-          try {
-            await Engine.recalculateService(service.id);
-            setRecalcProgress({ current: i + batch.indexOf(service) + 1, total: count });
-          } catch (error) {
-            // Verificar se é rate limit
-            if (error.message?.includes('rate limit') || error.status === 429) {
-              toast.warning('Aguardando rate limit (20s)...');
-              await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
-              // Tentar novamente
-              await Engine.recalculateService(service.id);
-              setRecalcProgress({ current: i + batch.indexOf(service) + 1, total: count });
-            } else {
-              console.error('Erro ao recalcular serviço', service.id, error);
-            }
-          }
-        }
-        
-        // Aguardar 5 segundos entre lotes (exceto no último)
-        if (i + BATCH_SIZE < zeroServices.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
-        }
+      // Adicionar serviços zerados à fila
+      for (const service of zeroServices) {
+        await base44.entities.RecalculationQueue.create({
+          service_id: service.id,
+          priority: service.nivel_max_dependencia || 0,
+          status: 'pending'
+        });
       }
       
-      toast.success(`${count} serviços zerados recalculados!`);
+      toast.success(`${count} serviços zerados adicionados à fila! A automação processará em segundo plano.`);
       
       refetch();
     } catch (e) {
-      toast.error("Erro ao recalcular");
+      toast.error("Erro ao adicionar à fila");
       console.error(e);
     } finally {
       setRecalculating(false);
-      setRecalcProgress({ current: 0, total: 0 });
     }
   };
 
