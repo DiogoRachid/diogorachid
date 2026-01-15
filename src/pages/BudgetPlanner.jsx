@@ -26,8 +26,6 @@ export default function BudgetPlanner() {
   const queryClient = useQueryClient();
 
   const [duracao_meses, setDuracaoMeses] = useState(12);
-  const [s_param, setSParam] = useState(2);
-  const [i_param, setIParam] = useState(50);
   const [num_equipes, setNumEquipes] = useState(0);
   const [num_equipes_sugerido, setNumEquipesSugerido] = useState(0);
   const [curvaS, setCurvaS] = useState([]);
@@ -51,23 +49,30 @@ export default function BudgetPlanner() {
 
   const { data: stages = [] } = useQuery({
     queryKey: ['stages', budgetId],
-    queryFn: () => base44.entities.ProjectStage.filter({ orcamento_id: budgetId }),
+    queryFn: () => base44.entities.BudgetStage.filter({ orcamento_id: budgetId }),
     enabled: !!budgetId
   });
 
-  // Calcular Curva S
+  // Calcular Curva S com fórmula correta
   const calcularCurvaS = () => {
-    const n = duracao_meses;
-    const s = s_param;
-    const u = Math.log(1 / (1 - (i_param / 100))) / Math.log(n);
+    const periodos_totais = duracao_meses;
+    const s = 2; // fixo
+    const i = 0.50; // 50% do período total
     
     const dados = [];
-    for (let t = 1; t <= n; t++) {
-      const y = 1 - Math.pow(1 - Math.pow(t / n, u), s);
+    for (let t = 1; t <= periodos_totais; t++) {
+      const n = t / periodos_totais; // período atual / períodos totais
+      
+      // Fórmula correta: Y = 1 / (1 + ((n / i) ^ s))
+      const y = 1 / (1 + Math.pow(n / i, -s));
+      
+      const percAcumulado = y * 100;
+      const percIdeal = (t / periodos_totais) * 100;
+      
       dados.push({
         mes: t,
-        avanço_real: Math.round(y * 100 * 100) / 100,
-        avanço_ideal: Math.round((t / n) * 100 * 100) / 100
+        avanço_real: Math.round(percAcumulado * 100) / 100,
+        avanço_ideal: Math.round(percIdeal * 100) / 100
       });
     }
     setCurvaS(dados);
@@ -235,7 +240,7 @@ export default function BudgetPlanner() {
 
   useEffect(() => {
     calcularCurvaS();
-  }, [duracao_meses, s_param, i_param]);
+  }, [duracao_meses]);
 
   useEffect(() => {
     calcularCronogramaFinanceiro();
@@ -266,25 +271,33 @@ export default function BudgetPlanner() {
   };
 
   const handleCriarEtapasPadrao = async () => {
-    const etapasPadrao = [
-      { nome: 'Fundação', ordem: 1, duracao_meses: duracao_meses * 0.15, dependencias: [] },
-      { nome: 'Estrutura', ordem: 2, duracao_meses: duracao_meses * 0.25, dependencias: [] },
-      { nome: 'Elétrica', ordem: 3, duracao_meses: duracao_meses * 0.15, dependencias: [] },
-      { nome: 'Hidráulica', ordem: 4, duracao_meses: duracao_meses * 0.15, dependencias: [] },
-      { nome: 'Fechamentos', ordem: 5, duracao_meses: duracao_meses * 0.15, dependencias: [] },
-      { nome: 'Acabamentos', ordem: 6, duracao_meses: duracao_meses * 0.10, dependencias: [] },
-      { nome: 'Limpeza Final', ordem: 7, duracao_meses: duracao_meses * 0.05, dependencias: [] }
-    ];
+    // Buscar etapas cadastradas no sistema (BudgetStage genéricas)
+    const budgetStages = await base44.entities.BudgetStage.list();
+    
+    if (budgetStages.length === 0) {
+      toast.error('Nenhuma etapa padrão cadastrada no sistema. Cadastre etapas em Orçamentos primeiro.');
+      return;
+    }
 
     try {
-      for (const etapa of etapasPadrao) {
+      // Distribuir duração proporcionalmente
+      const totalPeso = budgetStages.reduce((sum, s) => sum + (s.ordem || 1), 0);
+      
+      for (const etapa of budgetStages) {
+        const duracaoEstimada = (duracao_meses * (etapa.ordem || 1)) / totalPeso;
+        
         await base44.entities.ProjectStage.create({
           orcamento_id: budgetId,
-          ...etapa
+          nome: etapa.nome,
+          descricao: etapa.descricao,
+          ordem: etapa.ordem,
+          duracao_meses: Math.round(duracaoEstimada * 100) / 100,
+          dependencias: []
         });
       }
-      toast.success('Etapas padrão criadas!');
-      window.location.reload();
+      
+      queryClient.invalidateQueries(['stages']);
+      toast.success(`${budgetStages.length} etapas criadas baseadas no cadastro!`);
     } catch (e) {
       toast.error('Erro ao criar etapas');
       console.error(e);
@@ -353,34 +366,24 @@ export default function BudgetPlanner() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label>Duração (meses)</Label>
+                  <Label>Duração Total (meses)</Label>
                   <Input 
                     type="number" 
                     value={duracao_meses} 
                     onChange={e => setDuracaoMeses(parseInt(e.target.value) || 1)}
                     min="1"
                   />
+                  <p className="text-xs text-slate-500 mt-1">Prazo total da obra</p>
                 </div>
-                <div>
-                  <Label>Coeficiente S</Label>
-                  <Input 
-                    type="number" 
-                    step="0.1"
-                    value={s_param} 
-                    onChange={e => setSParam(parseFloat(e.target.value) || 2)}
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Recomendado: 2.0</p>
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <Label className="text-slate-600">Coeficiente S</Label>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">2.0</p>
+                  <p className="text-xs text-slate-500 mt-1">Valor fixo padrão</p>
                 </div>
-                <div>
-                  <Label>Inflexão i% (%)</Label>
-                  <Input 
-                    type="number" 
-                    value={i_param} 
-                    onChange={e => setIParam(parseFloat(e.target.value) || 50)}
-                    min="0"
-                    max="100"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Recomendado: 50%</p>
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <Label className="text-slate-600">Inflexão i</Label>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">50%</p>
+                  <p className="text-xs text-slate-500 mt-1">Ponto médio padrão</p>
                 </div>
               </div>
             </CardContent>
