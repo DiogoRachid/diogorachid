@@ -126,8 +126,9 @@ export const recalculateService = async (serviceId, forceUpdate = false) => {
         else custoMaterial += totalItem;
       }
     }
+  }
 
-      const custoTotal = custoMaterial + custoMaoObra;
+  const custoTotal = custoMaterial + custoMaoObra;
 
       // Calcular data_base baseada no insumo mais antigo
       let dataBaseMaisAntiga = null;
