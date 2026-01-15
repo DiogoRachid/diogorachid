@@ -44,6 +44,7 @@ export default function Transactions() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
   const [newTransaction, setNewTransaction] = useState({
     tipo: 'saida',
     descricao: '',
@@ -57,20 +58,12 @@ export default function Transactions() {
     centro_custo_nome: ''
   });
 
-  // Atualizar descrição padrão quando tipo mudar para transferência
-  useEffect(() => {
-    if (newTransaction.tipo === 'transferencia' && !newTransaction.descricao) {
-      setNewTransaction(prev => ({ ...prev, descricao: 'Transferência' }));
-    }
-  }, [newTransaction.tipo]);
   const queryClient = useQueryClient();
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => base44.entities.Transaction.list('-data', 100)
   });
-
-  const [editingTransaction, setEditingTransaction] = useState(null);
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Transaction.delete(id),
@@ -340,7 +333,11 @@ export default function Transactions() {
         subtitle="Histórico de movimentações financeiras"
         icon={Receipt}
         actionLabel="Nova Transação"
-        onAction={() => setShowNewDialog(true)}
+        onAction={() => {
+          setEditingTransaction(null);
+          resetForm();
+          setShowNewDialog(true);
+        }}
       />
 
       {/* Resumo */}
