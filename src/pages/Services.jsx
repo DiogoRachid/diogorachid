@@ -171,24 +171,53 @@ export default function Services() {
 
   const handleRecalculateSelected = async () => {
     const count = selectedIds.size;
-    if (!confirm(`Recalcular ${count} serviços selecionados?`)) return;
+    if (!confirm(`Recalcular ${count} serviços selecionados e suas composições?`)) return;
     
     setRecalculating(true);
     setRecalcProgress({ current: 0, total: count });
     
     try {
-      const idsArray = Array.from(selectedIds);
-      const selectedServices = services.filter(s => idsArray.includes(s.id));
+      // Buscar todos os serviços para ter acesso às composições
+      const allServices = await Engine.fetchAll('Service');
+      const allServiceItems = await Engine.fetchAll('ServiceItem');
       
-      // Ordenar por nível de dependência
-      selectedServices.sort((a, b) => (a.nivel_max_dependencia || 0) - (b.nivel_max_dependencia || 0));
+      // Função para buscar recursivamente todos os serviços que compõem um serviço
+      const getCompositionServices = (serviceId, visited = new Set()) => {
+        if (visited.has(serviceId)) return visited;
+        visited.add(serviceId);
+        
+        // Buscar itens que compõem este serviço
+        const items = allServiceItems.filter(item => item.servico_id === serviceId && item.tipo === 'servico');
+        
+        // Para cada serviço que compõe este, buscar recursivamente
+        items.forEach(item => {
+          getCompositionServices(item.item_id, visited);
+        });
+        
+        return visited;
+      };
       
-      for (let i = 0; i < selectedServices.length; i++) {
-        await Engine.recalculateService(selectedServices[i].id);
-        setRecalcProgress({ current: i + 1, total: count });
+      // Coletar todos os serviços selecionados e suas composições
+      const allServiceIds = new Set();
+      Array.from(selectedIds).forEach(id => {
+        const compositionIds = getCompositionServices(id);
+        compositionIds.forEach(cid => allServiceIds.add(cid));
+      });
+      
+      // Buscar os objetos completos e ordenar por nível
+      const servicesToRecalc = allServices
+        .filter(s => allServiceIds.has(s.id))
+        .sort((a, b) => (a.nivel_max_dependencia || 0) - (b.nivel_max_dependencia || 0));
+      
+      const total = servicesToRecalc.length;
+      setRecalcProgress({ current: 0, total });
+      
+      for (let i = 0; i < servicesToRecalc.length; i++) {
+        await Engine.recalculateService(servicesToRecalc[i].id);
+        setRecalcProgress({ current: i + 1, total });
       }
       
-      toast.success(`${count} serviços recalculados!`);
+      toast.success(`${total} serviços recalculados (incluindo composições)!`);
       
       setSelectedIds(new Set());
       refetch();
