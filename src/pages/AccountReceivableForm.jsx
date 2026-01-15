@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tantml:react-query';
+import { toast } from "sonner";
 import { createPageUrl } from '@/utils';
 import { ArrowUpCircle, Loader2, Plus, X } from 'lucide-react';
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,6 +25,7 @@ export default function AccountReceivableForm() {
   const accountId = urlParams.get('id');
   const clientId = urlParams.get('client');
   const isEdit = !!accountId;
+  const queryClient = useQueryClient();
 
   const today = new Date().toISOString().split('T')[0];
   
@@ -104,9 +106,9 @@ export default function AccountReceivableForm() {
   }, [account]);
 
   useEffect(() => {
-    if (clientId && clients.length) {
+    if (clientId && clients.length && !isEdit && !account) {
       const client = clients.find(c => c.id === clientId);
-      if (client) {
+      if (client && !formData.cliente_id) {
         setFormData(prev => ({
           ...prev,
           cliente_id: clientId,
@@ -114,11 +116,11 @@ export default function AccountReceivableForm() {
         }));
       }
     }
-  }, [clientId, clients]);
+  }, [clientId, clients, isEdit, account]);
 
-  // Definir conta padrão Itaú Empresas
+  // Definir conta padrão Itaú Empresas - somente ao carregar, não ao editar
   useEffect(() => {
-    if (bankAccounts.length && !formData.conta_bancaria_id) {
+    if (bankAccounts.length && !formData.conta_bancaria_id && !isEdit && !account) {
       const itau = bankAccounts.find(acc => acc.nome?.toLowerCase().includes('itaú empresas') || acc.nome?.toLowerCase().includes('itau empresas'));
       if (itau) {
         setFormData(prev => ({
@@ -128,7 +130,7 @@ export default function AccountReceivableForm() {
         }));
       }
     }
-  }, [bankAccounts]);
+  }, [bankAccounts, isEdit, account]);
 
   // Ajustar data para dia útil (evitar sábado/domingo)
   const adjustToBusinessDay = (dateStr) => {
@@ -192,7 +194,15 @@ export default function AccountReceivableForm() {
       }
     },
     onSuccess: () => {
-      window.location.href = createPageUrl('AccountsReceivable');
+      queryClient.invalidateQueries({ queryKey: ['accountsReceivable'] });
+      toast.success(isInstallment && !isEdit ? 'Parcelas cadastradas com sucesso' : isEdit ? 'Conta atualizada' : 'Conta cadastrada');
+      setTimeout(() => {
+        window.location.href = createPageUrl('AccountsReceivable');
+      }, 500);
+    },
+    onError: (error) => {
+      console.error('Erro ao salvar:', error);
+      toast.error('Erro ao salvar conta');
     }
   });
 

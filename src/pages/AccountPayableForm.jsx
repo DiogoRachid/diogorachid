@@ -24,6 +24,7 @@ export default function AccountPayableForm() {
   const accountId = urlParams.get('id');
   const supplierId = urlParams.get('supplier');
   const isEdit = !!accountId;
+  const queryClient = useQueryClient();
 
   const today = new Date().toISOString().split('T')[0];
   
@@ -104,9 +105,9 @@ export default function AccountPayableForm() {
   }, [account]);
 
   useEffect(() => {
-    if (supplierId && suppliers.length) {
+    if (supplierId && suppliers.length && !isEdit && !account) {
       const supplier = suppliers.find(s => s.id === supplierId);
-      if (supplier) {
+      if (supplier && !formData.fornecedor_id) {
         setFormData(prev => ({
           ...prev,
           fornecedor_id: supplierId,
@@ -114,11 +115,11 @@ export default function AccountPayableForm() {
         }));
       }
     }
-  }, [supplierId, suppliers]);
+  }, [supplierId, suppliers, isEdit, account]);
 
-  // Definir conta padrão Itaú Empresas
+  // Definir conta padrão Itaú Empresas - somente ao carregar, não ao editar
   useEffect(() => {
-    if (bankAccounts.length && !formData.conta_bancaria_id) {
+    if (bankAccounts.length && !formData.conta_bancaria_id && !isEdit && !account) {
       const itau = bankAccounts.find(acc => acc.nome?.toLowerCase().includes('itaú empresas') || acc.nome?.toLowerCase().includes('itau empresas'));
       if (itau) {
         setFormData(prev => ({
@@ -128,7 +129,7 @@ export default function AccountPayableForm() {
         }));
       }
     }
-  }, [bankAccounts]);
+  }, [bankAccounts, isEdit, account]);
 
   // Ajustar data para dia útil (evitar sábado/domingo)
   const adjustToBusinessDay = (dateStr) => {
@@ -192,8 +193,11 @@ export default function AccountPayableForm() {
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accountsPayable'] });
       toast.success(isInstallment && !isEdit ? 'Parcelas cadastradas com sucesso' : isEdit ? 'Conta atualizada' : 'Conta cadastrada');
-      window.location.href = createPageUrl('AccountsPayable');
+      setTimeout(() => {
+        window.location.href = createPageUrl('AccountsPayable');
+      }, 500);
     },
     onError: (error) => {
       console.error('Erro ao salvar:', error);
