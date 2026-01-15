@@ -125,7 +125,12 @@ export default function AccountsPayable() {
     mutationFn: (id) => base44.entities.AccountPayable.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accountsPayable'] });
+      toast.success('Conta excluída');
       setDeleteId(null);
+    },
+    onError: (error) => {
+      console.error('Erro ao excluir:', error);
+      toast.error('Erro ao excluir conta');
     }
   });
 
@@ -164,7 +169,12 @@ export default function AccountsPayable() {
       queryClient.invalidateQueries({ queryKey: ['accountsPayable'] });
       queryClient.invalidateQueries({ queryKey: ['bankAccounts'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast.success('Pagamento efetuado');
       setPaymentDialog(null);
+    },
+    onError: (error) => {
+      console.error('Erro ao efetuar pagamento:', error);
+      toast.error('Erro ao efetuar pagamento');
     }
   });
 
@@ -576,6 +586,7 @@ export default function AccountsPayable() {
               disabled={payMutation.isPending}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
+              {payMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Confirmar Pagamento
             </Button>
           </DialogFooter>

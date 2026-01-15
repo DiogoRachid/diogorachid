@@ -192,7 +192,12 @@ export default function AccountPayableForm() {
       }
     },
     onSuccess: () => {
+      toast.success(isInstallment && !isEdit ? 'Parcelas cadastradas com sucesso' : isEdit ? 'Conta atualizada' : 'Conta cadastrada');
       window.location.href = createPageUrl('AccountsPayable');
+    },
+    onError: (error) => {
+      console.error('Erro ao salvar:', error);
+      toast.error('Erro ao salvar conta');
     }
   });
 

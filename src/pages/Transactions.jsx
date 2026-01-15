@@ -77,6 +77,10 @@ export default function Transactions() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       toast.success('Transação excluída');
+    },
+    onError: (error) => {
+      console.error('Erro ao excluir:', error);
+      toast.error('Erro ao excluir transação');
     }
   });
 
@@ -92,10 +96,14 @@ export default function Transactions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast.success('Transação atualizada');
       setShowNewDialog(false);
       setEditingTransaction(null);
       resetForm();
-      toast.success('Transação atualizada');
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar transação:', error);
+      toast.error('Erro ao atualizar transação');
     }
   });
 
@@ -115,6 +123,10 @@ export default function Transactions() {
   };
 
   const handleEdit = (transaction) => {
+      if (transaction.origem === 'baixa_automatica') {
+        toast.error('Não é possível editar transações geradas automaticamente');
+        return;
+      }
       setEditingTransaction(transaction);
       setNewTransaction({
           tipo: transaction.tipo,
@@ -175,19 +187,14 @@ export default function Transactions() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['bankAccounts'] });
+      toast.success('Transação cadastrada');
       setShowNewDialog(false);
-      setNewTransaction({
-        tipo: 'saida',
-        descricao: '',
-        valor: '',
-        data: format(new Date(), 'yyyy-MM-dd'),
-        conta_bancaria_id: '',
-        conta_bancaria_nome: '',
-        conta_destino_id: '',
-        conta_destino_nome: '',
-        centro_custo_id: '',
-        centro_custo_nome: ''
-      });
+      setEditingTransaction(null);
+      resetForm();
+    },
+    onError: (error) => {
+      console.error('Erro ao salvar transação:', error);
+      toast.error('Erro ao cadastrar transação');
     }
   });
 
@@ -417,10 +424,16 @@ export default function Transactions() {
       />
 
       {/* Dialog Nova Transação */}
-      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+      <Dialog open={showNewDialog} onOpenChange={(open) => {
+        setShowNewDialog(open);
+        if (!open) {
+          setEditingTransaction(null);
+          resetForm();
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Nova Transação Manual</DialogTitle>
+            <DialogTitle>{editingTransaction ? 'Editar Transação' : 'Nova Transação Manual'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -535,11 +548,21 @@ export default function Transactions() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowNewDialog(false);
+              setEditingTransaction(null);
+              resetForm();
+            }}>
               Cancelar
             </Button>
             <Button 
-              onClick={() => editingTransaction ? updateMutation.mutate(newTransaction) : createMutation.mutate(newTransaction)}
+              onClick={() => {
+                if (editingTransaction) {
+                  updateMutation.mutate(newTransaction);
+                } else {
+                  createMutation.mutate(newTransaction);
+                }
+              }}
               disabled={createMutation.isPending || updateMutation.isPending || !newTransaction.descricao || !newTransaction.valor}
               className="bg-blue-600 hover:bg-blue-700"
             >
