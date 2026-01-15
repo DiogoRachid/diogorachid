@@ -48,6 +48,7 @@ import TimeSheet from './pages/TimeSheet';
 import Transactions from './pages/Transactions';
 import VersionHistory from './pages/VersionHistory';
 import VersionHistoryForm from './pages/VersionHistoryForm';
+import BudgetPlanner from './pages/BudgetPlanner';
 import __Layout from './Layout.jsx';
 
 
@@ -102,6 +103,7 @@ export const PAGES = {
     "Transactions": Transactions,
     "VersionHistory": VersionHistory,
     "VersionHistoryForm": VersionHistoryForm,
+    "BudgetPlanner": BudgetPlanner,
 }
 
 export const pagesConfig = {
