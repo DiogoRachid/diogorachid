@@ -42,6 +42,7 @@ export default function ServiceEditor() {
   const [services, setServices] = useState([]);
   const [openCombobox, setOpenCombobox] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
   
   // Edit State
   const [editingItem, setEditingItem] = useState(null);
@@ -98,80 +99,106 @@ export default function ServiceEditor() {
   
   const handleAddItem = async () => {
     if (!serviceId) return toast.error("Salve o serviço antes de adicionar itens");
-    if (!newItem.id) return;
+    if (!newItem.id) return toast.error("Selecione um item");
+    if (isAdding) return; // Prevenir cliques duplos
 
-    // Verificar Duplicidade
-    if (items.some(i => i.item_id === newItem.id && i.tipo_item === newItem.type)) {
-      return toast.error("Este item já existe na composição.");
+    setIsAdding(true);
+    try {
+      // Verificar Duplicidade
+      if (items.some(i => i.item_id === newItem.id && i.tipo_item === newItem.type)) {
+        toast.error("Este item já existe na composição.");
+        return;
+      }
+
+      // PROMPT 4: BLOQUEIO CIRCULAR
+      if (newItem.type === 'SERVICO') {
+        const hasCycle = await Engine.checkCircularDependency(serviceId, newItem.id);
+        if (hasCycle) {
+          toast.error("Dependência circular não permitida.");
+          return;
+        }
+      }
+
+      // Get snapshot data
+      let unitCost = 0;
+      let selectedItem = null;
+      
+      if (newItem.type === 'INSUMO') {
+        selectedItem = inputs.find(x => x.id === newItem.id);
+        unitCost = selectedItem ? selectedItem.valor_unitario : 0;
+      } else {
+        selectedItem = services.find(x => x.id === newItem.id);
+        unitCost = selectedItem ? selectedItem.custo_total : 0;
+      }
+
+      const total = parseFloat(newItem.qtd) * unitCost;
+
+      const newItemCreated = await base44.entities.ServiceItem.create({
+        servico_id: serviceId,
+        tipo_item: newItem.type,
+        item_id: newItem.id,
+        quantidade: parseFloat(newItem.qtd),
+        categoria: newItem.cat,
+        ordem: items.length + 1,
+        custo_unitario_snapshot: unitCost,
+        custo_total_item: total
+      });
+
+      // Atualizar UI imediatamente (otimista)
+      setItems(prev => [...prev, newItemCreated].sort((a,b) => (a.ordem || 0) - (b.ordem || 0)));
+
+      // PROMPT 2 & 3: RECALCULAR E CASCATA
+      await Engine.recalculateService(serviceId, true);
+      await Engine.updateDependents('SERVICO', serviceId);
+
+      // Recarregar dados atualizados
+      const [its, s] = await Promise.all([
+        base44.entities.ServiceItem.filter({ servico_id: serviceId }),
+        base44.entities.Service.filter({ id: serviceId }).then(r => r[0])
+      ]);
+      
+      setItems(its.sort((a,b) => (a.ordem || 0) - (b.ordem || 0)));
+      setService(s);
+      
+      toast.success("Item adicionado");
+      setNewItem({ type: newItem.type, id: '', qtd: 1, cat: 'MATERIAL' });
+      setSearchQuery('');
+    } catch (error) {
+      console.error('Erro ao adicionar item:', error);
+      toast.error("Erro ao adicionar item");
+      // Recarregar em caso de erro
+      const its = await base44.entities.ServiceItem.filter({ servico_id: serviceId });
+      setItems(its.sort((a,b) => (a.ordem || 0) - (b.ordem || 0)));
+    } finally {
+      setIsAdding(false);
     }
-
-    // PROMPT 4: BLOQUEIO CIRCULAR
-    if (newItem.type === 'SERVICO') {
-      const hasCycle = await Engine.checkCircularDependency(serviceId, newItem.id);
-      if (hasCycle) return toast.error("Dependência circular não permitida.");
-    }
-
-    // Get snapshot data
-    let unitCost = 0;
-    let selectedItem = null;
-    
-    if (newItem.type === 'INSUMO') {
-      selectedItem = inputs.find(x => x.id === newItem.id);
-      unitCost = selectedItem ? selectedItem.valor_unitario : 0;
-    } else {
-      selectedItem = services.find(x => x.id === newItem.id);
-      unitCost = selectedItem ? selectedItem.custo_total : 0;
-    }
-
-    const total = newItem.qtd * unitCost;
-
-    await base44.entities.ServiceItem.create({
-      servico_id: serviceId,
-      tipo_item: newItem.type,
-      item_id: newItem.id,
-      quantidade: parseFloat(newItem.qtd),
-      categoria: newItem.cat,
-      ordem: items.length + 1,
-      custo_unitario_snapshot: unitCost,
-      custo_total_item: total
-    });
-
-    // PROMPT 2 & 3: RECALCULAR E CASCATA
-    const result = await Engine.recalculateService(serviceId, true);
-    await Engine.updateDependents('SERVICO', serviceId);
-
-    // Reload - pequeno delay para garantir commit no banco
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    const [its, s] = await Promise.all([
-      base44.entities.ServiceItem.filter({ servico_id: serviceId }),
-      base44.entities.Service.filter({ id: serviceId }).then(r => r[0])
-    ]);
-    
-    setItems(its.sort((a,b) => a.ordem - b.ordem));
-    setService(s);
-    
-    toast.success("Item adicionado e custos atualizados automaticamente");
-    setNewItem({ ...newItem, id: '', qtd: 1 });
-    setSearchQuery('');
   };
 
   const handleDeleteItem = async (itemId) => {
-    await base44.entities.ServiceItem.delete(itemId);
-    await Engine.recalculateService(serviceId, true);
-    await Engine.updateDependents('SERVICO', serviceId);
-    
-    // Reload
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    const [its, s] = await Promise.all([
-      base44.entities.ServiceItem.filter({ servico_id: serviceId }),
-      base44.entities.Service.filter({ id: serviceId }).then(r => r[0])
-    ]);
-    
-    setItems(its);
-    setService(s);
-    toast.success("Item removido e custos atualizados");
+    try {
+      // Atualizar UI imediatamente (otimista)
+      setItems(prev => prev.filter(i => i.id !== itemId));
+      
+      await base44.entities.ServiceItem.delete(itemId);
+      await Engine.recalculateService(serviceId, true);
+      await Engine.updateDependents('SERVICO', serviceId);
+      
+      // Recarregar dados atualizados
+      const [its, s] = await Promise.all([
+        base44.entities.ServiceItem.filter({ servico_id: serviceId }),
+        base44.entities.Service.filter({ id: serviceId }).then(r => r[0])
+      ]);
+      
+      setItems(its.sort((a,b) => (a.ordem || 0) - (b.ordem || 0)));
+      setService(s);
+      toast.success("Item removido");
+    } catch (error) {
+      console.error('Erro ao remover item:', error);
+      toast.error("Erro ao remover item");
+      // Recarregar em caso de erro
+      const its = await base44.entities.ServiceItem.filter({ servico_id: serviceId });
+      setItems(its.sort((a,b) => (a.ordem || 0) - (b.ordem || 0)));
+    }
   };
 
   // PROMPT 6: DESCRIÇÃO DIRETA (Helper para exibir)
@@ -376,7 +403,9 @@ export default function ServiceEditor() {
                         </SelectContent>
                     </Select>
                   </div>
-                  <Button onClick={handleAddItem}><Plus className="h-4 w-4"/></Button>
+                  <Button onClick={handleAddItem} disabled={isAdding}>
+                    {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4"/>}
+                  </Button>
                 </div>
 
                 <Table>
@@ -388,21 +417,39 @@ export default function ServiceEditor() {
                       <TableHead>Und</TableHead>
                       <TableHead>Qtd</TableHead>
                       <TableHead>Unit.</TableHead>
-                      <TableHead>Total</TableHead>
+                      <TableHead>Total Item</TableHead>
                       <TableHead>Cat</TableHead>
+                      <TableHead className="text-right">Mat</TableHead>
+                      <TableHead className="text-right">MO</TableHead>
                       <TableHead className="w-24">Ações</TableHead>
-                      </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                       {items.map(item => {
-                        // Determinar categoria para exibição
+                        // Determinar categoria e valores de MAT/MO
                         let displayCategoria = 'MAT';
+                        let custoMat = 0;
+                        let custoMO = 0;
+                        
                         if (item.tipo_item === 'INSUMO') {
                           const input = inputs.find(i => i.id === item.item_id);
                           displayCategoria = (input?.categoria === 'MAO_OBRA') ? 'MO' : 'MAT';
+                          
+                          if (input?.categoria === 'MAO_OBRA') {
+                            custoMO = item.custo_total_item || 0;
+                          } else {
+                            custoMat = item.custo_total_item || 0;
+                          }
                         } else {
-                          // Para serviços, mostramos a proporção
+                          // Para serviços, calcular proporção
                           displayCategoria = 'MISTO';
+                          const subService = services.find(s => s.id === item.item_id);
+                          if (subService && subService.custo_total > 0) {
+                            const matRatio = subService.custo_material / subService.custo_total;
+                            const moRatio = subService.custo_mao_obra / subService.custo_total;
+                            custoMat = (item.custo_total_item || 0) * matRatio;
+                            custoMO = (item.custo_total_item || 0) * moRatio;
+                          }
                         }
 
                         return (
@@ -412,9 +459,15 @@ export default function ServiceEditor() {
                           <TableCell className="text-sm max-w-[200px] truncate" title={getItemDesc(item)}>{getItemDesc(item)}</TableCell>
                           <TableCell className="text-xs">{getItemUnit(item)}</TableCell>
                           <TableCell>{item.quantidade}</TableCell>
-                          <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_unitario_snapshot)}</TableCell>
-                          <TableCell className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_total_item)}</TableCell>
+                          <TableCell>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_unitario_snapshot || 0)}</TableCell>
+                          <TableCell className="font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_total_item || 0)}</TableCell>
                           <TableCell className="text-xs">{displayCategoria}</TableCell>
+                          <TableCell className="text-right text-xs text-slate-600">
+                            {custoMat > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(custoMat) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right text-xs text-slate-600">
+                            {custoMO > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(custoMO) : '-'}
+                          </TableCell>
                           <TableCell className="flex gap-1">
                              <Button variant="ghost" size="sm" onClick={() => handleEditItem(item)} className="text-blue-600">
                                 <Pencil className="h-4 w-4" />

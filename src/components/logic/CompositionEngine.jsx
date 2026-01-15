@@ -130,21 +130,50 @@ export const recalculateService = async (serviceId, forceUpdate = false) => {
 
       const custoTotal = custoMaterial + custoMaoObra;
 
+      // Calcular data_base baseada no insumo mais antigo
+      let dataBaseMaisAntiga = null;
+      const parseDate = (str) => {
+        if (!str) return null;
+        const [mes, ano] = str.split('/');
+        if (!mes || !ano) return null;
+        return new Date(parseInt(ano), parseInt(mes) - 1, 1);
+      };
+
+      for (const item of items) {
+        if (item.tipo_item === 'INSUMO') {
+          const insumo = await base44.entities.Input.filter({ id: item.item_id }).then(r => r[0]);
+          if (insumo?.data_base) {
+            const dataItem = parseDate(insumo.data_base);
+            if (dataItem && (!dataBaseMaisAntiga || dataItem < dataBaseMaisAntiga)) {
+              dataBaseMaisAntiga = dataItem;
+            }
+          }
+        }
+      }
+
+      // Formatar data_base de volta para MM/YYYY
+      let dataBaseStr = null;
+      if (dataBaseMaisAntiga) {
+        const mes = String(dataBaseMaisAntiga.getMonth() + 1).padStart(2, '0');
+        const ano = dataBaseMaisAntiga.getFullYear();
+        dataBaseStr = `${mes}/${ano}`;
+      }
+
       // 6. Salvar no serviço - SEMPRE atualiza para garantir sincronização
       try {
         await base44.entities.Service.update(serviceId, {
           custo_material: custoMaterial,
           custo_mao_obra: custoMaoObra,
           custo_total: custoTotal,
-          nivel_max_dependencia: maxNivelDep
-          // data_base removido para não sobrescrever
+          nivel_max_dependencia: maxNivelDep,
+          data_base: dataBaseStr
         });
       } catch (e) {
         console.error('Erro ao atualizar serviço', serviceId, e);
         throw e;
       }
 
-  return { custo_total: custoTotal, custo_material: custoMaterial, custo_mao_obra: custoMaoObra };
+  return { custo_total: custoTotal, custo_material: custoMaterial, custo_mao_obra: custoMaoObra, data_base: dataBaseStr };
 };
 
 // --- PROMPT 3: ATUALIZAÇÃO EM CASCATA ---
