@@ -11,7 +11,8 @@ import {
   Loader2,
   Copy,
   FileText,
-  Printer
+  Printer,
+  Calendar
 } from 'lucide-react';
 import { printBudget } from '@/components/budgets/BudgetPrinter';
 import PageHeader from '@/components/ui/PageHeader';
@@ -106,6 +107,10 @@ export default function Budgets() {
             <DropdownMenuItem onClick={() => window.location.href = createPageUrl(`BudgetForm?id=${row.id}`)}>
               <Pencil className="h-4 w-4 mr-2" />
               Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.location.href = createPageUrl(`BudgetPlanner?id=${row.id}`)}>
+              <Calendar className="h-4 w-4 mr-2" />
+              Planejamento e Cronograma
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => printBudget(row.id)}>
               <Printer className="h-4 w-4 mr-2" />
