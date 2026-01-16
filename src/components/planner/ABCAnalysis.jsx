@@ -72,7 +72,7 @@ const classifyABC = (items) => {
   });
 };
 
-export default function ABCAnalysis({ items, services }) {
+export default function ABCAnalysis({ items, services, budget }) {
   const [inputAnalysisData, setInputAnalysisData] = useState([]);
   const [isLoadingInputs, setIsLoadingInputs] = useState(true);
 
@@ -100,10 +100,10 @@ export default function ABCAnalysis({ items, services }) {
             budgetItem.quantidade || 0
           );
           
-          // Agregar insumos
+          // Agregar insumos (evitar duplicação)
           itemInputs.forEach(input => {
-            const key = `${input.code}_${input.description}`;
-            
+            const key = `${input.id}_${input.code}`;
+
             if (!inputMap[key]) {
               inputMap[key] = {
                 id: input.id,
@@ -115,7 +115,7 @@ export default function ABCAnalysis({ items, services }) {
                 category: input.category
               };
             }
-            
+
             inputMap[key].value += input.value;
             inputMap[key].quantity += input.quantity;
           });
@@ -142,6 +142,9 @@ export default function ABCAnalysis({ items, services }) {
     const serviceMap = {};
     
     items.forEach(item => {
+      // Usar custo direto sem BDI
+      const custoDirecto = (item.custo_material || 0) + (item.custo_mao_obra || 0);
+      
       if (!serviceMap[item.servico_id]) {
         serviceMap[item.servico_id] = {
           id: item.servico_id,
@@ -152,7 +155,7 @@ export default function ABCAnalysis({ items, services }) {
           unit: item.unidade
         };
       }
-      serviceMap[item.servico_id].value += item.subtotal || 0;
+      serviceMap[item.servico_id].value += custoDirecto * (item.quantidade || 0);
       serviceMap[item.servico_id].quantity += item.quantidade || 0;
     });
     
@@ -172,15 +175,42 @@ export default function ABCAnalysis({ items, services }) {
     return {
       A: { count: analysis.filter(i => i.classification === 'A').length, value: stats.A, percent: (stats.A / totalValue) * 100 },
       B: { count: analysis.filter(i => i.classification === 'B').length, value: stats.B, percent: (stats.B / totalValue) * 100 },
-      C: { count: analysis.filter(i => i.classification === 'C').length, value: stats.C, percent: (stats.C / totalValue) * 100 }
+      C: { count: analysis.filter(i => i.classification === 'C').length, value: stats.C, percent: (stats.C / totalValue) * 100 },
+      total: totalValue
     };
   };
 
-  const renderAnalysisTable = (analysis, title) => {
+  const renderAnalysisTable = (analysis, title, showValidation = false) => {
     const stats = getClassificationStats(analysis);
     
     return (
       <div className="space-y-6">
+        {showValidation && budget && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Total Custo Direto (Orçamento)</p>
+                  <p className="text-lg font-bold text-slate-900">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(budget.total_direto || 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Total Soma ABC ({title})</p>
+                  <p className="text-lg font-bold text-slate-900">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.total)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Diferença</p>
+                  <p className={`text-lg font-bold ${Math.abs((budget.total_direto || 0) - stats.total) < 1 ? 'text-green-600' : 'text-orange-600'}`}>
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs((budget.total_direto || 0) - stats.total))}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <div className="grid grid-cols-3 gap-4">
           {['A', 'B', 'C'].map(classification => (
             <Card key={classification} className="border-l-4" style={{ borderLeftColor: COLORS_ABC[classification] }}>
@@ -260,7 +290,7 @@ export default function ABCAnalysis({ items, services }) {
       </TabsList>
       
       <TabsContent value="services" className="space-y-6">
-        {renderAnalysisTable(serviceAnalysis, 'Serviços')}
+        {renderAnalysisTable(serviceAnalysis, 'Serviços', true)}
       </TabsContent>
       
       <TabsContent value="inputs" className="space-y-6">
@@ -272,7 +302,7 @@ export default function ABCAnalysis({ items, services }) {
             </div>
           </div>
         ) : inputAnalysisData.length > 0 ? (
-          renderAnalysisTable(inputAnalysisData, 'Insumos')
+        renderAnalysisTable(inputAnalysisData, 'Insumos', true)
         ) : (
           <div className="flex items-center justify-center h-64">
             <p className="text-slate-500">Nenhum insumo encontrado</p>
