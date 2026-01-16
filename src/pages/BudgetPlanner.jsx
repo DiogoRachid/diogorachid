@@ -14,6 +14,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 import StageServiceDistribution from '@/components/planner/StageServiceDistribution';
+import BudgetStageManager from '@/components/planner/BudgetStageManager';
 
 const CORES_ABC = {
   A: '#ef4444',
@@ -764,6 +765,10 @@ export default function BudgetPlanner() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="config-etapas">
+          <BudgetStageManager />
         </TabsContent>
       </Tabs>
 
