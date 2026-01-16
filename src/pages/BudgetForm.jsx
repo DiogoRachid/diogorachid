@@ -82,7 +82,7 @@ import html2canvas from 'html2canvas';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
-const ServiceSelector = ({ services, onSelect }) => {
+const ServiceSelector = ({ services, onSelect, selectedServices = [] }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -98,32 +98,46 @@ const ServiceSelector = ({ services, onSelect }) => {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0" align="start">
+      <PopoverContent className="w-[500px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Buscar por nome ou código..." />
           <CommandList>
             <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
             <CommandGroup>
-              {services.map((service) => (
-                <CommandItem
-                  key={service.id}
-                  value={`${service.codigo} ${service.descricao}`}
-                  onSelect={() => {
-                    onSelect(service.id);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4 opacity-0"
-                    )}
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-medium">{service.descricao}</span>
-                    <span className="text-xs text-slate-500">{service.codigo} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.custo_total)}</span>
-                  </div>
-                </CommandItem>
-              ))}
+              {services.map((service) => {
+                const isSelected = selectedServices.includes(service.id);
+                return (
+                  <CommandItem
+                    key={service.id}
+                    value={`${service.codigo} ${service.descricao}`}
+                    onSelect={() => {
+                      onSelect(service.id);
+                      setOpen(false);
+                    }}
+                    className={isSelected ? 'bg-blue-50' : ''}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        isSelected ? "opacity-100 text-blue-600" : "opacity-0"
+                      )}
+                    />
+                    <div className="flex flex-col flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{service.descricao}</span>
+                        <span className="text-xs font-semibold text-blue-600 ml-2">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(service.custo_total)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">{service.codigo}</span>
+                        <span className="text-xs text-slate-400">•</span>
+                        <span className="text-xs text-slate-500">{service.unidade || 'UN'}</span>
+                      </div>
+                    </div>
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -151,6 +165,8 @@ export default function BudgetForm() {
   const [stages, setStages] = useState([]);
   const [items, setItems] = useState([]); // All items flat
   const [newStageName, setNewStageName] = useState('');
+  const [newSubStageName, setNewSubStageName] = useState('');
+  const [addingSubStageFor, setAddingSubStageFor] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [collapsedStages, setCollapsedStages] = useState({});
   const [showStageEditor, setShowStageEditor] = useState(false);
@@ -208,10 +224,28 @@ export default function BudgetForm() {
       tempId: `stage-${Date.now()}`,
       nome: newStageName,
       ordem: stages.length + 1,
-      orcamento_id: budgetId || ''
+      orcamento_id: budgetId || '',
+      parent_stage_id: null
     };
     setStages([...stages, newStage]);
     setNewStageName('');
+  };
+
+  const handleAddSubStage = (parentStageId) => {
+    if (!newSubStageName) return;
+    const parentStage = stages.find(s => (s.id || s.tempId) === parentStageId);
+    const newStage = {
+      tempId: `substage-${Date.now()}`,
+      nome: newSubStageName,
+      ordem: stages.length + 1,
+      orcamento_id: budgetId || '',
+      parent_stage_id: parentStageId,
+      parent_stage_nome: parentStage?.nome
+    };
+    setStages([...stages, newStage]);
+    setNewSubStageName('');
+    setAddingSubStageFor(null);
+    toast.success('Subetapa adicionada');
   };
 
   const handleRemoveStage = (stageId) => {
@@ -338,12 +372,14 @@ export default function BudgetForm() {
       const sortedStages = [...stages].sort((a, b) => a.ordem - b.ordem);
       
       for (const stage of sortedStages) {
+        const parentId = stage.parent_stage_id ? (stageMap[stage.parent_stage_id] || stage.parent_stage_id) : null;
         const createdStage = await base44.entities.ProjectStage.create({
           orcamento_id: savedBudgetId,
           nome: stage.nome,
           ordem: stage.ordem,
           descricao: stage.descricao || '',
-          duracao_meses: 1
+          duracao_meses: 1,
+          parent_stage_id: parentId
         });
         stageMap[stage.id || stage.tempId] = createdStage.id;
       }
@@ -415,12 +451,13 @@ export default function BudgetForm() {
   };
 
   // Rendering Helpers
-  const renderStageTable = (stageId, stageName, stageItems) => {
+  const renderStageTable = (stageId, stageName, stageItems, parentStageId = null, level = 0) => {
     const stageTotals = calculateTotals(stageItems);
     const isUncategorized = stageId === 'uncategorized';
+    const selectedServiceIds = items.filter(i => i.stage_id === stageId).map(i => i.servico_id);
 
     return (
-      <Card key={stageId || 'uncategorized'} className="mb-6 border-l-4 border-l-blue-500">
+      <Card key={stageId || 'uncategorized'} className={cn("mb-6 border-l-4", level === 0 ? "border-l-blue-500" : "border-l-slate-300 ml-8")}>
         <Collapsible 
           open={!collapsedStages[stageId]} 
           onOpenChange={v => setCollapsedStages({...collapsedStages, [stageId]: !v})}
@@ -432,18 +469,29 @@ export default function BudgetForm() {
                      {collapsedStages[stageId] ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                </CollapsibleTrigger>
-               <h3 className="font-bold text-lg uppercase flex items-center gap-2">
+               <h3 className={cn("font-bold uppercase flex items-center gap-2", level === 0 ? "text-lg" : "text-base")}>
+                 {level > 0 && <span className="text-slate-400">└─</span>}
                  {stageName}
                  <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-normal normal-case">
                    {stageItems.length} itens
                  </span>
                </h3>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <div className="text-right text-sm hidden sm:block">
-                <span className="text-slate-500 mr-2">Total Etapa:</span>
+                <span className="text-slate-500 mr-2">Total:</span>
                 <span className="font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stageTotals.final)}</span>
               </div>
+              {!isUncategorized && level === 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setAddingSubStageFor(stageId)}
+                  className="h-7 text-xs"
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Subetapa
+                </Button>
+              )}
               {!isUncategorized && (
                  <Button variant="ghost" size="icon" onClick={() => handleRemoveStage(stageId)} className="text-red-400 hover:text-red-600 h-6 w-6">
                    <Trash2 className="h-4 w-4" />
@@ -527,20 +575,45 @@ export default function BudgetForm() {
                      <TableCell colSpan={10} className="p-2">
                        <div className="flex items-center gap-2">
                          <ServiceSelector 
-                           services={services} 
+                           services={services}
+                           selectedServices={selectedServiceIds}
                            onSelect={(v) => handleAddService(v, isUncategorized ? 'uncategorized' : stageId)} 
                          />
                        </div>
                      </TableCell>
                    </TableRow>
-                 </TableBody>
-               </Table>
-             </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
-    );
-  };
+                   </TableBody>
+                   </Table>
+                   </CardContent>
+                   {addingSubStageFor === stageId && (
+                   <CardContent className="pt-0 pb-4">
+                   <div className="flex gap-2 items-center bg-blue-50 p-3 rounded-lg">
+                   <Label className="text-xs whitespace-nowrap">Nova Subetapa:</Label>
+                   <Input
+                     placeholder="Nome da subetapa..."
+                     value={newSubStageName}
+                     onChange={(e) => setNewSubStageName(e.target.value)}
+                     onKeyDown={(e) => {
+                       if (e.key === 'Enter') handleAddSubStage(stageId);
+                       if (e.key === 'Escape') setAddingSubStageFor(null);
+                     }}
+                     className="h-8 flex-1"
+                     autoFocus
+                   />
+                   <Button size="sm" onClick={() => handleAddSubStage(stageId)} disabled={!newSubStageName}>
+                     <Plus className="h-3 w-3 mr-1" /> Adicionar
+                   </Button>
+                   <Button size="sm" variant="ghost" onClick={() => setAddingSubStageFor(null)}>
+                     Cancelar
+                   </Button>
+                   </div>
+                   </CardContent>
+                   )}
+                   </CollapsibleContent>
+                   </Collapsible>
+                   </Card>
+                   );
+                   };
 
   const pieData = stages.map(s => ({
     name: s.nome,
@@ -661,17 +734,36 @@ export default function BudgetForm() {
 
               {/* Stages List */}
               <div className="space-y-6">
-                {stages.map(stage => renderStageTable(
-                  stage.id || stage.tempId, 
-                  stage.nome, 
-                  items.filter(i => i.stage_id === (stage.id || stage.tempId))
-                ))}
+                {stages.filter(s => !s.parent_stage_id).map(stage => {
+                  const stageId = stage.id || stage.tempId;
+                  const subStages = stages.filter(sub => sub.parent_stage_id === stageId);
+                  return (
+                    <React.Fragment key={stageId}>
+                      {renderStageTable(
+                        stageId, 
+                        stage.nome, 
+                        items.filter(i => i.stage_id === stageId),
+                        null,
+                        0
+                      )}
+                      {subStages.map(subStage => renderStageTable(
+                        subStage.id || subStage.tempId,
+                        subStage.nome,
+                        items.filter(i => i.stage_id === (subStage.id || subStage.tempId)),
+                        stageId,
+                        1
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
                 
                 {/* Uncategorized Items */}
                 {items.some(i => !i.stage_id) && renderStageTable(
                   'uncategorized',
                   'Sem Etapa Definida',
-                  items.filter(i => !i.stage_id)
+                  items.filter(i => !i.stage_id),
+                  null,
+                  0
                 )}
 
                 {stages.length === 0 && items.length === 0 && (
@@ -768,9 +860,13 @@ export default function BudgetForm() {
                   <span className="text-slate-400">Custo Direto</span>
                   <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(globalTotals.direto)}</span>
                 </div>
-                <div className="flex justify-between pt-1">
-                  <span className="text-slate-400">Total BDI</span>
+                <div className="flex justify-between border-b border-slate-700 pb-2">
+                  <span className="text-slate-400">+ BDI</span>
                   <span className="text-green-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(globalBDI)}</span>
+                </div>
+                <div className="flex justify-between pt-2 text-base font-bold border-t-2 border-slate-600">
+                  <span>VALOR FINAL</span>
+                  <span className="text-green-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(globalTotals.final)}</span>
                 </div>
               </div>
             </CardContent>
