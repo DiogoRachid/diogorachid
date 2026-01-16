@@ -72,6 +72,71 @@ const classifyABC = (items) => {
 };
 
 export default function ABCAnalysis({ items, services }) {
+  const [inputAnalysisData, setInputAnalysisData] = useState([]);
+  const [isLoadingInputs, setIsLoadingInputs] = useState(true);
+
+  // Carregar análise de insumos de forma assíncrona
+  useEffect(() => {
+    const loadInputAnalysis = async () => {
+      setIsLoadingInputs(true);
+      try {
+        const inputMap = {};
+        
+        // Carregar ServiceItems e Inputs
+        const serviceItems = await base44.entities.ServiceItem.list();
+        const allInputs = await base44.entities.Input.list();
+        
+        for (const budgetItem of items) {
+          const service = services.find(s => s.id === budgetItem.servico_id);
+          if (!service) continue;
+          
+          // Buscar todos os insumos recursivamente
+          const itemInputs = await getAllInputsFromService(
+            budgetItem.servico_id, 
+            services, 
+            serviceItems, 
+            allInputs, 
+            budgetItem.quantidade || 0
+          );
+          
+          // Agregar insumos
+          itemInputs.forEach(input => {
+            const key = `${input.code}_${input.description}`;
+            
+            if (!inputMap[key]) {
+              inputMap[key] = {
+                id: input.id,
+                code: input.code,
+                description: input.description,
+                value: 0,
+                quantity: 0,
+                unit: input.unit,
+                category: input.category
+              };
+            }
+            
+            inputMap[key].value += input.value;
+            inputMap[key].quantity += input.quantity;
+          });
+        }
+        
+        setInputAnalysisData(classifyABC(Object.values(inputMap)));
+      } catch (error) {
+        console.error('Erro ao carregar análise de insumos:', error);
+        setInputAnalysisData([]);
+      } finally {
+        setIsLoadingInputs(false);
+      }
+    };
+    
+    if (items.length > 0 && services.length > 0) {
+      loadInputAnalysis();
+    } else {
+      setInputAnalysisData([]);
+      setIsLoadingInputs(false);
+    }
+  }, [items, services]);
+
   const serviceAnalysis = useMemo(() => {
     const serviceMap = {};
     
