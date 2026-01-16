@@ -163,8 +163,7 @@ Deno.serve(async (req) => {
     return Response.json({
       success: true,
       processed,
-      failed,
-      remaining: queueItems.length - batch.length
+      failed
     });
 
   } catch (error) {

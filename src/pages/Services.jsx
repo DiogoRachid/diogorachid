@@ -204,33 +204,42 @@ export default function Services() {
     setProcessing(true);
     
     try {
-      const queue = await base44.entities.RecalculationQueue.filter({ status: 'pending' });
+      let pendingItems = await base44.entities.RecalculationQueue.filter({ status: 'pending' });
       
-      if (queue.length === 0) {
+      if (pendingItems.length === 0) {
         toast.info('Nenhum item na fila para processar');
         setProcessing(false);
         return;
       }
 
-      setQueueStatus({ total: queue.length, processed: 0, failed: 0 });
+      const initialTotal = pendingItems.length;
+      let currentProcessed = 0;
+      let currentFailed = 0;
+
+      setQueueStatus({ total: initialTotal, processed: 0, failed: 0 });
       
-      // Processar fila continuamente
-      while (true) {
+      // Processar fila continuamente enquanto houver itens pendentes
+      while (pendingItems.length > 0) {
         const result = await base44.functions.invoke('processRecalculationQueue', {});
-        
-        if (result.data.processed === 0 && result.data.remaining === 0) {
-          // Fila vazia
-          break;
+
+        if (result.data.processed > 0 || result.data.failed > 0) {
+          currentProcessed += result.data.processed;
+          currentFailed += result.data.failed || 0;
+          
+          setQueueStatus(prev => ({
+            total: initialTotal,
+            processed: currentProcessed,
+            failed: currentFailed
+          }));
         }
         
-        setQueueStatus(prev => ({
-          total: prev.total,
-          processed: prev.processed + result.data.processed,
-          failed: prev.failed + (result.data.failed || 0)
-        }));
-        
-        // Aguardar 2 segundos antes do próximo lote
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Re-consultar itens pendentes para a próxima iteração
+        pendingItems = await base44.entities.RecalculationQueue.filter({ status: 'pending' });
+
+        // Se ainda houver itens pendentes, aguardar um pouco antes do próximo lote
+        if (pendingItems.length > 0) {
+           await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
       
       toast.success('Processamento da fila concluído!');
