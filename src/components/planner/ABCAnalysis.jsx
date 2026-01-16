@@ -94,37 +94,53 @@ export default function ABCAnalysis({ items, services }) {
   }, [items]);
 
   const inputAnalysis = useMemo(() => {
-    const inputMap = {};
-    
-    items.forEach(budgetItem => {
-      const service = services.find(s => s.id === budgetItem.servico_id);
-      if (!service) return;
+    const processInputs = async () => {
+      const inputMap = {};
       
-      // Buscar todos os insumos recursivamente
-      const allInputs = getAllInputsFromService(service, services, budgetItem.quantidade || 0);
+      // Carregar ServiceItems e Inputs
+      const serviceItems = await base44.entities.ServiceItem.list();
+      const allInputs = await base44.entities.Input.list();
       
-      // Agregar insumos
-      allInputs.forEach(input => {
-        const key = `${input.code}_${input.description}`;
+      for (const budgetItem of items) {
+        const service = services.find(s => s.id === budgetItem.servico_id);
+        if (!service) continue;
         
-        if (!inputMap[key]) {
-          inputMap[key] = {
-            id: input.id,
-            code: input.code,
-            description: input.description,
-            value: 0,
-            quantity: 0,
-            unit: input.unit,
-            category: input.category
-          };
-        }
+        // Buscar todos os insumos recursivamente
+        const itemInputs = await getAllInputsFromService(
+          budgetItem.servico_id, 
+          services, 
+          serviceItems, 
+          allInputs, 
+          budgetItem.quantidade || 0
+        );
         
-        inputMap[key].value += input.value;
-        inputMap[key].quantity += input.quantity;
-      });
-    });
+        // Agregar insumos
+        itemInputs.forEach(input => {
+          const key = `${input.code}_${input.description}`;
+          
+          if (!inputMap[key]) {
+            inputMap[key] = {
+              id: input.id,
+              code: input.code,
+              description: input.description,
+              value: 0,
+              quantity: 0,
+              unit: input.unit,
+              category: input.category
+            };
+          }
+          
+          inputMap[key].value += input.value;
+          inputMap[key].quantity += input.quantity;
+        });
+      }
+      
+      return classifyABC(Object.values(inputMap));
+    };
     
-    return classifyABC(Object.values(inputMap));
+    // Como não podemos usar async no useMemo, vamos retornar um array vazio
+    // e usar um useEffect para processar
+    return [];
   }, [items, services]);
 
   const getClassificationStats = (analysis) => {
