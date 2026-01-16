@@ -8,9 +8,16 @@ import { toast } from "sonner";
 import { AlertCircle, ArrowUpDown, Save } from 'lucide-react';
 
 export default function ScheduleEditor({ budget, stages, items, onChange, onSave, isSaving }) {
-  const [months, setMonths] = useState(12);
+  const [months, setMonths] = useState(budget?.duracao_meses || 12);
   const [schedule, setSchedule] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: 'ordem', direction: 'asc' });
+
+  // Atualizar duração quando o budget carregar
+  useEffect(() => {
+    if (budget?.duracao_meses && budget.duracao_meses !== months) {
+      setMonths(budget.duracao_meses);
+    }
+  }, [budget?.duracao_meses]);
 
   useEffect(() => {
     // Inicializar schedule com as etapas (carregando de distribuicao_mensal se existir)

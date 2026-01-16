@@ -12,38 +12,39 @@ const COLORS_ABC = {
 };
 
 // Função recursiva para buscar todos os insumos de um serviço
-const getAllInputsFromService = (service, services, multiplier = 1) => {
-  const inputs = [];
+const getAllInputsFromService = async (serviceId, services, serviceItems, inputs, multiplier = 1) => {
+  const resultInputs = [];
   
-  if (!service || !service.items_snapshot) return inputs;
+  // Buscar itens do serviço (ServiceItem)
+  const items = serviceItems.filter(si => si.servico_id === serviceId);
   
-  service.items_snapshot.forEach(item => {
+  for (const item of items) {
     const itemQuantity = (item.quantidade || 0) * multiplier;
     const itemCost = item.custo_unitario || 0;
     
-    if (item.tipo === 'INPUT' || item.categoria === 'MATERIAL' || item.categoria === 'MAO_OBRA') {
+    if (item.tipo === 'INPUT' && item.input_id) {
       // É um insumo direto
-      inputs.push({
-        id: item.input_id || item.id,
-        code: item.codigo,
-        description: item.descricao,
-        unit: item.unidade,
-        category: item.categoria,
-        quantity: itemQuantity,
-        unitCost: itemCost,
-        value: itemQuantity * itemCost
-      });
+      const input = inputs.find(inp => inp.id === item.input_id);
+      if (input) {
+        resultInputs.push({
+          id: item.input_id,
+          code: input.codigo || item.codigo,
+          description: input.descricao || item.descricao,
+          unit: input.unidade || item.unidade,
+          category: input.categoria || item.categoria,
+          quantity: itemQuantity,
+          unitCost: itemCost,
+          value: itemQuantity * itemCost
+        });
+      }
     } else if (item.tipo === 'SERVICE' && item.servico_id) {
       // É um sub-serviço, buscar recursivamente
-      const subService = services.find(s => s.id === item.servico_id);
-      if (subService) {
-        const subInputs = getAllInputsFromService(subService, services, itemQuantity);
-        inputs.push(...subInputs);
-      }
+      const subInputs = await getAllInputsFromService(item.servico_id, services, serviceItems, inputs, itemQuantity);
+      resultInputs.push(...subInputs);
     }
-  });
+  }
   
-  return inputs;
+  return resultInputs;
 };
 
 const classifyABC = (items) => {
