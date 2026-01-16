@@ -1,5 +1,37 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+// Função auxiliar para adicionar dependentes à fila
+const enqueueDependents = async (base44, serviceId) => {
+  // Buscar todos os serviços que usam este serviço
+  const dependentItems = await base44.asServiceRole.entities.ServiceItem.filter({
+    tipo_item: 'SERVICO',
+    item_id: serviceId
+  });
+
+  // Obter IDs únicos dos serviços pais
+  const parentServiceIds = [...new Set(dependentItems.map(d => d.servico_id))];
+  
+  // Buscar os serviços para obter a prioridade
+  if (parentServiceIds.length > 0) {
+    const parentServices = await base44.asServiceRole.entities.Service.filter({
+      id: { $in: parentServiceIds }
+    });
+    
+    // Adicionar cada serviço pai à fila (se não existir)
+    for (const parentService of parentServices) {
+      try {
+        await base44.asServiceRole.entities.RecalculationQueue.create({
+          service_id: parentService.id,
+          priority: parentService.nivel_max_dependencia || 0,
+          status: 'pending'
+        });
+      } catch (e) {
+        // Já existe na fila, ignorar
+      }
+    }
+  }
+};
+
 // Função de recálculo otimizada
 const recalculateService = async (base44, serviceId) => {
   const items = await base44.asServiceRole.entities.ServiceItem.filter({ servico_id: serviceId });
@@ -56,13 +88,17 @@ const recalculateService = async (base44, serviceId) => {
         }
       }
       
-      // Calcular custos
+      // Calcular custos baseado na categoria do INSUMO
       if (insumo) {
         const totalItem = item.quantidade * unitCost;
-        if (insumo.categoria === 'MAO_OBRA') custoMaoObra += totalItem;
-        else custoMaterial += totalItem;
+        if (insumo.categoria === 'MAO_OBRA') {
+          custoMaoObra += totalItem;
+        } else {
+          custoMaterial += totalItem;
+        }
       }
     } else {
+      // Tipo SERVICO
       const subService = serviceMap.get(item.item_id);
       unitCost = subService ? subService.custo_total : 0;
       
@@ -70,16 +106,13 @@ const recalculateService = async (base44, serviceId) => {
         maxNivelDep = subService.nivel_max_dependencia + 1;
       }
       
-      // Calcular custos
+      // Calcular custos proporcionalmente
       const totalItem = item.quantidade * unitCost;
-      if (subService) {
-        const matRatio = subService.custo_total ? (subService.custo_material / subService.custo_total) : 0;
-        const laborRatio = subService.custo_total ? (subService.custo_mao_obra / subService.custo_total) : 0;
+      if (subService && subService.custo_total > 0) {
+        const matRatio = subService.custo_material / subService.custo_total;
+        const laborRatio = subService.custo_mao_obra / subService.custo_total;
         custoMaterial += totalItem * matRatio;
         custoMaoObra += totalItem * laborRatio;
-      } else {
-        if (item.categoria === 'MAO_OBRA') custoMaoObra += totalItem;
-        else custoMaterial += totalItem;
       }
     }
 
@@ -130,7 +163,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Buscar itens pendentes da fila (ordenados por prioridade)
+    // Buscar itens pendentes da fila ordenados por prioridade (menor = mais prioritário = folhas da árvore)
     const queueItems = await base44.asServiceRole.entities.RecalculationQueue.filter({
       status: 'pending'
     });
@@ -139,7 +172,7 @@ Deno.serve(async (req) => {
       return Response.json({ message: 'Nenhum item na fila', processed: 0, failed: 0 });
     }
 
-    // Ordenar por prioridade e pegar até 5 itens
+    // Ordenar por prioridade (menor primeiro = folhas primeiro)
     queueItems.sort((a, b) => a.priority - b.priority);
     const batch = queueItems.slice(0, 5);
 
@@ -156,7 +189,10 @@ Deno.serve(async (req) => {
         // Recalcular o serviço
         await recalculateService(base44, item.service_id);
 
-        // Marcar como concluído e deletar da fila
+        // Adicionar serviços dependentes à fila
+        await enqueueDependents(base44, item.service_id);
+
+        // Remover da fila (sucesso)
         await base44.asServiceRole.entities.RecalculationQueue.delete(item.id);
         processed++;
 
@@ -184,8 +220,8 @@ Deno.serve(async (req) => {
         failed++;
       }
 
-      // Aguardar 1 segundo entre cada recálculo
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Aguardar 500ms entre cada recálculo
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     return Response.json({
