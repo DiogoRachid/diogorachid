@@ -172,13 +172,29 @@ export default function BudgetForm() {
             versao: b.versao,
             observacoes: b.observacoes
           });
-          const bs = await base44.entities.BudgetStage.filter({ orcamento_id: budgetId });
-          setStages(bs.sort((a, b) => a.ordem - b.ordem));
+          // Carregar etapas do orçamento (ProjectStage, não BudgetStage)
+          const ps = await base44.entities.ProjectStage.filter({ orcamento_id: budgetId });
+          setStages(ps.sort((a, b) => a.ordem - b.ordem));
+          // Carregar itens do orçamento
           const bi = await base44.entities.BudgetItem.filter({ orcamento_id: budgetId });
           setItems(bi);
         }
       };
       load();
+    } else {
+      // Novo orçamento: carregar etapas padrão
+      const loadDefaultStages = async () => {
+        const defaultStages = await base44.entities.BudgetStage.list();
+        const mappedStages = defaultStages.sort((a, b) => a.ordem - b.ordem).map(s => ({
+          tempId: `stage-${s.id}`,
+          nome: s.nome,
+          ordem: s.ordem,
+          descricao: s.descricao || '',
+          cor: s.cor
+        }));
+        setStages(mappedStages);
+      };
+      loadDefaultStages();
     }
   }, [budgetId]);
 
@@ -299,9 +315,8 @@ export default function BudgetForm() {
       if (budgetId) {
         await base44.entities.Budget.update(budgetId, budgetData);
         // Clean existing stages and items to recreate (simplest consistency strategy)
-        // Optimization: In real world, use diff.
-        const existingStages = await base44.entities.BudgetStage.filter({ orcamento_id: budgetId });
-        await Promise.all(existingStages.map(s => base44.entities.BudgetStage.delete(s.id)));
+        const existingStages = await base44.entities.ProjectStage.filter({ orcamento_id: budgetId });
+        await Promise.all(existingStages.map(s => base44.entities.ProjectStage.delete(s.id)));
         
         const existingItems = await base44.entities.BudgetItem.filter({ orcamento_id: budgetId });
         await Promise.all(existingItems.map(i => base44.entities.BudgetItem.delete(i.id)));
@@ -313,18 +328,19 @@ export default function BudgetForm() {
         savedBudgetId = newBudget.id;
       }
 
-      // Create Stages and Map IDs
+      // Create ProjectStages (não BudgetStage) and Map IDs
       const stageMap = {}; // tempId -> realId
       
       // Sort stages to keep order
       const sortedStages = [...stages].sort((a, b) => a.ordem - b.ordem);
       
       for (const stage of sortedStages) {
-        const createdStage = await base44.entities.BudgetStage.create({
+        const createdStage = await base44.entities.ProjectStage.create({
           orcamento_id: savedBudgetId,
           nome: stage.nome,
           ordem: stage.ordem,
-          descricao: stage.descricao || ''
+          descricao: stage.descricao || '',
+          duracao_meses: 1
         });
         stageMap[stage.id || stage.tempId] = createdStage.id;
       }
@@ -610,6 +626,13 @@ export default function BudgetForm() {
                 />
                 <Button size="sm" onClick={handleAddStage} disabled={!newStageName}>
                   <FolderPlus className="h-4 w-4 mr-2" /> Adicionar
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => window.location.href = createPageUrl('BudgetPlanner') + '?tab=config-etapas'}
+                >
+                  <Pencil className="h-4 w-4 mr-2" /> Editar Etapas Padrão
                 </Button>
               </div>
 
