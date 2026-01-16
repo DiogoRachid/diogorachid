@@ -18,7 +18,8 @@ import {
   ChevronRight,
   FolderPlus,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Pencil
 } from 'lucide-react';
 import { printBudget } from '@/components/budgets/BudgetPrinter';
 import { Button } from "@/components/ui/button";
