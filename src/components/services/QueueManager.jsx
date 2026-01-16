@@ -24,6 +24,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function QueueManager({ open, onOpenChange }) {
   const queryClient = useQueryClient();
+  const [processing, setProcessing] = useState(false);
+  const [processStatus, setProcessStatus] = useState(null);
   
   const { data: queueItems = [], isLoading, refetch } = useQuery({
     queryKey: ['recalculationQueue'],
@@ -104,6 +106,63 @@ export default function QueueManager({ open, onOpenChange }) {
     );
   };
 
+  const handleProcessQueue = async () => {
+    setProcessing(true);
+    setProcessStatus({ processed: 0, failed: 0 });
+    
+    try {
+      let pendingItems = await base44.entities.RecalculationQueue.filter({ status: 'pending' });
+      
+      if (pendingItems.length === 0) {
+        toast.info('Nenhum item pendente para processar');
+        setProcessing(false);
+        return;
+      }
+
+      let currentProcessed = 0;
+      let currentFailed = 0;
+      let iterationCount = 0;
+      const maxIterations = 1000;
+      
+      while (pendingItems.length > 0 && iterationCount < maxIterations) {
+        iterationCount++;
+        
+        const result = await base44.functions.invoke('processRecalculationQueue', {});
+
+        if (result.data.processed > 0 || result.data.failed > 0) {
+          currentProcessed += result.data.processed;
+          currentFailed += result.data.failed || 0;
+        }
+        
+        pendingItems = await base44.entities.RecalculationQueue.filter({ status: 'pending' });
+        
+        setProcessStatus({
+          processed: currentProcessed,
+          failed: currentFailed,
+          remaining: pendingItems.length
+        });
+
+        if (pendingItems.length > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+      
+      if (iterationCount >= maxIterations) {
+        toast.warning(`Processamento pausado após ${maxIterations} iterações`);
+      } else {
+        toast.success(`Processamento concluído! ${currentProcessed} processados, ${currentFailed} falharam`);
+      }
+      
+      refetch();
+    } catch (e) {
+      toast.error("Erro ao processar fila");
+      console.error(e);
+    } finally {
+      setProcessing(false);
+      setProcessStatus(null);
+    }
+  };
+
   const pendingCount = queueItems.filter(item => item.status === 'pending').length;
   const processingCount = queueItems.filter(item => item.status === 'processing').length;
   const failedCount = queueItems.filter(item => item.status === 'failed').length;
@@ -159,11 +218,32 @@ export default function QueueManager({ open, onOpenChange }) {
         </div>
 
         <div className="flex gap-2 mb-4">
+          {pendingCount > 0 && (
+            <Button
+              size="sm"
+              onClick={handleProcessQueue}
+              disabled={processing}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {processing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {processStatus ? `Processando ${processStatus.processed} (${processStatus.remaining} restantes)` : 'Processando...'}
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Processar Fila Agora ({pendingCount})
+                </>
+              )}
+            </Button>
+          )}
+          
           <Button
             variant="outline"
             size="sm"
             onClick={() => refetch()}
-            disabled={isLoading}
+            disabled={isLoading || processing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Atualizar
@@ -174,12 +254,14 @@ export default function QueueManager({ open, onOpenChange }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
+                onClick={async () => {
                   if (confirm(`Reprocessar ${failedCount} itens falhados?`)) {
                     const failedItems = queueItems.filter(item => item.status === 'failed');
-                    Promise.all(failedItems.map(item => retryMutation.mutateAsync(item.id)));
+                    await Promise.all(failedItems.map(item => retryMutation.mutateAsync(item.id)));
+                    toast.success(`${failedCount} itens reenfileirados. Clique em "Processar Fila Agora" para iniciar.`);
                   }
                 }}
+                disabled={processing}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Reprocessar Todos Falhados
@@ -192,6 +274,7 @@ export default function QueueManager({ open, onOpenChange }) {
                     clearAllMutation.mutate('failed');
                   }
                 }}
+                disabled={processing}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Limpar Falhados
@@ -208,6 +291,7 @@ export default function QueueManager({ open, onOpenChange }) {
                   clearAllMutation.mutate('completed');
                 }
               }}
+              disabled={processing}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Limpar Concluídos
@@ -262,12 +346,16 @@ export default function QueueManager({ open, onOpenChange }) {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        {item.status === 'failed' && (
+                        {(item.status === 'failed' || item.status === 'pending') && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => retryMutation.mutate(item.id)}
-                            disabled={retryMutation.isPending}
+                            onClick={async () => {
+                              await retryMutation.mutateAsync(item.id);
+                              toast.info('Item reenfileirado. Use "Processar Fila Agora" para iniciar.');
+                            }}
+                            disabled={retryMutation.isPending || processing}
+                            title="Reenviar para fila"
                           >
                             <RefreshCw className="h-3 w-3" />
                           </Button>
@@ -280,7 +368,8 @@ export default function QueueManager({ open, onOpenChange }) {
                               deleteMutation.mutate(item.id);
                             }
                           }}
-                          disabled={deleteMutation.isPending}
+                          disabled={deleteMutation.isPending || processing}
+                          title="Remover da fila"
                         >
                           <Trash2 className="h-3 w-3 text-red-600" />
                         </Button>
