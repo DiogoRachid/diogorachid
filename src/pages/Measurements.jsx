@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import DataTable from "@/components/shared/DataTable";
 import SearchFilter from "@/components/shared/SearchFilter";
 import EmptyState from "@/components/ui/EmptyState";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { Plus, Eye, Trash2, FileText, MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
