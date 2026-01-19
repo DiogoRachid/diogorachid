@@ -98,7 +98,7 @@ export default function MeasurementsPage() {
       header: 'Período',
       accessor: 'data_inicio',
       render: (value, row) => {
-        if (!value || !row.data_fim) return '-';
+        if (!value || !row || !row.data_fim) return '-';
         return `${format(new Date(value), 'dd/MM/yy')} - ${format(new Date(row.data_fim), 'dd/MM/yy')}`;
       }
     },
