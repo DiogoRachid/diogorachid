@@ -17,19 +17,19 @@ export default function MeasurementChart({ measurements, schedule, budget }) {
     // Valor previsto acumulado
     const previstoAcum = schedule
       ?.filter(s => s.mes <= month)
-      .reduce((sum, s) => sum + (s.valor_mensal || 0), 0) || 0;
+      .reduce((sum, s) => sum + Number(s.valor_mensal || 0), 0) || 0;
     
     // Valor executado acumulado
     const executadoAcum = measurements
       ?.filter(m => m.mes_referencia <= month && m.status !== 'cancelada')
-      .reduce((sum, m) => sum + (m.total_executado || 0), 0) || 0;
+      .reduce((sum, m) => sum + Number(m.total_executado || 0), 0) || 0;
     
     chartData.push({
       mes: `Mês ${month}`,
-      previsto: previstoAcum,
-      executado: executadoAcum,
-      previstoMensal: scheduleMonth?.valor_mensal || 0,
-      executadoMensal: measurement?.total_executado || 0
+      previsto: Number(previstoAcum || 0),
+      executado: Number(executadoAcum || 0),
+      previstoMensal: Number(scheduleMonth?.valor_mensal || 0),
+      executadoMensal: Number(measurement?.total_executado || 0)
     });
   }
   
