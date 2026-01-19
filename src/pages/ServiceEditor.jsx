@@ -50,10 +50,9 @@ export default function ServiceEditor() {
   // Load initial data
   useEffect(() => {
     const load = async () => {
-      // Fetch all for dropdowns (optimize later if too slow)
       const [allInputs, allServices] = await Promise.all([
-        Engine.fetchAll('Input'),
-        Engine.fetchAll('Service')
+        base44.entities.Input.list(),
+        base44.entities.Service.list()
       ]);
       setInputs(allInputs);
       setServices(allServices);
@@ -62,11 +61,20 @@ export default function ServiceEditor() {
         const s = await base44.entities.Service.filter({ id: serviceId }).then(r => r[0]);
         if (s) setService(s);
         const its = await base44.entities.ServiceItem.filter({ servico_id: serviceId });
-        // Sort by ordem
         setItems(its.sort((a,b) => (a.ordem || 0) - (b.ordem || 0)));
       }
     };
     load();
+
+    // Subscription para atualização em tempo real
+    if (serviceId) {
+      const unsubscribe = base44.entities.Service.subscribe((event) => {
+        if (event.id === serviceId && event.type === 'update') {
+          setService(prev => ({ ...prev, ...event.data }));
+        }
+      });
+      return unsubscribe;
+    }
   }, [serviceId]);
 
   // Save / Update Service Header
@@ -147,18 +155,12 @@ export default function ServiceEditor() {
       // Atualizar UI imediatamente (otimista)
       setItems(prev => [...prev, newItemCreated].sort((a,b) => (a.ordem || 0) - (b.ordem || 0)));
 
-      // PROMPT 2 & 3: RECALCULAR E CASCATA
-      await Engine.recalculateService(serviceId, true);
+      // Recalcular e propagar em cascata
+      Engine.clearCache(); // Limpar cache antes
+      await Engine.recalculateService(serviceId);
       await Engine.updateDependents('SERVICO', serviceId);
 
-      // Recarregar dados atualizados
-      const [its, s] = await Promise.all([
-        base44.entities.ServiceItem.filter({ servico_id: serviceId }),
-        base44.entities.Service.filter({ id: serviceId }).then(r => r[0])
-      ]);
-      
-      setItems(its.sort((a,b) => (a.ordem || 0) - (b.ordem || 0)));
-      setService(s);
+      // Atualização será feita via subscription
       
       toast.success("Item adicionado");
       setNewItem({ type: newItem.type, id: '', qtd: 1, cat: 'MATERIAL' });
@@ -180,17 +182,12 @@ export default function ServiceEditor() {
       setItems(prev => prev.filter(i => i.id !== itemId));
       
       await base44.entities.ServiceItem.delete(itemId);
-      await Engine.recalculateService(serviceId, true);
+      
+      Engine.clearCache();
+      await Engine.recalculateService(serviceId);
       await Engine.updateDependents('SERVICO', serviceId);
       
-      // Recarregar dados atualizados
-      const [its, s] = await Promise.all([
-        base44.entities.ServiceItem.filter({ servico_id: serviceId }),
-        base44.entities.Service.filter({ id: serviceId }).then(r => r[0])
-      ]);
-      
-      setItems(its.sort((a,b) => (a.ordem || 0) - (b.ordem || 0)));
-      setService(s);
+      // Atualização será feita via subscription
       toast.success("Item removido");
     } catch (error) {
       console.error('Erro ao remover item:', error);
@@ -241,19 +238,17 @@ export default function ServiceEditor() {
       custo_total_item: total
     });
 
-    await Engine.recalculateService(serviceId, true);
+    // Atualizar UI local imediatamente
+    setItems(prev => prev.map(i => 
+      i.id === editingItem.id 
+        ? { ...i, quantidade: parseFloat(editingItem.quantidade), categoria: editingItem.categoria, custo_total_item: total }
+        : i
+    ));
+
+    Engine.clearCache();
+    await Engine.recalculateService(serviceId);
     await Engine.updateDependents('SERVICO', serviceId);
 
-    // Reload
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    const [its, s] = await Promise.all([
-      base44.entities.ServiceItem.filter({ servico_id: serviceId }),
-      base44.entities.Service.filter({ id: serviceId }).then(r => r[0])
-    ]);
-    
-    setItems(its.sort((a,b) => a.ordem - b.ordem));
-    setService(s);
     setEditingItem(null);
     toast.success("Item atualizado e custos recalculados");
   };
