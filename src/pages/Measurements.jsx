@@ -11,8 +11,11 @@ import {
   Eye,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
+import { exportMeasurementXLSX, exportMeasurementPDF } from '@/components/measurements/MeasurementExporter';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchFilter from '@/components/shared/SearchFilter';
 import DataTable from '@/components/shared/DataTable';
@@ -156,24 +159,35 @@ export default function Measurements() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => window.location.href = createPageUrl(`MeasurementForm?id=${row.id}`)}>
-              {row.status === 'em_edicao' ? (
-                <>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Editar
-                </>
-              ) : (
-                <>
-                  <Eye className="h-4 w-4 mr-2" />
-                  Visualizar
-                </>
-              )}
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar
             </DropdownMenuItem>
-            {row.status === 'em_edicao' && (
-              <DropdownMenuItem onClick={() => setDeleteId(row.id)} className="text-red-600">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Excluir
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem onClick={async () => {
+              const result = await exportMeasurementXLSX(row.id);
+              if (result.success) {
+                toast.success(result.message);
+              } else {
+                toast.error(result.message);
+              }
+            }}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Exportar XLSX
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={async () => {
+              const result = await exportMeasurementPDF(row.id);
+              if (result.success) {
+                toast.success(result.message);
+              } else {
+                toast.error(result.message);
+              }
+            }}>
+              <FileText className="h-4 w-4 mr-2" />
+              Exportar PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setDeleteId(row.id)} className="text-red-600">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )

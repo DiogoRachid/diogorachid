@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { ArrowLeft, Save, CheckCircle, Loader2, AlertTriangle, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, Loader2, AlertTriangle, TrendingUp, FileSpreadsheet, FileText } from 'lucide-react';
+import { exportMeasurementXLSX, exportMeasurementPDF } from '@/components/measurements/MeasurementExporter';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -246,7 +247,7 @@ export default function MeasurementForm() {
   });
 
   const totals = calculateTotals();
-  const isReadOnly = formData.status !== 'em_edicao';
+  const isReadOnly = false; // Sempre editável
 
   // Group items by stage
   const itemsByStage = {};
@@ -287,33 +288,63 @@ export default function MeasurementForm() {
           </div>
         </div>
         
-        {!isReadOnly && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => saveMutation.mutate('salva')}
-              disabled={saveMutation.isPending || !formData.orcamento_id}
-            >
-              {saveMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              Salvar
-            </Button>
-            <Button
-              onClick={() => saveMutation.mutate('aprovada')}
-              disabled={saveMutation.isPending || !formData.orcamento_id}
-            >
-              {saveMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <CheckCircle className="h-4 w-4 mr-2" />
-              )}
-              Aprovar
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          {isEditing && (
+            <>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const result = await exportMeasurementXLSX(measurementId);
+                  if (result.success) {
+                    toast.success(result.message);
+                  } else {
+                    toast.error(result.message);
+                  }
+                }}
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Exportar XLSX
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const result = await exportMeasurementPDF(measurementId);
+                  if (result.success) {
+                    toast.success(result.message);
+                  } else {
+                    toast.error(result.message);
+                  }
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Exportar PDF
+              </Button>
+            </>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => saveMutation.mutate('salva')}
+            disabled={saveMutation.isPending || !formData.orcamento_id}
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Salvar
+          </Button>
+          <Button
+            onClick={() => saveMutation.mutate('aprovada')}
+            disabled={saveMutation.isPending || !formData.orcamento_id}
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <CheckCircle className="h-4 w-4 mr-2" />
+            )}
+            Aprovar
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="dados" className="space-y-6">
@@ -339,7 +370,7 @@ export default function MeasurementForm() {
                   <Select
                     value={formData.obra_id}
                     onValueChange={handleObraChange}
-                    disabled={isEditing || isReadOnly}
+                    disabled={isEditing}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a obra" />
@@ -357,7 +388,7 @@ export default function MeasurementForm() {
                   <Select
                     value={formData.orcamento_id}
                     onValueChange={handleBudgetChange}
-                    disabled={!formData.obra_id || isEditing || isReadOnly}
+                    disabled={!formData.obra_id || isEditing}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o orçamento" />
@@ -380,7 +411,6 @@ export default function MeasurementForm() {
                     value={formData.periodo_referencia}
                     onChange={(e) => setFormData(prev => ({ ...prev, periodo_referencia: e.target.value }))}
                     placeholder="Ex: 01/2026"
-                    disabled={isReadOnly}
                   />
                 </div>
 
@@ -390,7 +420,6 @@ export default function MeasurementForm() {
                     type="number"
                     value={formData.numero_medicao}
                     onChange={(e) => setFormData(prev => ({ ...prev, numero_medicao: parseInt(e.target.value) || 1 }))}
-                    disabled={isReadOnly}
                   />
                 </div>
 
@@ -400,7 +429,6 @@ export default function MeasurementForm() {
                     type="date"
                     value={formData.data_inicio}
                     onChange={(e) => setFormData(prev => ({ ...prev, data_inicio: e.target.value }))}
-                    disabled={isReadOnly}
                   />
                 </div>
 
@@ -410,7 +438,6 @@ export default function MeasurementForm() {
                     type="date"
                     value={formData.data_fim}
                     onChange={(e) => setFormData(prev => ({ ...prev, data_fim: e.target.value }))}
-                    disabled={isReadOnly}
                   />
                 </div>
               </div>
@@ -421,7 +448,6 @@ export default function MeasurementForm() {
                   value={formData.observacao}
                   onChange={(e) => setFormData(prev => ({ ...prev, observacao: e.target.value }))}
                   rows={3}
-                  disabled={isReadOnly}
                 />
               </div>
             </CardContent>
@@ -473,7 +499,6 @@ export default function MeasurementForm() {
                                   value={editableQuantities[itemId] || 0}
                                   onChange={(e) => handleQuantityChange(itemId, e.target.value)}
                                   className="w-24 text-right"
-                                  disabled={isReadOnly}
                                 />
                               </td>
                               <td className="px-3 py-2 text-right font-semibold text-blue-600">
