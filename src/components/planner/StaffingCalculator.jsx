@@ -46,7 +46,7 @@ export default function StaffingCalculator({ schedule, stages, items, services, 
           service.items_snapshot.forEach(serviceItem => {
             if (serviceItem.categoria === 'MAO_OBRA' && serviceItem.item_id) {
               const inputDetails = inputMap.get(serviceItem.item_id);
-              const funcao = inputDetails?.funcao || 'Não Atribuída';
+              const funcao = inputDetails?.descricao || 'Não Identificado';
               
               functionsSet.add(funcao);
 
@@ -138,8 +138,8 @@ export default function StaffingCalculator({ schedule, stages, items, services, 
       <Card className="bg-amber-50 border-amber-200">
         <CardContent className="pt-6">
           <div className="text-sm text-amber-800">
-            <strong>Atenção:</strong> Nenhum insumo de mão de obra encontrado com função definida.
-            Certifique-se de cadastrar insumos do tipo "MAO_OBRA" com o campo "função" preenchido.
+            <strong>Atenção:</strong> Nenhum insumo de mão de obra encontrado no cronograma.
+            Certifique-se de que os serviços possuem insumos do tipo "MAO_OBRA" e que o cronograma possui distribuição mensal definida.
           </div>
         </CardContent>
       </Card>
@@ -299,7 +299,7 @@ export default function StaffingCalculator({ schedule, stages, items, services, 
               <li>Distribuição mensal baseada nos percentuais definidos no cronograma</li>
               <li>Funcionários por função calculados individualmente: Horas da Função ÷ {HORAS_TRABALHO_MES}h (arredondado para cima)</li>
               <li>Assumindo {HORAS_TRABALHO_MES} horas de trabalho efetivo por funcionário/mês (~22 dias úteis × 8h)</li>
-              <li>As funções são definidas no cadastro de insumos do tipo "MAO_OBRA"</li>
+              <li>As funções são identificadas pela descrição dos insumos do tipo "MAO_OBRA"</li>
             </ul>
           </div>
         </CardContent>
