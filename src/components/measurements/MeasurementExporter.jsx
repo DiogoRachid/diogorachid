@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
 import { base44 } from '@/api/base44Client';
 
 export async function exportMeasurementXLSX(measurementId) {
@@ -175,122 +174,78 @@ export async function exportMeasurementPDF(measurementId) {
       itemsByStage[stageName].push(item);
     });
 
-    // Tabela de medição
+    // Tabela simples sem autoTable
+    doc.setFontSize(8);
     Object.keys(itemsByStage).forEach(stageName => {
       const stageItems = itemsByStage[stageName];
 
       // Cabeçalho da etapa
-      doc.autoTable({
-        startY: yPos,
-        head: [[stageName]],
-        headStyles: { 
-          fillColor: [41, 98, 255],
-          fontSize: 11,
-          fontStyle: 'bold'
-        },
-        columnStyles: { 0: { cellWidth: 270 } },
-        margin: { left: 10, right: 10 }
-      });
+      doc.setFillColor(41, 98, 255);
+      doc.rect(10, yPos, 277, 7, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, 'bold');
+      doc.text(stageName, 15, yPos + 5);
+      yPos += 9;
 
-      yPos = doc.lastAutoTable.finalY;
+      // Cabeçalho das colunas
+      doc.setFillColor(71, 85, 105);
+      doc.rect(10, yPos, 277, 6, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(7);
+      doc.text('Cód', 12, yPos + 4);
+      doc.text('Descrição', 30, yPos + 4);
+      doc.text('Un', 100, yPos + 4);
+      doc.text('Qtd Orç', 115, yPos + 4);
+      doc.text('Qtd Per', 140, yPos + 4);
+      doc.text('Qtd Acum', 165, yPos + 4);
+      doc.text('Saldo', 195, yPos + 4);
+      doc.text('Preço', 215, yPos + 4);
+      doc.text('Valor Per', 235, yPos + 4);
+      doc.text('Valor Acum', 260, yPos + 4);
+      yPos += 7;
 
-      // Dados da etapa
-      const tableData = stageItems.map(item => [
-        item.codigo,
-        item.descricao,
-        item.unidade,
-        formatNumber(item.quantidade_orcada),
-        formatNumber(item.quantidade_executada_periodo),
-        formatNumber(item.quantidade_executada_acumulada),
-        formatNumber(item.saldo_a_executar),
-        formatCurrency(item.custo_unitario),
-        formatCurrency(item.valor_executado_periodo),
-        formatCurrency(item.valor_executado_acumulado)
-      ]);
-
-      doc.autoTable({
-        startY: yPos,
-        head: [[
-          'Código',
-          'Descrição',
-          'Un',
-          'Qtd Orçada',
-          'Qtd Exec.\nPeríodo',
-          'Qtd Exec.\nAcum.',
-          'Saldo',
-          'Preço Unit.',
-          'Valor Exec.\nPeríodo',
-          'Valor Exec.\nAcum.'
-        ]],
-        body: tableData,
-        headStyles: { 
-          fillColor: [71, 85, 105],
-          fontSize: 8,
-          halign: 'center'
-        },
-        bodyStyles: { fontSize: 7 },
-        columnStyles: {
-          0: { cellWidth: 15, halign: 'center' },
-          1: { cellWidth: 60 },
-          2: { cellWidth: 10, halign: 'center' },
-          3: { cellWidth: 18, halign: 'right' },
-          4: { cellWidth: 18, halign: 'right' },
-          5: { cellWidth: 18, halign: 'right' },
-          6: { cellWidth: 15, halign: 'right' },
-          7: { cellWidth: 20, halign: 'right' },
-          8: { cellWidth: 24, halign: 'right' },
-          9: { cellWidth: 24, halign: 'right' }
-        },
-        margin: { left: 10, right: 10 },
-        didParseCell: function(data) {
-          if (data.row.index >= 0) {
-            const item = stageItems[data.row.index];
-            if (item && item.saldo_a_executar < 0) {
-              data.cell.styles.textColor = [220, 38, 38];
-            }
-          }
+      // Dados
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'normal');
+      stageItems.forEach(item => {
+        if (yPos > 190) {
+          doc.addPage();
+          yPos = 20;
         }
+
+        if (item.saldo_a_executar < 0) {
+          doc.setTextColor(220, 38, 38);
+        }
+
+        doc.text(item.codigo || '', 12, yPos + 4);
+        doc.text((item.descricao || '').substring(0, 35), 30, yPos + 4);
+        doc.text(item.unidade || '', 100, yPos + 4);
+        doc.text(formatNumber(item.quantidade_orcada), 115, yPos + 4);
+        doc.text(formatNumber(item.quantidade_executada_periodo), 140, yPos + 4);
+        doc.text(formatNumber(item.quantidade_executada_acumulada), 165, yPos + 4);
+        doc.text(formatNumber(item.saldo_a_executar), 195, yPos + 4);
+        doc.text(formatCurrency(item.custo_unitario), 215, yPos + 4);
+        doc.text(formatCurrency(item.valor_executado_periodo), 235, yPos + 4);
+        doc.text(formatCurrency(item.valor_executado_acumulado), 260, yPos + 4);
+
+        doc.setTextColor(0, 0, 0);
+        yPos += 6;
       });
 
-      yPos = doc.lastAutoTable.finalY + 5;
-
-      // Verificar se precisa de nova página
-      if (yPos > 180) {
-        doc.addPage();
-        yPos = 20;
-      }
+      yPos += 3;
     });
 
     // Totais
     const totalPeriodo = items.reduce((sum, item) => sum + (item.valor_executado_periodo || 0), 0);
     const totalAcumulado = items.reduce((sum, item) => sum + (item.valor_executado_acumulado || 0), 0);
 
-    doc.autoTable({
-      startY: yPos,
-      body: [[
-        '', '', '', '', '', '', '', 'TOTAL:',
-        formatCurrency(totalPeriodo),
-        formatCurrency(totalAcumulado)
-      ]],
-      bodyStyles: { 
-        fontSize: 9,
-        fontStyle: 'bold',
-        fillColor: [241, 245, 249]
-      },
-      columnStyles: {
-        0: { cellWidth: 15 },
-        1: { cellWidth: 60 },
-        2: { cellWidth: 10 },
-        3: { cellWidth: 18 },
-        4: { cellWidth: 18 },
-        5: { cellWidth: 18 },
-        6: { cellWidth: 15 },
-        7: { cellWidth: 20, halign: 'right' },
-        8: { cellWidth: 24, halign: 'right' },
-        9: { cellWidth: 24, halign: 'right' }
-      },
-      margin: { left: 10, right: 10 }
-    });
+    doc.setFillColor(241, 245, 249);
+    doc.rect(10, yPos, 277, 7, 'F');
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(9);
+    doc.text('TOTAL:', 215, yPos + 5);
+    doc.text(formatCurrency(totalPeriodo), 235, yPos + 5);
+    doc.text(formatCurrency(totalAcumulado), 260, yPos + 5);
 
     // Rodapé
     const pageCount = doc.internal.getNumberOfPages();
