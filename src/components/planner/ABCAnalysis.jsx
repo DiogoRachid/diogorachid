@@ -52,16 +52,26 @@ const classifyABC = (items) => {
   // Ordenar por valor decrescente
   const sorted = [...items].sort((a, b) => b.value - a.value);
   
-  let totalValue = sorted.reduce((sum, item) => sum + item.value, 0);
+  const totalValue = sorted.reduce((sum, item) => sum + item.value, 0);
+  if (totalValue === 0) return sorted.map(item => ({ ...item, classification: 'C', accumulatedPercent: 0, percentOfTotal: 0 }));
+  
   let accumulated = 0;
   
   return sorted.map(item => {
+    const previousAccumulated = accumulated;
     accumulated += item.value;
     const accumulatedPercent = (accumulated / totalValue) * 100;
     
+    // Curva ABC padrão: 
+    // Classe A: primeiros itens que somam até 80% do valor total
+    // Classe B: próximos itens que somam de 80% até 95% do valor total  
+    // Classe C: demais itens que somam de 95% até 100% do valor total
     let classification = 'C';
-    if (accumulatedPercent <= 80) classification = 'A';
-    else if (accumulatedPercent <= 95) classification = 'B';
+    if (previousAccumulated < totalValue * 0.80) {
+      classification = 'A';
+    } else if (previousAccumulated < totalValue * 0.95) {
+      classification = 'B';
+    }
     
     return {
       ...item,
