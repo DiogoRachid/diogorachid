@@ -28,6 +28,7 @@ import InvestmentDetail from './pages/InvestmentDetail';
 import InvestmentForm from './pages/InvestmentForm';
 import InvestmentTransactions from './pages/InvestmentTransactions';
 import Investments from './pages/Investments';
+import Measurements from './pages/Measurements';
 import PayrollForm from './pages/PayrollForm';
 import Payrolls from './pages/Payrolls';
 import ProjectDetail from './pages/ProjectDetail';
@@ -50,7 +51,6 @@ import TimeSheet from './pages/TimeSheet';
 import Transactions from './pages/Transactions';
 import VersionHistory from './pages/VersionHistory';
 import VersionHistoryForm from './pages/VersionHistoryForm';
-import Measurements from './pages/Measurements';
 import __Layout from './Layout.jsx';
 
 
@@ -85,6 +85,7 @@ export const PAGES = {
     "InvestmentForm": InvestmentForm,
     "InvestmentTransactions": InvestmentTransactions,
     "Investments": Investments,
+    "Measurements": Measurements,
     "PayrollForm": PayrollForm,
     "Payrolls": Payrolls,
     "ProjectDetail": ProjectDetail,
@@ -107,7 +108,6 @@ export const PAGES = {
     "Transactions": Transactions,
     "VersionHistory": VersionHistory,
     "VersionHistoryForm": VersionHistoryForm,
-    "Measurements": Measurements,
 }
 
 export const pagesConfig = {

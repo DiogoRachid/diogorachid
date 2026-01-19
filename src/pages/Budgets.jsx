@@ -49,11 +49,66 @@ export default function Budgets() {
     }
   });
 
-  const duplicateBudget = async (budget) => {
-    // TODO: Implement duplication logic (deep copy of budget and items)
-    // For now just alert
-    toast.info('Funcionalidade de duplicação será implementada em breve.');
-  };
+  const duplicateMutation = useMutation({
+    mutationFn: async (budgetId) => {
+      // Buscar orçamento original
+      const originalBudget = budgets.find(b => b.id === budgetId);
+      if (!originalBudget) throw new Error('Orçamento não encontrado');
+
+      // Buscar itens e etapas do orçamento original
+      const [items, stages] = await Promise.all([
+        base44.entities.BudgetItem.filter({ orcamento_id: budgetId }),
+        base44.entities.BudgetStage.filter({ orcamento_id: budgetId })
+      ]);
+
+      // Criar novo orçamento (cópia)
+      const newBudget = await base44.entities.Budget.create({
+        ...originalBudget,
+        id: undefined,
+        descricao: `${originalBudget.descricao} (Cópia)`,
+        versao: (originalBudget.versao || 1) + 1,
+        status: 'rascunho',
+        created_date: undefined,
+        updated_date: undefined
+      });
+
+      // Duplicar etapas
+      const stageMapping = {};
+      for (const stage of stages) {
+        const newStage = await base44.entities.BudgetStage.create({
+          ...stage,
+          id: undefined,
+          orcamento_id: newBudget.id,
+          created_date: undefined,
+          updated_date: undefined
+        });
+        stageMapping[stage.id] = newStage.id;
+      }
+
+      // Duplicar itens
+      const itemsToCreate = items.map(item => ({
+        ...item,
+        id: undefined,
+        orcamento_id: newBudget.id,
+        stage_id: item.stage_id ? stageMapping[item.stage_id] : null,
+        created_date: undefined,
+        updated_date: undefined
+      }));
+
+      if (itemsToCreate.length > 0) {
+        await base44.entities.BudgetItem.bulkCreate(itemsToCreate);
+      }
+
+      return newBudget;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
+      toast.success('Orçamento duplicado com sucesso!');
+    },
+    onError: () => {
+      toast.error('Erro ao duplicar orçamento');
+    }
+  });
 
   const filteredBudgets = budgets.filter(b => 
     !search || 
@@ -116,8 +171,15 @@ export default function Budgets() {
               <Printer className="h-4 w-4 mr-2" />
               Imprimir
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => duplicateBudget(row)}>
-              <Copy className="h-4 w-4 mr-2" />
+            <DropdownMenuItem 
+              onClick={() => duplicateMutation.mutate(row.id)}
+              disabled={duplicateMutation.isPending}
+            >
+              {duplicateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Copy className="h-4 w-4 mr-2" />
+              )}
               Duplicar
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setDeleteId(row.id)} className="text-red-600">
