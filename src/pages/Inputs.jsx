@@ -148,16 +148,14 @@ export default function Inputs() {
 
     setBulkUpdating(true);
     try {
-       const allInputs = await Engine.fetchAll('Input');
+       const allInputs = await base44.entities.Input.list();
        const total = allInputs.length;
-       const updates = allInputs.map(i => ({
-          id: i.id,
-          data: { data_base: bulkDate }
-       }));
 
        for (let i = 0; i < total; i += 100) {
-          const chunk = updates.slice(i, i + 100);
-          await Promise.all(chunk.map(u => base44.entities.Input.update(u.id, u.data)));
+          const chunk = allInputs.slice(i, i + 100);
+          await Promise.all(chunk.map(input => 
+            base44.entities.Input.update(input.id, { data_base: bulkDate })
+          ));
        }
 
        toast.success(`${total} insumos atualizados.`);
