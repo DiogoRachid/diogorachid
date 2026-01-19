@@ -120,7 +120,7 @@ export default function MeasurementFormPage() {
         s.budget_item_id === budgetItem.id && s.mes === mesRef
       );
       
-      const qtdPrevista = scheduleItem ? (scheduleItem.percentual_mes / 100) * budgetItem.quantidade : 0;
+      const qtdPrevista = scheduleItem ? (Number(scheduleItem.percentual_mes) / 100) * Number(budgetItem.quantidade || 0) : 0;
       
       return {
         orcamento_item_id: budgetItem.id,
@@ -158,7 +158,7 @@ export default function MeasurementFormPage() {
         );
         
         const qtdPrevista = scheduleItem ? 
-          (scheduleItem.percentual_mes / 100) * item.quantidade_orcamento : 0;
+          (Number(scheduleItem.percentual_mes) / 100) * Number(item.quantidade_orcamento || 0) : 0;
         
         return {
           ...item,
@@ -175,9 +175,9 @@ export default function MeasurementFormPage() {
     const qtdExec = parseFloat(value) || 0;
     
     newItems[index].quantidade_executada = qtdExec;
-    newItems[index].valor_executado = qtdExec * newItems[index].valor_unitario;
-    newItems[index].percentual_executado = newItems[index].quantidade_orcamento > 0 ?
-      (qtdExec / newItems[index].quantidade_orcamento) * 100 : 0;
+    newItems[index].valor_executado = qtdExec * Number(newItems[index].valor_unitario || 0);
+    newItems[index].percentual_executado = Number(newItems[index].quantidade_orcamento || 0) > 0 ?
+      (qtdExec / Number(newItems[index].quantidade_orcamento)) * 100 : 0;
     
     setItems(newItems);
   };
@@ -187,7 +187,7 @@ export default function MeasurementFormPage() {
     
     // Calcular total previsto para o mês
     const totalPrevisto = items.reduce((sum, item) => 
-      sum + ((item.quantidade_prevista_mes || 0) * (item.valor_unitario || 0)), 0
+      sum + (Number(item.quantidade_prevista_mes || 0) * Number(item.valor_unitario || 0)), 0
     );
     
     return { totalExecutado, totalPrevisto };
