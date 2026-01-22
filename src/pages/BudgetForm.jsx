@@ -12,7 +12,6 @@ import {
   Printer,
   Loader2,
   FileSpreadsheet,
-  FileText,
   Calculator,
   RefreshCw,
   GripVertical,
