@@ -67,14 +67,14 @@ const menuItems = [
       ]
       },
       {
-      title: 'Orçamentos',
-      icon: Calculator,
-      page: 'Budgets'
+        title: 'Orçamentos',
+        icon: Calculator,
+        page: 'Budgets'
       },
       {
-      title: 'Medições',
-      icon: Ruler,
-      page: 'Measurements'
+        title: 'Medições',
+        icon: Ruler,
+        page: 'Measurements'
       },
       {
         title: 'Financeiro',
