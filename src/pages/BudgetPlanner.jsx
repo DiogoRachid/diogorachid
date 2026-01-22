@@ -267,8 +267,6 @@ export default function BudgetPlanner() {
     </div>
   );
 }
-
-const periodos_totais = duracao_meses;
     const s = 2; // fixo
     const i = 0.50; // 50% do período total
     
