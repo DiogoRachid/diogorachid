@@ -490,19 +490,24 @@ export async function exportMeasurementPDF(measurementId) {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(7);
     doc.setFont(undefined, 'bold');
-    doc.text('Cód', 12, yPos + 5);
-    doc.text('Descrição', 28, yPos + 5);
-    doc.text('Un', 95, yPos + 5);
-    doc.text('Qtd', 110, yPos + 5);
-    doc.text('Material (R$)', 135, yPos + 5);
-    doc.text('Mão Obra (R$)', 175, yPos + 5);
-    doc.text('Subtotal (R$)', 220, yPos + 5);
+    doc.text('Item', 12, yPos + 5);
+    doc.text('Cód', 32, yPos + 5);
+    doc.text('Descrição', 50, yPos + 5);
+    doc.text('Un', 115, yPos + 5);
+    doc.text('Qtd', 130, yPos + 5);
+    doc.text('Material (R$)', 155, yPos + 5);
+    doc.text('Mão Obra (R$)', 195, yPos + 5);
+    doc.text('Subtotal (R$)', 240, yPos + 5);
     yPos += 8;
 
-    // Renderizar itens por etapa
+    // Renderizar itens usando hierarquia com numeração
     doc.setTextColor(0, 0, 0);
-    Object.keys(itemsByStage).forEach(stageName => {
-      const stageItems = itemsByStage[stageName];
+    stageHierarchy.forEach(stage => {
+      // Para etapas principais (nível 0), mostrar sempre se tiver itens na hierarquia
+      if (stage.level === 0 && !hasItemsInHierarchy(stage.id)) return;
+      
+      // Para subetapas (nível 1+), só mostrar se tiver itens diretos
+      if (stage.level > 0 && stage.items.length === 0) return;
 
       // Verificar espaço
       if (yPos > 180) {
@@ -510,30 +515,32 @@ export async function exportMeasurementPDF(measurementId) {
         yPos = 20;
       }
 
-      // Nome da etapa
-      doc.setFillColor(230, 230, 230);
+      // Nome da etapa com número hierárquico
+      doc.setFillColor(stage.level === 0 ? 208 : 232, stage.level === 0 ? 208 : 232, stage.level === 0 ? 208 : 232);
       doc.rect(10, yPos, 277, 6, 'F');
       doc.setFont(undefined, 'bold');
       doc.setFontSize(8);
-      doc.text(stageName, 12, yPos + 4);
+      doc.text(`${stage.number} ${stage.nome}`, 12, yPos + 4);
       yPos += 7;
 
       doc.setFont(undefined, 'normal');
       doc.setFontSize(7);
       
-      stageItems.forEach(item => {
+      stage.items.forEach((item, itemIdx) => {
         if (yPos > 185) {
           doc.addPage();
           yPos = 20;
         }
 
-        doc.text(item.codigo || '', 12, yPos + 4);
-        doc.text((item.descricao || '').substring(0, 40), 28, yPos + 4);
-        doc.text(item.unidade || '', 95, yPos + 4);
-        doc.text(formatNumber(item.quantidade_executada_periodo), 110, yPos + 4, { align: 'right' });
-        doc.text(formatCurrency(item.valor_material_periodo), 135, yPos + 4, { align: 'right' });
-        doc.text(formatCurrency(item.valor_mao_obra_periodo), 175, yPos + 4, { align: 'right' });
-        doc.text(formatCurrency(item.valor_material_periodo + item.valor_mao_obra_periodo), 220, yPos + 4, { align: 'right' });
+        const itemNumber = `${stage.number}${itemIdx + 1}`;
+        doc.text(itemNumber, 12, yPos + 4);
+        doc.text(item.codigo || '', 32, yPos + 4);
+        doc.text((item.descricao || '').substring(0, 35), 50, yPos + 4);
+        doc.text(item.unidade || '', 115, yPos + 4);
+        doc.text(formatNumber(item.quantidade_executada_periodo), 145, yPos + 4, { align: 'right' });
+        doc.text(formatCurrency(item.valor_material_periodo), 185, yPos + 4, { align: 'right' });
+        doc.text(formatCurrency(item.valor_mao_obra_periodo), 225, yPos + 4, { align: 'right' });
+        doc.text(formatCurrency(item.valor_material_periodo + item.valor_mao_obra_periodo), 270, yPos + 4, { align: 'right' });
 
         yPos += 5;
       });
