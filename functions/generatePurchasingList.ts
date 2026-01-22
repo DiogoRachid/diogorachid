@@ -62,35 +62,38 @@ Deno.serve(async (req) => {
       serviceItemMap.get(key).push(si);
     }
 
-    // Buscar distribuição mensal dos serviços a partir das medições
-    const measurementItems = [];
-    for (const measurement of measurements) {
-      const items = await base44.asServiceRole.entities.MeasurementItem.filter({ medicao_id: measurement.id });
-      measurementItems.push(...items.map(item => ({
-        ...item,
-        mes: parseInt(measurement.periodo_referencia.split('/')[0])
-      })));
-    }
-
+    // Buscar distribuição mensal do cronograma (ProjectStage)
     const distributionMap = new Map();
-    for (const item of measurementItems) {
-      const key = `${item.servico_id}_${item.mes}`;
-      const existing = distributionMap.get(key) || { quantidade_total: 0, percentual: 0 };
-      existing.quantidade_total += item.quantidade_executada_periodo || 0;
-      distributionMap.set(key, existing);
-    }
 
-    // Calcular percentuais baseado na quantidade planejada
-    const servicoQtdMap = new Map();
-    for (const budgetItem of allBudgetItems) {
-      const key = budgetItem.servico_id;
-      servicoQtdMap.set(key, (servicoQtdMap.get(key) || 0) + budgetItem.quantidade);
-    }
+    for (const stage of projectStages) {
+      if (stage.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
+        // Usar distribuição mensal da etapa
+        for (const dist of stage.distribuicao_mensal) {
+          const mes = dist.mes;
+          const percentual = dist.percentual || 0;
 
-    for (const [key, dist] of distributionMap) {
-      const servico_id = key.split('_')[0];
-      const qtdPlanejada = servicoQtdMap.get(servico_id) || 1;
-      dist.percentual = (dist.quantidade_total / qtdPlanejada) * 100;
+          // Para cada serviço nesta etapa
+          if (stage.servicos_ids && Array.isArray(stage.servicos_ids)) {
+            for (const servico_id of stage.servicos_ids) {
+              const key = `${servico_id}_${mes}`;
+              distributionMap.set(key, { percentual, quantidade_total: 0 });
+            }
+          }
+        }
+      } else {
+        // Fallback: distribuir uniformemente entre mes_inicio e mes_fim
+        const duracao = (stage.mes_fim || stage.mes_inicio) - (stage.mes_inicio || 1) + 1;
+        const percentualPorMes = 100 / duracao;
+
+        if (stage.servicos_ids && Array.isArray(stage.servicos_ids)) {
+          for (let mes = stage.mes_inicio || 1; mes <= (stage.mes_fim || stage.mes_inicio || 1); mes++) {
+            for (const servico_id of stage.servicos_ids) {
+              const key = `${servico_id}_${mes}`;
+              distributionMap.set(key, { percentual: percentualPorMes, quantidade_total: 0 });
+            }
+          }
+        }
+      }
     }
 
     // Buscar insumos para obter dados completos
