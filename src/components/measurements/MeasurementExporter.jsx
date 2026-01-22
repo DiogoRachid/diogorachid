@@ -59,7 +59,7 @@ export async function exportMeasurementXLSX(measurementId) {
 
     // Logo
     try {
-      const logoUrl = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_690c7efb29582ad524a0ff3e/fb3eac426_logofundoclaro.jpg";
+      const logoUrl = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6926eb0b6c1242bf806695a4/e482e0b04_logofundoclaro.jpg";
       const response = await fetch(logoUrl);
       const blob = await response.blob();
       const arrayBuffer = await blob.arrayBuffer();
@@ -71,10 +71,10 @@ export async function exportMeasurementXLSX(measurementId) {
       
       worksheet.addImage(imageId, {
         tl: { col: 0, row: 0 },
-        ext: { width: 200, height: 80 }
+        ext: { width: 250, height: 60 }
       });
       
-      currentRow = 6;
+      currentRow = 5;
     } catch (e) {
       console.log('Logo não carregada');
     }
@@ -177,12 +177,13 @@ export async function exportMeasurementXLSX(measurementId) {
         row.getCell(2).value = item.codigo;
         row.getCell(3).value = item.descricao;
         row.getCell(4).value = item.unidade;
-        row.getCell(5).value = item.quantidade_executada_periodo;
-        row.getCell(6).value = item.valor_material_periodo;
+        row.getCell(5).value = parseFloat(item.quantidade_executada_periodo.toFixed(2));
+        row.getCell(5).numFmt = '0.00';
+        row.getCell(6).value = parseFloat(item.valor_material_periodo.toFixed(2));
         row.getCell(6).numFmt = 'R$ #,##0.00';
-        row.getCell(7).value = item.valor_mao_obra_periodo;
+        row.getCell(7).value = parseFloat(item.valor_mao_obra_periodo.toFixed(2));
         row.getCell(7).numFmt = 'R$ #,##0.00';
-        row.getCell(8).value = item.valor_material_periodo + item.valor_mao_obra_periodo;
+        row.getCell(8).value = parseFloat((item.valor_material_periodo + item.valor_mao_obra_periodo).toFixed(2));
         row.getCell(8).numFmt = 'R$ #,##0.00';
         
         for (let i = 1; i <= 8; i++) {
@@ -205,7 +206,7 @@ export async function exportMeasurementXLSX(measurementId) {
       row.getCell(5).value = label;
       row.getCell(5).font = { bold };
       row.getCell(5).alignment = { horizontal: 'right' };
-      row.getCell(8).value = value;
+      row.getCell(8).value = parseFloat(value.toFixed(2));
       row.getCell(8).numFmt = 'R$ #,##0.00';
       row.getCell(8).font = { bold };
       row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
@@ -215,7 +216,7 @@ export async function exportMeasurementXLSX(measurementId) {
     addTotalRow('SUBTOTAL MATERIAL:', totalMaterialPeriodo);
     addTotalRow('SUBTOTAL MÃO DE OBRA:', totalMaoObraPeriodo);
     addTotalRow('SUBTOTAL GERAL:', subtotalPeriodo, true);
-    addTotalRow(`BDI (${bdiPercentual}%):`, valorBDIPeriodo);
+    addTotalRow(`BDI (${bdiPercentual.toFixed(2)}%):`, valorBDIPeriodo);
     addTotalRow('TOTAL COM BDI:', totalComBDIPeriodo, true);
     
     currentRow++;
@@ -225,7 +226,7 @@ export async function exportMeasurementXLSX(measurementId) {
     bdiRow1.getCell(5).value = 'Material com BDI:';
     bdiRow1.getCell(5).font = { bold: true };
     bdiRow1.getCell(5).alignment = { horizontal: 'right' };
-    bdiRow1.getCell(8).value = totalMaterialPeriodo + (totalMaterialPeriodo * bdiPercentual / 100);
+    bdiRow1.getCell(8).value = parseFloat((totalMaterialPeriodo + (totalMaterialPeriodo * bdiPercentual / 100)).toFixed(2));
     bdiRow1.getCell(8).numFmt = 'R$ #,##0.00';
     bdiRow1.getCell(8).font = { bold: true };
     bdiRow1.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCF0FF' } };
@@ -235,7 +236,7 @@ export async function exportMeasurementXLSX(measurementId) {
     bdiRow2.getCell(5).value = 'Mão de Obra com BDI:';
     bdiRow2.getCell(5).font = { bold: true };
     bdiRow2.getCell(5).alignment = { horizontal: 'right' };
-    bdiRow2.getCell(8).value = totalMaoObraPeriodo + (totalMaoObraPeriodo * bdiPercentual / 100);
+    bdiRow2.getCell(8).value = parseFloat((totalMaoObraPeriodo + (totalMaoObraPeriodo * bdiPercentual / 100)).toFixed(2));
     bdiRow2.getCell(8).numFmt = 'R$ #,##0.00';
     bdiRow2.getCell(8).font = { bold: true };
     bdiRow2.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCF0FF' } };
@@ -323,10 +324,10 @@ export async function exportMeasurementPDF(measurementId) {
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 15;
 
-    // Logo (tamanho maior)
-    const logoUrl = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_690c7efb29582ad524a0ff3e/fb3eac426_logofundoclaro.jpg";
+    // Logo (mantendo proporção)
+    const logoUrl = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6926eb0b6c1242bf806695a4/e482e0b04_logofundoclaro.jpg";
     try {
-      doc.addImage(logoUrl, 'JPEG', 15, yPos, 60, 25);
+      doc.addImage(logoUrl, 'JPEG', 15, yPos, 70, 17);
     } catch (e) {
       console.log('Logo não carregada');
     }
@@ -334,9 +335,9 @@ export async function exportMeasurementPDF(measurementId) {
     // Título
     doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
-    doc.text('MEDIÇÃO DE OBRA', pageWidth / 2, yPos + 10, { align: 'center' });
+    doc.text('MEDIÇÃO DE OBRA', pageWidth / 2, yPos + 8, { align: 'center' });
     
-    yPos += 30;
+    yPos += 25;
     
     // Cabeçalho com dados da obra
     doc.setFontSize(10);
