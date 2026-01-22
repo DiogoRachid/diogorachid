@@ -137,6 +137,9 @@ export default function MeasurementForm() {
       const budgetItems = await base44.entities.BudgetItem.filter({ orcamento_id: orcamentoId });
       const budgetStages = await base44.entities.BudgetStage.filter({ orcamento_id: orcamentoId });
       
+      console.log('Budget Items:', budgetItems);
+      console.log('Budget Stages:', budgetStages);
+      
       // Buscar última medição para pegar acumulados
       const lastMeasurement = existingMeasurements.length > 0
         ? existingMeasurements.reduce((max, m) => m.numero_medicao > max.numero_medicao ? m : max)
@@ -147,28 +150,23 @@ export default function MeasurementForm() {
         lastItems = await base44.entities.MeasurementItem.filter({ medicao_id: lastMeasurement.id });
       }
 
-      // Criar mapa de etapas do orçamento
+      // Criar mapa de etapas do orçamento (ID -> Nome)
       const stageMap = {};
       budgetStages.forEach(s => {
         stageMap[s.id] = s.nome;
       });
 
-      // Buscar todos os serviços para pegar as etapas
-      const allServices = await base44.entities.Service.list();
-      const serviceStageMap = {};
-      allServices.forEach(service => {
-        if (service.stage_id) {
-          serviceStageMap[service.id] = service.stage_id;
-        }
-      });
+      console.log('Stage Map:', stageMap);
 
       const newItems = budgetItems.map(item => {
         const lastItem = lastItems.find(li => li.servico_id === item.servico_id);
         const acumulado = lastItem?.quantidade_executada_acumulada || 0;
         
-        // Tentar pegar stage_id do item, se não tiver, pegar do serviço
-        const stageId = item.stage_id || serviceStageMap[item.servico_id];
-        const stageName = stageId ? (stageMap[stageId] || 'Sem Etapa') : 'Sem Etapa';
+        // Pegar stage_id do item do orçamento
+        const stageId = item.stage_id;
+        const stageName = stageId && stageMap[stageId] ? stageMap[stageId] : 'Sem Etapa';
+        
+        console.log(`Item ${item.codigo}: stage_id=${stageId}, stage_nome=${stageName}`);
         
         return {
           servico_id: item.servico_id,
