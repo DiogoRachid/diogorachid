@@ -22,30 +22,18 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   }, [budget?.duracao_meses]);
 
   useEffect(() => {
-    // Inicializar schedule com as etapas (carregando de distribuicao_mensal se existir)
-    const initialSchedule = {};
-    stages.forEach(stage => {
-      if (stage.distribuicao_mensal && stage.distribuicao_mensal.length > 0) {
-        // Carregar dados salvos
-        const percentages = Array(months).fill(0);
-        stage.distribuicao_mensal.forEach(d => {
-          if (d.mes >= 1 && d.mes <= months) {
-            percentages[d.mes - 1] = d.percentual || 0;
-          }
-        });
-        initialSchedule[stage.id] = {
-          percentages,
-          total: percentages.reduce((sum, p) => sum + p, 0)
-        };
-      } else {
-        initialSchedule[stage.id] = {
+    // Inicializar schedule com serviços (cada serviço tem sua própria distribuição)
+    const initialServiceSchedule = {};
+    items.forEach(item => {
+      if (item.servico_id) {
+        initialServiceSchedule[item.servico_id] = {
           percentages: Array(months).fill(0),
           total: 0
         };
       }
     });
-    setSchedule(initialSchedule);
-  }, [stages, months]);
+    setServiceSchedule(initialServiceSchedule);
+  }, [items, months]);
 
   const toggleStageExpanded = (stageId) => {
     const newExpanded = new Set(expandedStages);
