@@ -8,7 +8,6 @@ import BankAccounts from './pages/BankAccounts';
 import BenefitAssignment from './pages/BenefitAssignment';
 import Benefits from './pages/Benefits';
 import BudgetForm from './pages/BudgetForm';
-import BudgetPlanner from './pages/BudgetPlanner';
 import Budgets from './pages/Budgets';
 import ClientDetail from './pages/ClientDetail';
 import ClientForm from './pages/ClientForm';
@@ -67,7 +66,6 @@ export const PAGES = {
     "BenefitAssignment": BenefitAssignment,
     "Benefits": Benefits,
     "BudgetForm": BudgetForm,
-    "BudgetPlanner": BudgetPlanner,
     "Budgets": Budgets,
     "ClientDetail": ClientDetail,
     "ClientForm": ClientForm,
