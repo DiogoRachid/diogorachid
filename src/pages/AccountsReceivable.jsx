@@ -33,7 +33,7 @@ import { toast } from "sonner";
 
 export default function AccountsReceivable() {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('em_aberto');
   const [monthFilter, setMonthFilter] = useState('all');
   const [costCenterFilter, setCostCenterFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -104,15 +104,17 @@ export default function AccountsReceivable() {
   useEffect(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const oneDayAgo = new Date(today);
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
     
     accounts.forEach(async (acc) => {
       const dueDate = new Date(acc.data_vencimento);
       dueDate.setHours(0, 0, 0, 0);
       
-      if (acc.status === 'em_aberto' && isBefore(dueDate, today)) {
+      if (acc.status === 'em_aberto' && dueDate < oneDayAgo) {
         await base44.entities.AccountReceivable.update(acc.id, { status: 'atrasado' });
         queryClient.invalidateQueries({ queryKey: ['accountsReceivable'] });
-      } else if (acc.status === 'atrasado' && (isAfter(dueDate, today) || dueDate.getTime() === today.getTime())) {
+      } else if (acc.status === 'atrasado' && dueDate >= oneDayAgo) {
         await base44.entities.AccountReceivable.update(acc.id, { status: 'em_aberto' });
         queryClient.invalidateQueries({ queryKey: ['accountsReceivable'] });
       }
@@ -175,7 +177,8 @@ export default function AccountsReceivable() {
     let result = accounts.filter(a => {
       const matchSearch = !search || 
         a.descricao?.toLowerCase().includes(search.toLowerCase()) ||
-        a.cliente_nome?.toLowerCase().includes(search.toLowerCase());
+        a.cliente_nome?.toLowerCase().includes(search.toLowerCase()) ||
+        a.numero_documento?.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'all' || a.status === statusFilter;
       const matchCostCenter = costCenterFilter === 'all' || a.centro_custo_id === costCenterFilter;
       
@@ -236,9 +239,15 @@ export default function AccountsReceivable() {
       render: (row) => (
         <div>
           <p className="font-medium text-slate-900">{row.descricao}</p>
-          {row.cliente_nome && (
-            <p className="text-sm text-slate-500">{row.cliente_nome}</p>
-          )}
+          <div className="flex gap-2 text-xs text-slate-500">
+            {row.cliente_nome && <span>{row.cliente_nome}</span>}
+            {row.numero_documento && (
+              <>
+                {row.cliente_nome && <span>•</span>}
+                <span className="font-mono">Doc: {row.numero_documento}</span>
+              </>
+            )}
+          </div>
         </div>
       )
     },
@@ -394,8 +403,7 @@ export default function AccountsReceivable() {
             options: [
               { value: 'em_aberto', label: 'Em Aberto' },
               { value: 'recebido', label: 'Recebido' },
-              { value: 'atrasado', label: 'Atrasado' },
-              { value: 'cancelado', label: 'Cancelado' }
+              { value: 'atrasado', label: 'Atrasado' }
             ]
           },
           {
@@ -420,7 +428,7 @@ export default function AccountsReceivable() {
         ]}
         onClearFilters={() => {
           setSearch('');
-          setStatusFilter('all');
+          setStatusFilter('em_aberto');
           setMonthFilter('all');
           setCostCenterFilter('all');
         }}
