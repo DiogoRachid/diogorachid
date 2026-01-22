@@ -179,7 +179,7 @@ export async function exportMeasurementXLSX(measurementId) {
 
     // Cabeçalho da tabela
     const tableHeaderRow = worksheet.getRow(currentRow);
-    const headers = ['Etapa', 'Código', 'Descrição', 'Unidade', 'Qtd Período', 'Material (R$)', 'Mão de Obra (R$)', 'Subtotal (R$)'];
+    const headers = ['Item', 'Código', 'Descrição', 'Unidade', 'Qtd Período', 'Material (R$)', 'Mão de Obra (R$)', 'Subtotal (R$)'];
     headers.forEach((header, idx) => {
       const cell = tableHeaderRow.getCell(idx + 1);
       cell.value = header;
