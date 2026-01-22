@@ -135,10 +135,13 @@ export default function MeasurementForm() {
       }));
 
       // Buscar itens do orçamento
-      const budgetItems = await base44.entities.BudgetItem.filter({ orcamento_id: orcamentoId });
+      const allBudgetItems = await base44.entities.BudgetItem.filter({ orcamento_id: orcamentoId });
       
       // Buscar etapas do projeto vinculadas ao orçamento
       const projectStages = await base44.entities.ProjectStage.filter({ orcamento_id: orcamentoId });
+      
+      // Filtrar apenas itens que têm etapa definida
+      const budgetItems = allBudgetItems.filter(item => item.stage_id);
       
       // Buscar etapas padrão (BudgetStage)
       const budgetStages = await base44.entities.BudgetStage.list();
