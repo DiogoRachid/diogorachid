@@ -69,11 +69,11 @@ export default function VersionHistoryPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-3">
-                        <Badge className="bg-blue-600 text-white px-3 py-1">
-                          v{version.versao}
-                        </Badge>
-                        <CardTitle className="text-lg">{version.titulo}</CardTitle>
-                      </div>
+                         <Badge className="bg-blue-600 text-white px-3 py-1">
+                           v{version.numero_versao}
+                         </Badge>
+                         <CardTitle className="text-lg">{version.titulo || 'Atualização de Sistema'}</CardTitle>
+                       </div>
                       {dataLanc && (
                         <p className="text-sm text-slate-500 mt-2">
                           Lançado em {dataLanc.toLocaleDateString('pt-BR')}
