@@ -193,10 +193,10 @@ export default function InvestmentForm() {
 
   const saveMutation = useMutation({
     mutationFn: (data) => {
-      const valorInvestido = parseFloat(data.valor_investido) || 0;
-      const valorAtual = parseFloat(data.valor_atual) || valorInvestido;
-      const rentabilidadeValor = valorAtual - valorInvestido;
-      const rentabilidadePercent = valorInvestido > 0 ? ((valorAtual / valorInvestido) - 1) * 100 : 0;
+      const valorInvestido = Math.round((parseFloat(data.valor_investido) || 0) * 100) / 100;
+      const valorAtual = Math.round((parseFloat(data.valor_atual) || valorInvestido) * 100) / 100;
+      const rentabilidadeValor = Math.round((valorAtual - valorInvestido) * 100) / 100;
+      const rentabilidadePercent = valorInvestido > 0 ? Math.round(((valorAtual / valorInvestido) - 1) * 10000) / 100 : 0;
 
       const isUSDMoeda = data.moeda === 'USD';
       const isIntl = ['renda_variavel_int', 'crypto'].includes(data.categoria);
