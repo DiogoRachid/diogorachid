@@ -151,26 +151,28 @@ export default function MeasurementForm() {
       const stageMap = {};
       budgetStages.forEach(s => stageMap[s.id] = s.nome);
 
-      const newItems = budgetItems.map(item => {
-        const lastItem = lastItems.find(li => li.servico_id === item.servico_id);
-        const acumulado = lastItem?.quantidade_executada_acumulada || 0;
-        
-        return {
-          servico_id: item.servico_id,
-          codigo: item.codigo,
-          descricao: item.descricao,
-          unidade: item.unidade,
-          stage_id: item.stage_id,
-          stage_nome: stageMap[item.stage_id] || 'Sem Etapa',
-          quantidade_orcada: item.quantidade,
-          quantidade_executada_periodo: 0,
-          quantidade_executada_acumulada: acumulado,
-          saldo_a_executar: item.quantidade - acumulado,
-          custo_unitario: item.custo_com_bdi_unitario || 0,
-          valor_executado_periodo: 0,
-          valor_executado_acumulado: acumulado * (item.custo_com_bdi_unitario || 0)
-        };
-      });
+      const newItems = budgetItems
+        .filter(item => item.stage_id) // Apenas itens com etapa definida
+        .map(item => {
+          const lastItem = lastItems.find(li => li.servico_id === item.servico_id);
+          const acumulado = lastItem?.quantidade_executada_acumulada || 0;
+          
+          return {
+            servico_id: item.servico_id,
+            codigo: item.codigo,
+            descricao: item.descricao,
+            unidade: item.unidade,
+            stage_id: item.stage_id,
+            stage_nome: stageMap[item.stage_id] || 'Sem Etapa',
+            quantidade_orcada: item.quantidade,
+            quantidade_executada_periodo: 0,
+            quantidade_executada_acumulada: acumulado,
+            saldo_a_executar: item.quantidade - acumulado,
+            custo_unitario: item.custo_com_bdi_unitario || 0,
+            valor_executado_periodo: 0,
+            valor_executado_acumulado: acumulado * (item.custo_com_bdi_unitario || 0)
+          };
+        });
 
       // Buscar distribuição mensal para cronograma
       const monthlyDistributions = await base44.entities.ServiceMonthlyDistribution.filter({ 
