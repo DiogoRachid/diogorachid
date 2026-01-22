@@ -698,10 +698,12 @@ export default function MeasurementForm() {
                   
                   if (!mainStage) return;
                   
-                  const stageName = mainStage.nome;
+                  const stageKey = mainStage.id;
                   
-                  if (!executionByMainStage[stageName]) {
-                    executionByMainStage[stageName] = {
+                  if (!executionByMainStage[stageKey]) {
+                    executionByMainStage[stageKey] = {
+                      nome: mainStage.nome,
+                      ordem: mainStage.ordem,
                       previsto_periodo: 0,
                       executado_periodo: 0,
                       previsto_acumulado: 0,
@@ -710,24 +712,26 @@ export default function MeasurementForm() {
                       stageId: mainStage.id
                     };
                   }
-                  executionByMainStage[stageName].executado_periodo += item.valor_executado_periodo || 0;
-                  executionByMainStage[stageName].executado_acumulado += item.valor_executado_acumulado || 0;
+                  executionByMainStage[stageKey].executado_periodo += item.valor_executado_periodo || 0;
+                  executionByMainStage[stageKey].executado_acumulado += item.valor_executado_acumulado || 0;
                   // Calcular valor total da etapa (todos os serviços)
-                  executionByMainStage[stageName].valor_total_etapa += (item.quantidade_orcada || 0) * (item.custo_unitario || 0);
+                  executionByMainStage[stageKey].valor_total_etapa += (item.quantidade_orcada || 0) * (item.custo_unitario || 0);
                 });
 
                 // Agora calcular o previsto baseado na distribuição mensal das etapas principais
-                projectStages.filter(s => !s.parent_stage_id).forEach(stage => {
-                  const stageName = stage.nome;
+                projectStages.filter(s => !s.parent_stage_id).forEach((stage, idx) => {
+                  const stageKey = stage.id;
                   
                   // Verificar se a etapa tem distribuição mensal
                   if (stage.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
                     // Calcular valor total dessa etapa específica
-                    const valorTotalEtapa = executionByMainStage[stageName]?.valor_total_etapa || 0;
+                    const valorTotalEtapa = executionByMainStage[stageKey]?.valor_total_etapa || 0;
                     
                     if (valorTotalEtapa > 0) {
-                      if (!executionByMainStage[stageName]) {
-                        executionByMainStage[stageName] = {
+                      if (!executionByMainStage[stageKey]) {
+                        executionByMainStage[stageKey] = {
+                          nome: stage.nome,
+                          ordem: stage.ordem,
                           previsto_periodo: 0,
                           executado_periodo: 0,
                           previsto_acumulado: 0,
@@ -744,21 +748,30 @@ export default function MeasurementForm() {
                         
                         // Previsto do período atual
                         if (dist.mes === formData.numero_medicao) {
-                          executionByMainStage[stageName].previsto_periodo += valorMes;
+                          executionByMainStage[stageKey].previsto_periodo += valorMes;
                         }
                         
                         // Previsto acumulado até este período
                         if (dist.mes <= formData.numero_medicao) {
-                          executionByMainStage[stageName].previsto_acumulado += valorMes;
+                          executionByMainStage[stageKey].previsto_acumulado += valorMes;
                         }
                       });
                     }
                   }
                 });
 
+                // Ordenar etapas pela ordem e adicionar códigos hierárquicos
+                const sortedStages = Object.entries(executionByMainStage)
+                  .sort(([, a], [, b]) => a.ordem - b.ordem)
+                  .map(([stageId, data], idx) => ({
+                    ...data,
+                    codigo: `${idx + 1}.`,
+                    stageId
+                  }));
+
                 return (
                   <div className="space-y-6">
-                    {Object.entries(executionByMainStage).map(([stage, data]) => {
+                    {sortedStages.map((stageData) => {
                       const percentPeriodo = data.previsto_periodo > 0 
                         ? (data.executado_periodo / data.previsto_periodo) * 100 
                         : 0;
@@ -824,7 +837,7 @@ export default function MeasurementForm() {
                       );
                     })}
 
-                    {Object.keys(executionByMainStage).length === 0 && (
+                    {sortedStages.length === 0 && (
                       <div className="text-center py-8 text-slate-500">
                         <p>Nenhum dado de cronograma disponível</p>
                         <p className="text-sm mt-2">Configure o cronograma no planejamento do orçamento</p>
