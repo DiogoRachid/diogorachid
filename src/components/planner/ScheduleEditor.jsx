@@ -120,7 +120,7 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
 
   const handleSave = () => {
     if (onSave) {
-      onSave(schedule, months);
+      onSave(serviceSchedule, months);
     }
   };
 
