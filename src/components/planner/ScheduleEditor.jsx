@@ -173,14 +173,14 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
 
   const getTotalMonthlyByService = (monthIndex) => {
     return items.reduce((sum, item) => {
-      const servicePercentage = serviceSchedule[item.servico_id]?.percentages[monthIndex] || 0;
-      return sum + ((item.subtotal || 0) * servicePercentage) / 100;
+      const itemPercentage = serviceSchedule[item.id]?.percentages[monthIndex] || 0;
+      return sum + ((item.subtotal || 0) * itemPercentage) / 100;
     }, 0);
   };
 
   const getTotalCumulativeByService = (monthIndex) => {
     return items.reduce((sum, item) => {
-      const cumulativePercentage = serviceSchedule[item.servico_id]?.percentages
+      const cumulativePercentage = serviceSchedule[item.id]?.percentages
         .slice(0, monthIndex + 1)
         .reduce((s, p) => s + p, 0) || 0;
       return sum + ((item.subtotal || 0) * cumulativePercentage) / 100;
