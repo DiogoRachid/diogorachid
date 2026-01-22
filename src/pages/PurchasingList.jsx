@@ -89,19 +89,21 @@ export default function PurchasingListPage() {
   };
 
   const exportXLSX = () => {
-    if (!listData) return;
+    if (!displayData) return;
 
     const work = works.find(w => w.id === selectedWork);
     const wsData = [
       ['LISTA DE COMPRAS'],
       [`Obra: ${work?.nome}`],
-      [`Total de Períodos: ${listData.total_meses}`],
-      [`Data de Geração: ${listData.data_geracao}`],
+      selectedMonth !== 'all' ? 
+        [`Período: Mês ${selectedMonth}`] : 
+        [`Total de Períodos: ${displayData.total_meses}`],
+      [`Data de Geração: ${displayData.data_geracao}`],
       [],
       ['ABC', 'Descrição', 'Unidade', 'Quantidade', 'Valor Unitário', 'Total']
     ];
 
-    listData.itens.forEach(item => {
+    displayData.itens.forEach(item => {
       wsData.push([
         item.abc_class,
         item.descricao,
@@ -113,7 +115,7 @@ export default function PurchasingListPage() {
     });
 
     wsData.push([]);
-    wsData.push(['', '', '', '', 'TOTAL:', listData.total_valor]);
+    wsData.push(['', '', '', '', 'TOTAL:', displayData.total_geral_valor]);
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [{ wch: 8 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 15 }];
