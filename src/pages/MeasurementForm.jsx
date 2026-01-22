@@ -970,6 +970,8 @@ export default function MeasurementForm() {
                 return null;
               }
 
+              const medicaoAtual = formData.numero_medicao;
+
               // Obter todas as distribuições mensais de todas as etapas principais
               const mainStages = projectStages.filter(s => !s.parent_stage_id);
               
