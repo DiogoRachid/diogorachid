@@ -102,7 +102,7 @@ export default function BudgetPlanner() {
         const serviceItems = allServiceItems.filter(si => si.servico_id === service.id);
         
         for (const si of serviceItems) {
-          if (si.tipo === 'insumo') {
+          if (si.tipo_item === 'INSUMO' && si.item_id) {
             const insumo = allInputs.find(inp => inp.id === si.item_id);
             if (insumo?.categoria === 'MAO_OBRA' && insumo.horas_por_unidade) {
               totalHorasMaoObra += (si.quantidade || 0) * (insumo.horas_por_unidade || 0) * (item.quantidade || 0);
@@ -190,7 +190,7 @@ export default function BudgetPlanner() {
         const service = allServices.find(s => s.id === budgetItem.servico_id);
         if (!service) continue;
 
-        const serviceItems = allServiceItems.filter(si => si.servico_id === service.id && si.tipo === 'insumo');
+        const serviceItems = allServiceItems.filter(si => si.servico_id === service.id && si.tipo_item === 'INSUMO');
         
         for (const si of serviceItems) {
           const insumo = allInputs.find(inp => inp.id === si.item_id);
