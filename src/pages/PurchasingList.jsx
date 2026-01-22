@@ -118,7 +118,26 @@ export default function PurchasingListPage() {
     XLSX.writeFile(wb, `lista_compras_${selectedWork}.xlsx`);
   };
 
-  const abcCounts = listData?.itens?.reduce((acc, item) => ({
+  // Filtrar itens por mês selecionado
+  let filteredPeriodos = listData?.periodos || [];
+  let displayData = listData;
+
+  if (selectedMonth !== 'all' && listData) {
+    const monthNum = parseInt(selectedMonth);
+    filteredPeriodos = listData.periodos.filter(p => p.mes === monthNum);
+    
+    const allItems = filteredPeriodos.flatMap(p => p.itens);
+    const totalValue = filteredPeriodos.reduce((sum, p) => sum + p.total_valor, 0);
+    displayData = {
+      ...listData,
+      periodos: filteredPeriodos,
+      itens: allItems,
+      total_geral_itens: allItems.length,
+      total_geral_valor: totalValue
+    };
+  }
+
+  const abcCounts = displayData?.itens?.reduce((acc, item) => ({
     ...acc,
     [item.abc_class]: (acc[item.abc_class] || 0) + 1
   }), {}) || {};
