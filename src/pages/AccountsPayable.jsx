@@ -33,7 +33,7 @@ import { Label } from "@/components/ui/label";
 
 export default function AccountsPayable() {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('em_aberto');
   const [monthFilter, setMonthFilter] = useState('all');
   const [costCenterFilter, setCostCenterFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -219,7 +219,8 @@ export default function AccountsPayable() {
     let result = accounts.filter(a => {
       const matchSearch = !search || 
         a.descricao?.toLowerCase().includes(search.toLowerCase()) ||
-        a.fornecedor_nome?.toLowerCase().includes(search.toLowerCase());
+        a.fornecedor_nome?.toLowerCase().includes(search.toLowerCase()) ||
+        a.numero_documento?.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'all' || a.status === statusFilter;
       const matchCostCenter = costCenterFilter === 'all' || a.centro_custo_id === costCenterFilter;
       
@@ -254,6 +255,7 @@ export default function AccountsPayable() {
     if (a.status !== 'em_aberto') return false;
     const venc = new Date(a.data_vencimento);
     const today = new Date();
+    const tomorrow = addDays(today, 1);
     return isAfter(venc, today) && isBefore(venc, addDays(today, 7));
   });
 
@@ -320,9 +322,15 @@ export default function AccountsPayable() {
       render: (row) => (
         <div>
           <p className="font-medium text-slate-900">{row.descricao}</p>
-          {row.fornecedor_nome && (
-            <p className="text-sm text-slate-500">{row.fornecedor_nome}</p>
-          )}
+          <div className="flex gap-2 text-xs text-slate-500">
+            {row.fornecedor_nome && <span>{row.fornecedor_nome}</span>}
+            {row.numero_documento && (
+              <>
+                {row.fornecedor_nome && <span>•</span>}
+                <span className="font-mono">Doc: {row.numero_documento}</span>
+              </>
+            )}
+          </div>
         </div>
       )
     },
@@ -486,8 +494,7 @@ export default function AccountsPayable() {
             options: [
               { value: 'em_aberto', label: 'Em Aberto' },
               { value: 'pago', label: 'Pago' },
-              { value: 'atrasado', label: 'Atrasado' },
-              { value: 'cancelado', label: 'Cancelado' }
+              { value: 'atrasado', label: 'Atrasado' }
             ]
           },
           {
@@ -512,7 +519,7 @@ export default function AccountsPayable() {
         ]}
         onClearFilters={() => {
           setSearch('');
-          setStatusFilter('all');
+          setStatusFilter('em_aberto');
           setMonthFilter('all');
           setCostCenterFilter('all');
         }}
