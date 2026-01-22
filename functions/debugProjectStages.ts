@@ -3,10 +3,21 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { budgetId } = await req.json();
+    const { budgetId, budgetName } = await req.json();
 
-    if (!budgetId) {
-      return Response.json({ error: 'budgetId é obrigatório' }, { status: 400 });
+    let finalBudgetId = budgetId;
+
+    // Se não tiver budgetId, buscar pelo nome
+    if (!finalBudgetId && budgetName) {
+      const budgets = await base44.asServiceRole.entities.Budget.filter({ descricao: budgetName });
+      if (budgets.length === 0) {
+        return Response.json({ error: `Orçamento "${budgetName}" não encontrado` }, { status: 400 });
+      }
+      finalBudgetId = budgets[0].id;
+    }
+
+    if (!finalBudgetId) {
+      return Response.json({ error: 'budgetId ou budgetName é obrigatório' }, { status: 400 });
     }
 
     // Buscar todas as ProjectStages deste orçamento
