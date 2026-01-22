@@ -32,6 +32,7 @@ import MeasurementForm from './pages/MeasurementForm';
 import Measurements from './pages/Measurements';
 import PayrollForm from './pages/PayrollForm';
 import Payrolls from './pages/Payrolls';
+import Plannings from './pages/Plannings';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectForm from './pages/ProjectForm';
 import ProjectSchedule from './pages/ProjectSchedule';
@@ -52,7 +53,6 @@ import TimeSheet from './pages/TimeSheet';
 import Transactions from './pages/Transactions';
 import VersionHistory from './pages/VersionHistory';
 import VersionHistoryForm from './pages/VersionHistoryForm';
-import Plannings from './pages/Plannings';
 import __Layout from './Layout.jsx';
 
 
@@ -91,6 +91,7 @@ export const PAGES = {
     "Measurements": Measurements,
     "PayrollForm": PayrollForm,
     "Payrolls": Payrolls,
+    "Plannings": Plannings,
     "ProjectDetail": ProjectDetail,
     "ProjectForm": ProjectForm,
     "ProjectSchedule": ProjectSchedule,
@@ -111,7 +112,6 @@ export const PAGES = {
     "Transactions": Transactions,
     "VersionHistory": VersionHistory,
     "VersionHistoryForm": VersionHistoryForm,
-    "Plannings": Plannings,
 }
 
 export const pagesConfig = {
