@@ -70,12 +70,17 @@ export default function MeasurementForm() {
   // Funções para corrigir problema de timezone em datas
   const formatDateForInput = (dateString) => {
     if (!dateString) return '';
+    // Se já está no formato correto, retorna direto
+    if (dateString.includes('-') && dateString.length === 10) {
+      return dateString;
+    }
     const date = new Date(dateString + 'T00:00:00');
     return date.toISOString().split('T')[0];
   };
 
   const formatDateForSave = (dateString) => {
     if (!dateString) return '';
+    // Retorna a data sem conversão de timezone
     return dateString;
   };
 
