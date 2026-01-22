@@ -106,6 +106,9 @@ Deno.serve(async (req) => {
       inputMap.set(input.id, input);
     }
 
+    // Log para debugging
+    console.log(`[DEBUG] Obra: ${workId}, Meses: ${months}, Medições: ${measurements.length}, Orçamentos: ${budgets.length}, Items: ${allBudgetItems.length}, Insumos: ${allInputs.length}`);
+
     // Compilar lista de compras por período
     const periodosMap = new Map(); // mes -> { insumos_map, valor_total }
     const totalQuantidadesPorInsumo = new Map(); // insumo_id -> total_quantidade
