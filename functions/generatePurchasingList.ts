@@ -103,22 +103,18 @@ Deno.serve(async (req) => {
       inputMap.set(input.id, input);
     }
 
-    // Log para debugging
-    console.log(`[DEBUG] Obra: ${project.id}, Meses: ${months}, BudgetItems: ${allBudgetItems.length}`);
-
     // Compilar lista de compras por período
     const periodosMap = new Map(); // mes -> { insumos_map, valor_total }
     const totalQuantidadesPorInsumo = new Map(); // insumo_id -> total_quantidade
 
     // Para cada BudgetItem (serviço do orçamento)
     for (const budgetItem of allBudgetItems) {
-     // Buscar ServiceItems deste serviço
-     const serviceItems = serviceItemMap.get(budgetItem.servico_id) || [];
+      // Buscar ServiceItems deste serviço
+      const serviceItems = serviceItemMap.get(budgetItem.servico_id) || [];
 
-     if (serviceItems.length === 0) {
-       console.log(`[DEBUG] BudgetItem ${budgetItem.id} (serviço: ${budgetItem.servico_id}) não tem ServiceItems`);
-       continue;
-     }
+      if (serviceItems.length === 0) {
+        continue;
+      }
 
       // Para cada insumo que compõe este serviço
       for (const serviceItem of serviceItems) {
@@ -128,13 +124,11 @@ Deno.serve(async (req) => {
           const insumo = inputMap.get(insumoId);
 
           if (!insumo) {
-            console.log(`[DEBUG] Insumo ${insumoId} não encontrado no mapa`);
             continue;
           }
 
           // Quantidade total de insumo necessária = quantidade_serviço * quantidade_insumo_por_serviço
           const quantidadeTotalInsumo = budgetItem.quantidade * serviceItem.quantidade;
-          console.log(`[DEBUG] BudgetItem qty=${budgetItem.quantidade}, ServiceItem qty=${serviceItem.quantidade}, Total=${quantidadeTotalInsumo}`);
 
           // Buscar distribuição mensal para este serviço
           const distribuicoesServico = [];
@@ -148,7 +142,6 @@ Deno.serve(async (req) => {
 
           // Se não há distribuição mensal, distribuir igualmente pelos meses
           if (distribuicoesServico.length === 0) {
-            const quantidadePorMes = quantidadeTotalInsumo / months;
             for (let mes = 1; mes <= months; mes++) {
               distribuicoesServico.push({ mes, percentual: 100 / months });
             }
@@ -252,7 +245,7 @@ Deno.serve(async (req) => {
     return Response.json({ 
       success: true,
       data: {
-        obra_id: workId,
+        obra_id: project.id,
         total_meses: months,
         data_geracao: new Date().toISOString().split('T')[0],
         periodos: periodosFormatados,
