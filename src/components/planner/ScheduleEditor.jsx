@@ -71,26 +71,35 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   };
 
   const handleServicePercentageChange = (serviceId, monthIndex, value) => {
-    const newSchedule = { ...serviceSchedule };
     const percentage = parseFloat(value) || 0;
     
-    if (!newSchedule[serviceId]) {
+    setServiceSchedule(prevSchedule => {
+      const newSchedule = { ...prevSchedule };
+      
+      if (!newSchedule[serviceId]) {
+        newSchedule[serviceId] = {
+          percentages: Array(months).fill(0),
+          total: 0
+        };
+      }
+      
+      // Clone o array de percentages para evitar mutações
       newSchedule[serviceId] = {
-        percentages: Array(months).fill(0),
-        total: 0
+        percentages: [...newSchedule[serviceId].percentages],
+        total: newSchedule[serviceId].total
       };
-    }
-    
-    newSchedule[serviceId].percentages[monthIndex] = percentage;
-    newSchedule[serviceId].total = newSchedule[serviceId].percentages.reduce((sum, p) => sum + p, 0);
-    
-    if (newSchedule[serviceId].total > 100) {
-      toast.error(`O serviço não pode ultrapassar 100% de execução`);
-      return;
-    }
-    
-    setServiceSchedule(newSchedule);
-    onChange && onChange(newSchedule, months);
+      
+      newSchedule[serviceId].percentages[monthIndex] = percentage;
+      newSchedule[serviceId].total = newSchedule[serviceId].percentages.reduce((sum, p) => sum + p, 0);
+      
+      if (newSchedule[serviceId].total > 100) {
+        toast.error(`O serviço não pode ultrapassar 100% de execução`);
+        return prevSchedule;
+      }
+      
+      onChange && onChange(newSchedule, months);
+      return newSchedule;
+    });
   };
 
   const handleMonthsChange = (value) => {
