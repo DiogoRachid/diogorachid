@@ -135,6 +135,17 @@ export default function MeasurementForm() {
 
       // Buscar itens do orçamento e todas as etapas (globais)
       const budgetItems = await base44.entities.BudgetItem.filter({ orcamento_id: orcamentoId });
+      
+      // Buscar serviços para obter stage_id
+      const allServices = await base44.entities.Service.list();
+      const serviceStageMap = {};
+      allServices.forEach(s => {
+        if (s.stage_id) {
+          serviceStageMap[s.id] = s.stage_id;
+        }
+      });
+
+      // Buscar todas as etapas
       const allStages = await base44.entities.BudgetStage.list();
       
       // Buscar última medição para pegar acumulados
@@ -157,8 +168,12 @@ export default function MeasurementForm() {
         const lastItem = lastItems.find(li => li.servico_id === item.servico_id);
         const acumulado = lastItem?.quantidade_executada_acumulada || 0;
         
-        // Pegar stage_id do item do orçamento
-        const stageId = item.stage_id;
+        // Tentar pegar stage_id do BudgetItem, se não tiver, pegar do Service
+        let stageId = item.stage_id;
+        if (!stageId && item.servico_id) {
+          stageId = serviceStageMap[item.servico_id];
+        }
+        
         const stageName = stageId && stageMap[stageId] ? stageMap[stageId] : 'Sem Etapa';
         
         return {
