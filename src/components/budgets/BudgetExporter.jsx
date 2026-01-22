@@ -224,30 +224,30 @@ export async function exportBudgetXLSX(budgetId) {
       // Só adicionar itens se a etapa realmente tiver itens
       if (stageData.items && stageData.items.length > 0) {
         stageData.items.forEach((item, itemIdx) => {
-        const row = worksheet.getRow(currentRow);
-        const itemIndent = '  '.repeat(stageData.level + 1);
-        row.getCell(1).value = `${itemIndent}${stageData.number}.${itemIdx + 1}`;
-        row.getCell(2).value = item.codigo;
-        row.getCell(3).value = item.descricao;
-        row.getCell(4).value = item.unidade;
-        row.getCell(5).value = parseFloat(item.quantidade.toFixed(2));
-        row.getCell(5).numFmt = '0.00';
-        row.getCell(6).value = parseFloat(item.valor_material.toFixed(2));
-        row.getCell(6).numFmt = 'R$ #,##0.00';
-        row.getCell(7).value = parseFloat(item.valor_mao_obra.toFixed(2));
-        row.getCell(7).numFmt = 'R$ #,##0.00';
-        row.getCell(8).value = parseFloat((item.subtotal || 0).toFixed(2));
-        row.getCell(8).numFmt = 'R$ #,##0.00';
-        
-        for (let i = 1; i <= 8; i++) {
-          row.getCell(i).border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
-          };
-        }
-        currentRow++;
+          const row = worksheet.getRow(currentRow);
+          const itemIndent = '  '.repeat(stageData.level + 1);
+          row.getCell(1).value = `${itemIndent}${stageData.number}.${itemIdx + 1}`;
+          row.getCell(2).value = item.codigo;
+          row.getCell(3).value = item.descricao;
+          row.getCell(4).value = item.unidade;
+          row.getCell(5).value = parseFloat(item.quantidade.toFixed(2));
+          row.getCell(5).numFmt = '0.00';
+          row.getCell(6).value = parseFloat(item.valor_material.toFixed(2));
+          row.getCell(6).numFmt = 'R$ #,##0.00';
+          row.getCell(7).value = parseFloat(item.valor_mao_obra.toFixed(2));
+          row.getCell(7).numFmt = 'R$ #,##0.00';
+          row.getCell(8).value = parseFloat((item.subtotal || 0).toFixed(2));
+          row.getCell(8).numFmt = 'R$ #,##0.00';
+          
+          for (let i = 1; i <= 8; i++) {
+            row.getCell(i).border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+          }
+          currentRow++;
         });
       }
     });
@@ -552,44 +552,44 @@ export async function exportBudgetPDF(budgetId) {
       // Só adicionar itens se a etapa realmente tiver itens
       if (stageData.items && stageData.items.length > 0) {
         stageData.items.forEach((item, itemIdx) => {
-        if (yPos > 185) {
-          doc.addPage();
-          yPos = 20;
-        }
+          if (yPos > 185) {
+            doc.addPage();
+            yPos = 20;
+          }
 
-        // Número do item
-        const itemNumber = `${stageData.number}.${itemIdx + 1}`;
-        doc.setFont(undefined, 'bold');
-        doc.setFontSize(6);
-        doc.text(itemNumber, 12 + indent + 3, yPos + 4);
-        
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(7);
-        
-        // Código
-        doc.text(item.codigo || '', 22 + indent, yPos + 4);
-        
-        // Descrição (com wrapping)
-        const descMaxWidth = 115 - indent;
-        const descLines = doc.splitTextToSize(item.descricao || '', descMaxWidth);
-        doc.text(descLines.slice(0, 2), 32 + indent, yPos + 4);
-        
-        // Unidade
-        doc.text(item.unidade || '', 160, yPos + 4);
-        
-        // Quantidade
-        doc.text((item.quantidade || 0).toFixed(2), 175, yPos + 4, { align: 'right' });
-        
-        // Material
-        doc.text(formatCurrency(item.valor_material), 205, yPos + 4, { align: 'right' });
-        
-        // Mão de Obra
-        doc.text(formatCurrency(item.valor_mao_obra), 240, yPos + 4, { align: 'right' });
-        
-        // Total
-        doc.text(formatCurrency(item.subtotal || 0), 277, yPos + 4, { align: 'right' });
+          // Número do item
+          const itemNumber = `${stageData.number}.${itemIdx + 1}`;
+          doc.setFont(undefined, 'bold');
+          doc.setFontSize(6);
+          doc.text(itemNumber, 12 + indent + 3, yPos + 4);
+          
+          doc.setFont(undefined, 'normal');
+          doc.setFontSize(7);
+          
+          // Código
+          doc.text(item.codigo || '', 22 + indent, yPos + 4);
+          
+          // Descrição (com wrapping)
+          const descMaxWidth = 115 - indent;
+          const descLines = doc.splitTextToSize(item.descricao || '', descMaxWidth);
+          doc.text(descLines.slice(0, 2), 32 + indent, yPos + 4);
+          
+          // Unidade
+          doc.text(item.unidade || '', 160, yPos + 4);
+          
+          // Quantidade
+          doc.text((item.quantidade || 0).toFixed(2), 175, yPos + 4, { align: 'right' });
+          
+          // Material
+          doc.text(formatCurrency(item.valor_material), 205, yPos + 4, { align: 'right' });
+          
+          // Mão de Obra
+          doc.text(formatCurrency(item.valor_mao_obra), 240, yPos + 4, { align: 'right' });
+          
+          // Total
+          doc.text(formatCurrency(item.subtotal || 0), 277, yPos + 4, { align: 'right' });
 
-        yPos += descLines.length > 1 ? 7 : 5;
+          yPos += descLines.length > 1 ? 7 : 5;
         });
       }
 
