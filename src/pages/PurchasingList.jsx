@@ -144,7 +144,7 @@ export default function PurchasingListPage() {
     };
   }
 
-  const abcCounts = displayData?.itens?.reduce((acc, item) => ({
+  const abcCounts = (displayData?.itens || [])?.reduce((acc, item) => ({
     ...acc,
     [item.abc_class]: (acc[item.abc_class] || 0) + 1
   }), {}) || {};
