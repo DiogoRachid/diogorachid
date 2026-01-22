@@ -474,16 +474,6 @@ export async function exportMeasurementPDF(measurementId) {
     
     yPos += 12;
 
-    // Agrupar por etapa
-    const itemsByStage = {};
-    itemsEnriquecidos.forEach(item => {
-      const stageName = item.stage_nome || 'Sem Etapa';
-      if (!itemsByStage[stageName]) {
-        itemsByStage[stageName] = [];
-      }
-      itemsByStage[stageName].push(item);
-    });
-
     // Cabeçalho da tabela
     doc.setFillColor(41, 98, 255);
     doc.rect(10, yPos, 277, 7, 'F');
