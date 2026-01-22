@@ -207,10 +207,9 @@ export default function MeasurementForm() {
         };
       });
 
-      // Buscar distribuição mensal para cronograma do mês da medição
+      // Buscar distribuição mensal para cronograma (todas as distribuições do orçamento)
       const monthlyDistributions = await base44.entities.ServiceMonthlyDistribution.filter({ 
-        orcamento_id: orcamentoId,
-        mes: formData.numero_medicao
+        orcamento_id: orcamentoId
       });
       setScheduleData(monthlyDistributions);
       setProjectStages(projectStages);
@@ -634,7 +633,7 @@ export default function MeasurementForm() {
                   }
                 });
 
-                // Buscar dados previstos do cronograma para este período
+                // Processar dados do cronograma
                 scheduleData.forEach(dist => {
                   // Buscar a project stage para obter o nome correto
                   const projectStage = projectStages.find(ps => ps.id === dist.project_stage_id);
@@ -648,7 +647,16 @@ export default function MeasurementForm() {
                       executado_acumulado: 0
                     };
                   }
-                  executionByStage[stageName].previsto_periodo += dist.valor_mes || 0;
+                  
+                  // Previsto do período atual
+                  if (dist.mes === formData.numero_medicao) {
+                    executionByStage[stageName].previsto_periodo += dist.valor_mes || 0;
+                  }
+                  
+                  // Previsto acumulado até este período (somar todos os meses até a medição atual)
+                  if (dist.mes <= formData.numero_medicao) {
+                    executionByStage[stageName].previsto_acumulado += dist.valor_mes || 0;
+                  }
                 });
 
                 return (
@@ -704,7 +712,12 @@ export default function MeasurementForm() {
                           </div>
 
                           <div className="grid grid-cols-2 gap-4 text-xs text-slate-500 mt-1">
-                            <div>Acumulado: {new Intl.NumberFormat('pt-BR', { 
+                            <div>Prev. Acum.: {new Intl.NumberFormat('pt-BR', { 
+                              style: 'currency', 
+                              currency: 'BRL',
+                              minimumFractionDigits: 0
+                            }).format(data.previsto_acumulado)}</div>
+                            <div>Exec. Acum.: {new Intl.NumberFormat('pt-BR', { 
                               style: 'currency', 
                               currency: 'BRL',
                               minimumFractionDigits: 0
