@@ -62,8 +62,8 @@ export default function BankAccountForm() {
     mutationFn: async (data) => {
       const submitData = {
         ...data,
-        saldo_inicial: data.saldo_inicial ? parseFloat(data.saldo_inicial) : 0,
-        saldo_atual: data.saldo_atual ? parseFloat(data.saldo_atual) : 0
+        saldo_inicial: data.saldo_inicial ? Math.round(parseFloat(data.saldo_inicial) * 100) / 100 : 0,
+        saldo_atual: data.saldo_atual ? Math.round(parseFloat(data.saldo_atual) * 100) / 100 : 0
       };
 
       if (isEditing) {

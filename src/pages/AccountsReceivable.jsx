@@ -140,8 +140,9 @@ export default function AccountsReceivable() {
       if (account.conta_bancaria_id) {
         const [bankAccount] = await base44.entities.BankAccount.filter({ id: account.conta_bancaria_id });
         if (bankAccount) {
+          const novoSaldo = Math.round(((bankAccount.saldo_atual || 0) + Number(account.valor || 0)) * 100) / 100;
           await base44.entities.BankAccount.update(account.conta_bancaria_id, {
-            saldo_atual: (bankAccount.saldo_atual || 0) + account.valor
+            saldo_atual: novoSaldo
           });
         }
       }

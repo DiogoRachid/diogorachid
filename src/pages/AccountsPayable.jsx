@@ -138,8 +138,9 @@ export default function AccountsPayable() {
       if (account.conta_bancaria_id) {
         const [bankAccount] = await base44.entities.BankAccount.filter({ id: account.conta_bancaria_id });
         if (bankAccount) {
+          const novoSaldo = Math.round((Number(bankAccount.saldo_atual || 0) - Number(account.valor || 0)) * 100) / 100;
           await base44.entities.BankAccount.update(account.conta_bancaria_id, {
-            saldo_atual: Number(bankAccount.saldo_atual || 0) - Number(account.valor || 0)
+            saldo_atual: novoSaldo
           });
         }
       }
@@ -184,8 +185,9 @@ export default function AccountsPayable() {
         if (account.conta_bancaria_id) {
           const [bankAccount] = await base44.entities.BankAccount.filter({ id: account.conta_bancaria_id });
           if (bankAccount) {
+            const novoSaldo = Math.round((Number(bankAccount.saldo_atual || 0) - Number(account.valor || 0)) * 100) / 100;
             await base44.entities.BankAccount.update(account.conta_bancaria_id, {
-              saldo_atual: Number(bankAccount.saldo_atual || 0) - Number(account.valor || 0)
+              saldo_atual: novoSaldo
             });
           }
         }

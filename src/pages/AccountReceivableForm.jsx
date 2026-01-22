@@ -185,7 +185,7 @@ export default function AccountReceivableForm() {
       } else {
         const payload = {
           ...data,
-          valor: data.valor ? parseFloat(data.valor) : 0
+          valor: data.valor ? Math.round(parseFloat(data.valor) * 100) / 100 : 0
         };
         if (isEdit) {
           return base44.entities.AccountReceivable.update(accountId, payload);

@@ -81,7 +81,7 @@ export default function Transactions() {
     mutationFn: (data) => {
         const payload = {
             ...data,
-            valor: parseFloat(data.valor)
+            valor: Math.round(parseFloat(data.valor) * 100) / 100
         };
         // Note: Editing manual transactions does not automatically revert/apply balance changes to avoid complex inconsistencies.
         // Ideally, we should, but for now we just update the record as requested.
@@ -148,20 +148,20 @@ export default function Transactions() {
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
+      const valor = Math.round(parseFloat(data.valor) * 100) / 100;
       const transaction = await base44.entities.Transaction.create({
         ...data,
-        valor: parseFloat(data.valor),
+        valor: valor,
         origem: 'manual'
       });
       // Atualizar saldo da conta origem
-      const valor = parseFloat(data.valor);
       
       if (data.conta_bancaria_id) {
         const [account] = await base44.entities.BankAccount.filter({ id: data.conta_bancaria_id });
         if (account) {
           const novoSaldo = data.tipo === 'entrada' 
-            ? (account.saldo_atual || 0) + valor
-            : (account.saldo_atual || 0) - valor; // Saída ou Transferência (sai da origem)
+            ? Math.round(((account.saldo_atual || 0) + valor) * 100) / 100
+            : Math.round(((account.saldo_atual || 0) - valor) * 100) / 100; // Saída ou Transferência (sai da origem)
           await base44.entities.BankAccount.update(data.conta_bancaria_id, { saldo_atual: novoSaldo });
         }
       }
@@ -170,7 +170,7 @@ export default function Transactions() {
       if (data.tipo === 'transferencia' && data.conta_destino_id) {
         const [destAccount] = await base44.entities.BankAccount.filter({ id: data.conta_destino_id });
         if (destAccount) {
-          const novoSaldoDest = (destAccount.saldo_atual || 0) + valor;
+          const novoSaldoDest = Math.round(((destAccount.saldo_atual || 0) + valor) * 100) / 100;
           await base44.entities.BankAccount.update(data.conta_destino_id, { saldo_atual: novoSaldoDest });
         }
       }
