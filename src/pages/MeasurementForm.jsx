@@ -133,12 +133,9 @@ export default function MeasurementForm() {
         numero_medicao: lastNumber + 1
       }));
 
-      // Buscar itens e etapas do orçamento
+      // Buscar itens do orçamento e todas as etapas (globais)
       const budgetItems = await base44.entities.BudgetItem.filter({ orcamento_id: orcamentoId });
-      const budgetStages = await base44.entities.BudgetStage.filter({ orcamento_id: orcamentoId });
-      
-      console.log('Budget Items:', budgetItems);
-      console.log('Budget Stages:', budgetStages);
+      const allStages = await base44.entities.BudgetStage.list();
       
       // Buscar última medição para pegar acumulados
       const lastMeasurement = existingMeasurements.length > 0
@@ -150,13 +147,11 @@ export default function MeasurementForm() {
         lastItems = await base44.entities.MeasurementItem.filter({ medicao_id: lastMeasurement.id });
       }
 
-      // Criar mapa de etapas do orçamento (ID -> Nome)
+      // Criar mapa de etapas (ID -> Nome)
       const stageMap = {};
-      budgetStages.forEach(s => {
+      allStages.forEach(s => {
         stageMap[s.id] = s.nome;
       });
-
-      console.log('Stage Map:', stageMap);
 
       const newItems = budgetItems.map(item => {
         const lastItem = lastItems.find(li => li.servico_id === item.servico_id);
@@ -165,8 +160,6 @@ export default function MeasurementForm() {
         // Pegar stage_id do item do orçamento
         const stageId = item.stage_id;
         const stageName = stageId && stageMap[stageId] ? stageMap[stageId] : 'Sem Etapa';
-        
-        console.log(`Item ${item.codigo}: stage_id=${stageId}, stage_nome=${stageName}`);
         
         return {
           servico_id: item.servico_id,
