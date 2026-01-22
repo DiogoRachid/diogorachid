@@ -121,10 +121,10 @@ export default function PurchasingListPage() {
     XLSX.writeFile(wb, `lista_compras_${selectedWork}_${selectedMonth}_${selectedYear}.xlsx`);
   };
 
-  const abcCounts = listData?.itens.reduce((acc, item) => ({
+  const abcCounts = listData?.itens?.reduce((acc, item) => ({
     ...acc,
     [item.abc_class]: (acc[item.abc_class] || 0) + 1
-  }), {});
+  }), {}) || {};
 
   return (
     <div className="max-w-6xl mx-auto">
