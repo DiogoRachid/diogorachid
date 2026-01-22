@@ -60,8 +60,14 @@ export async function exportScheduleXLSX(schedule, stages, items, months, budget
     headerRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2962FF' } };
     headerRow.getCell(1).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
     
+    headerRow.getCell(2).value = 'Valor Total';
+    headerRow.getCell(2).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2962FF' } };
+    headerRow.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.getCell(2).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    
     for (let m = 1; m <= months; m++) {
-      const cell = headerRow.getCell(m + 1);
+      const cell = headerRow.getCell(m + 2);
       cell.value = `Mês ${m}`;
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2962FF' } };
@@ -69,38 +75,64 @@ export async function exportScheduleXLSX(schedule, stages, items, months, budget
       cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
     }
     
-    headerRow.getCell(months + 2).value = 'Total';
-    headerRow.getCell(months + 2).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    headerRow.getCell(months + 2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2962FF' } };
-    headerRow.getCell(months + 2).alignment = { horizontal: 'center', vertical: 'middle' };
-    headerRow.getCell(months + 2).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    headerRow.getCell(months + 3).value = 'Total %';
+    headerRow.getCell(months + 3).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.getCell(months + 3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2962FF' } };
+    headerRow.getCell(months + 3).alignment = { horizontal: 'center', vertical: 'middle' };
+    headerRow.getCell(months + 3).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
     currentRow++;
 
+    // Calcular valor de cada etapa
+    const getStageValue = (stageId) => {
+      let value = items
+        .filter(item => item.stage_id === stageId)
+        .reduce((sum, item) => sum + (item.subtotal || 0), 0);
+      
+      const subStages = stages.filter(s => s.parent_stage_id === stageId);
+      subStages.forEach(subStage => {
+        value += getStageValue(subStage.id);
+      });
+      
+      return value;
+    };
+
     // Dados das etapas
-    const sortedStages = stages.sort((a, b) => a.ordem - b.ordem);
+    const sortedStages = stages
+      .filter(stage => !stage.parent_stage_id && getStageValue(stage.id) > 0)
+      .sort((a, b) => a.ordem - b.ordem);
     
     sortedStages.forEach(stage => {
       const stageSchedule = schedule[stage.id] || { percentages: Array(months).fill(0), total: 0 };
-      const row = worksheet.getRow(currentRow);
+      const stageValue = getStageValue(stage.id);
       
+      // Linha da etapa com valor total
+      const row = worksheet.getRow(currentRow);
       row.getCell(1).value = stage.nome;
       row.getCell(1).font = { bold: true };
       row.getCell(1).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
       
+      row.getCell(2).value = parseFloat(stageValue.toFixed(2));
+      row.getCell(2).numFmt = 'R$ #,##0.00';
+      row.getCell(2).font = { bold: true };
+      row.getCell(2).alignment = { horizontal: 'right', vertical: 'middle' };
+      row.getCell(2).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      
       for (let m = 0; m < months; m++) {
-        const cell = row.getCell(m + 2);
-        const value = stageSchedule.percentages[m] || 0;
-        cell.value = parseFloat((value / 100).toFixed(4));
-        cell.numFmt = '0.00%';
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        const cell = row.getCell(m + 3);
+        const percentValue = stageSchedule.percentages[m] || 0;
+        const monthValue = (stageValue * percentValue) / 100;
+        
+        // Mostrar percentual e valor
+        cell.value = `${percentValue.toFixed(2)}%\nR$ ${monthValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         
-        if (value > 0) {
+        if (percentValue > 0) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } };
         }
       }
       
-      const totalCell = row.getCell(months + 2);
+      const totalCell = row.getCell(months + 3);
       totalCell.value = parseFloat((stageSchedule.total / 100).toFixed(4));
       totalCell.numFmt = '0.00%';
       totalCell.font = { bold: true };
@@ -108,14 +140,97 @@ export async function exportScheduleXLSX(schedule, stages, items, months, budget
       totalCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
       totalCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
       
+      row.height = 30;
       currentRow++;
     });
 
-    // Largura das colunas
-    const columns = [{ width: 30 }];
-    for (let i = 0; i < months + 1; i++) {
-      columns.push({ width: 10 });
+    currentRow++;
+
+    // TOTAL MENSAL
+    const totalMensalRow = worksheet.getRow(currentRow);
+    totalMensalRow.getCell(1).value = 'TOTAL MENSAL';
+    totalMensalRow.getCell(1).font = { bold: true, size: 11 };
+    totalMensalRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+    totalMensalRow.getCell(2).value = parseFloat((budgetData?.total_final || 0).toFixed(2));
+    totalMensalRow.getCell(2).numFmt = 'R$ #,##0.00';
+    totalMensalRow.getCell(2).font = { bold: true };
+    totalMensalRow.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+    
+    for (let m = 0; m < months; m++) {
+      const monthTotal = sortedStages.reduce((sum, stage) => {
+        const stageValue = getStageValue(stage.id);
+        const percentValue = (schedule[stage.id]?.percentages[m] || 0);
+        return sum + (stageValue * percentValue) / 100;
+      }, 0);
+      
+      const cell = totalMensalRow.getCell(m + 3);
+      cell.value = parseFloat(monthTotal.toFixed(2));
+      cell.numFmt = 'R$ #,##0.00';
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
     }
+    currentRow++;
+
+    // ACUMULADO
+    const acumuladoRow = worksheet.getRow(currentRow);
+    acumuladoRow.getCell(1).value = 'ACUMULADO';
+    acumuladoRow.getCell(1).font = { bold: true, size: 11 };
+    acumuladoRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCBD5E1' } };
+    acumuladoRow.getCell(2).value = '';
+    acumuladoRow.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCBD5E1' } };
+    
+    let accumulated = 0;
+    for (let m = 0; m < months; m++) {
+      const monthTotal = sortedStages.reduce((sum, stage) => {
+        const stageValue = getStageValue(stage.id);
+        const percentValue = (schedule[stage.id]?.percentages[m] || 0);
+        return sum + (stageValue * percentValue) / 100;
+      }, 0);
+      
+      accumulated += monthTotal;
+      const cell = acumuladoRow.getCell(m + 3);
+      cell.value = parseFloat(accumulated.toFixed(2));
+      cell.numFmt = 'R$ #,##0.00';
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCBD5E1' } };
+    }
+    currentRow++;
+
+    // % ACUMULADO
+    const percentAcumuladoRow = worksheet.getRow(currentRow);
+    percentAcumuladoRow.getCell(1).value = '% ACUMULADO';
+    percentAcumuladoRow.getCell(1).font = { bold: true, size: 11 };
+    percentAcumuladoRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+    percentAcumuladoRow.getCell(2).value = '';
+    percentAcumuladoRow.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+    
+    const totalBudget = budgetData?.total_final || 0;
+    accumulated = 0;
+    for (let m = 0; m < months; m++) {
+      const monthTotal = sortedStages.reduce((sum, stage) => {
+        const stageValue = getStageValue(stage.id);
+        const percentValue = (schedule[stage.id]?.percentages[m] || 0);
+        return sum + (stageValue * percentValue) / 100;
+      }, 0);
+      
+      accumulated += monthTotal;
+      const cell = percentAcumuladoRow.getCell(m + 3);
+      cell.value = totalBudget > 0 ? parseFloat(((accumulated / totalBudget) * 100).toFixed(2)) / 100 : 0;
+      cell.numFmt = '0.00%';
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+    }
+    currentRow++;
+
+    // Largura das colunas
+    const columns = [{ width: 30 }, { width: 16 }];
+    for (let i = 0; i < months; i++) {
+      columns.push({ width: 16 });
+    }
+    columns.push({ width: 12 });
     worksheet.columns = columns;
 
     // Exportar
@@ -151,7 +266,7 @@ export async function exportSchedulePDF(schedule, stages, items, months, budgetD
     }
 
     // Título
-    doc.setFontSize(18);
+    doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
     doc.text('CRONOGRAMA FÍSICO-FINANCEIRO', pageWidth / 2, yPos + 8, { align: 'center' });
     
@@ -166,59 +281,155 @@ export async function exportSchedulePDF(schedule, stages, items, months, budgetD
     yPos += 5;
     doc.text(`Duração: ${months} meses`, 15, yPos);
     
-    yPos += 12;
+    yPos += 10;
+
+    // Calcular valor de cada etapa
+    const getStageValue = (stageId) => {
+      let value = items
+        .filter(item => item.stage_id === stageId)
+        .reduce((sum, item) => sum + (item.subtotal || 0), 0);
+      
+      const subStages = stages.filter(s => s.parent_stage_id === stageId);
+      subStages.forEach(subStage => {
+        value += getStageValue(subStage.id);
+      });
+      
+      return value;
+    };
 
     // Cabeçalho da tabela
-    const colWidth = Math.min(20, (pageWidth - 80) / months);
-    const tableStartX = 15;
+    const colWidth = Math.min(18, (pageWidth - 100) / months);
+    const tableStartX = 10;
+    const valueColWidth = 30;
     
     doc.setFillColor(41, 98, 255);
-    doc.rect(tableStartX, yPos, 50, 7, 'F');
+    doc.rect(tableStartX, yPos, 40, 7, 'F');
+    doc.rect(tableStartX + 40, yPos, valueColWidth, 7, 'F');
     for (let m = 1; m <= months; m++) {
-      doc.rect(tableStartX + 50 + (m - 1) * colWidth, yPos, colWidth, 7, 'F');
+      doc.rect(tableStartX + 40 + valueColWidth + (m - 1) * colWidth, yPos, colWidth, 7, 'F');
     }
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
+    doc.setFontSize(6);
     doc.setFont(undefined, 'bold');
-    doc.text('Etapa', tableStartX + 2, yPos + 5);
+    doc.text('Etapa', tableStartX + 2, yPos + 4.5);
+    doc.text('Valor Total', tableStartX + 42, yPos + 4.5);
     
     for (let m = 1; m <= months; m++) {
-      doc.text(`M${m}`, tableStartX + 50 + (m - 1) * colWidth + colWidth / 2, yPos + 5, { align: 'center' });
+      doc.text(`M${m}`, tableStartX + 40 + valueColWidth + (m - 1) * colWidth + colWidth / 2, yPos + 4.5, { align: 'center' });
     }
     yPos += 8;
 
     // Dados
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
+    doc.setFontSize(6);
     
-    const sortedStages = stages.sort((a, b) => a.ordem - b.ordem);
+    const sortedStages = stages
+      .filter(stage => !stage.parent_stage_id && getStageValue(stage.id) > 0)
+      .sort((a, b) => a.ordem - b.ordem);
     
     sortedStages.forEach(stage => {
-      if (yPos > 180) {
+      if (yPos > 175) {
         doc.addPage();
         yPos = 20;
       }
 
       const stageSchedule = schedule[stage.id] || { percentages: Array(months).fill(0), total: 0 };
+      const stageValue = getStageValue(stage.id);
       
       doc.setFont(undefined, 'bold');
-      doc.text(stage.nome.substring(0, 25), tableStartX + 2, yPos + 4);
+      const stageName = stage.nome.substring(0, 20);
+      doc.text(stageName, tableStartX + 2, yPos + 3);
+      
+      // Valor total
       doc.setFont(undefined, 'normal');
+      doc.text(formatCurrency(stageValue), tableStartX + 42, yPos + 3);
       
       for (let m = 0; m < months; m++) {
-        const value = stageSchedule.percentages[m] || 0;
-        if (value > 0) {
+        const percentValue = stageSchedule.percentages[m] || 0;
+        const monthValue = (stageValue * percentValue) / 100;
+        
+        if (percentValue > 0) {
           doc.setFillColor(224, 242, 254);
-          doc.rect(tableStartX + 50 + m * colWidth, yPos, colWidth, 6, 'F');
-          doc.text(`${(value).toFixed(0)}%`, tableStartX + 50 + m * colWidth + colWidth / 2, yPos + 4, { align: 'center' });
-        } else {
-          doc.text('-', tableStartX + 50 + m * colWidth + colWidth / 2, yPos + 4, { align: 'center' });
+          doc.rect(tableStartX + 40 + valueColWidth + m * colWidth, yPos, colWidth, 7, 'F');
         }
+        
+        doc.setFontSize(6);
+        doc.text(`${percentValue.toFixed(1)}%`, tableStartX + 40 + valueColWidth + m * colWidth + colWidth / 2, yPos + 2.5, { align: 'center' });
+        doc.setFontSize(5);
+        doc.text(formatCurrencyShort(monthValue), tableStartX + 40 + valueColWidth + m * colWidth + colWidth / 2, yPos + 5.5, { align: 'center' });
       }
       
-      yPos += 6;
+      yPos += 8;
     });
+
+    yPos += 2;
+
+    // TOTAL MENSAL
+    if (yPos > 170) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFillColor(226, 232, 240);
+    doc.rect(tableStartX, yPos, 40 + valueColWidth + months * colWidth, 6, 'F');
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(7);
+    doc.text('TOTAL MENSAL', tableStartX + 2, yPos + 4);
+    doc.text(formatCurrency(budgetData?.total_final || 0), tableStartX + 42, yPos + 4);
+    
+    for (let m = 0; m < months; m++) {
+      const monthTotal = sortedStages.reduce((sum, stage) => {
+        const stageValue = getStageValue(stage.id);
+        const percentValue = (schedule[stage.id]?.percentages[m] || 0);
+        return sum + (stageValue * percentValue) / 100;
+      }, 0);
+      
+      doc.setFontSize(6);
+      doc.text(formatCurrencyShort(monthTotal), tableStartX + 40 + valueColWidth + m * colWidth + colWidth / 2, yPos + 4, { align: 'center' });
+    }
+    yPos += 7;
+
+    // ACUMULADO
+    doc.setFillColor(203, 213, 225);
+    doc.rect(tableStartX, yPos, 40 + valueColWidth + months * colWidth, 6, 'F');
+    doc.text('ACUMULADO', tableStartX + 2, yPos + 4);
+    
+    let accumulated = 0;
+    for (let m = 0; m < months; m++) {
+      const monthTotal = sortedStages.reduce((sum, stage) => {
+        const stageValue = getStageValue(stage.id);
+        const percentValue = (schedule[stage.id]?.percentages[m] || 0);
+        return sum + (stageValue * percentValue) / 100;
+      }, 0);
+      
+      accumulated += monthTotal;
+      doc.setFontSize(6);
+      doc.text(formatCurrencyShort(accumulated), tableStartX + 40 + valueColWidth + m * colWidth + colWidth / 2, yPos + 4, { align: 'center' });
+    }
+    yPos += 7;
+
+    // % ACUMULADO
+    doc.setFillColor(219, 234, 254);
+    doc.rect(tableStartX, yPos, 40 + valueColWidth + months * colWidth, 6, 'F');
+    doc.text('% ACUMULADO', tableStartX + 2, yPos + 4);
+    
+    const totalBudget = budgetData?.total_final || 0;
+    accumulated = 0;
+    for (let m = 0; m < months; m++) {
+      const monthTotal = sortedStages.reduce((sum, stage) => {
+        const stageValue = getStageValue(stage.id);
+        const percentValue = (schedule[stage.id]?.percentages[m] || 0);
+        return sum + (stageValue * percentValue) / 100;
+      }, 0);
+      
+      accumulated += monthTotal;
+      const percentAccum = totalBudget > 0 ? (accumulated / totalBudget) * 100 : 0;
+      doc.setFontSize(6);
+      doc.text(`${percentAccum.toFixed(2)}%`, tableStartX + 40 + valueColWidth + m * colWidth + colWidth / 2, yPos + 4, { align: 'center' });
+    }
+    yPos += 7;
 
     // Rodapé
     const pageCount = doc.internal.getNumberOfPages();
