@@ -38,7 +38,8 @@ import {
                         ChevronRight,
                         Calendar,
                         FileInput,
-                        Truck
+                        Truck,
+                        ShoppingCart
                         } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
