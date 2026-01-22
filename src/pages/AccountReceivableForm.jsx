@@ -402,7 +402,6 @@ export default function AccountReceivableForm() {
                     <SelectItem value="em_aberto">Em Aberto</SelectItem>
                     <SelectItem value="recebido">Recebido</SelectItem>
                     <SelectItem value="atrasado">Atrasado</SelectItem>
-                    <SelectItem value="cancelado">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
