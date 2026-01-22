@@ -333,11 +333,18 @@ export async function exportMeasurementPDF(measurementId) {
     const budget = (await base44.entities.Budget.filter({ id: measurement.orcamento_id }))[0];
     const budgetItems = await base44.entities.BudgetItem.filter({ orcamento_id: measurement.orcamento_id });
     const project = (await base44.entities.Project.filter({ id: measurement.obra_id }))[0];
+    const projectStages = await base44.entities.ProjectStage.filter({ orcamento_id: measurement.orcamento_id });
 
     // Criar mapa de itens do orçamento
     const budgetItemMap = {};
     budgetItems.forEach(item => {
       budgetItemMap[item.servico_id] = item;
+    });
+
+    // Criar mapa de etapas
+    const stageMap = {};
+    projectStages.forEach(stage => {
+      stageMap[stage.id] = stage;
     });
 
     // Calcular totais
@@ -361,6 +368,51 @@ export async function exportMeasurementPDF(measurementId) {
         valor_mao_obra_periodo: valorMaoObraPeriodo
       };
     });
+
+    // Criar hierarquia de etapas com numeração
+    const createStageHierarchy = () => {
+      const mainStages = projectStages.filter(s => !s.parent_stage_id).sort((a, b) => a.ordem - b.ordem);
+      const hierarchy = [];
+      
+      mainStages.forEach((mainStage, mainIdx) => {
+        const mainStageItems = itemsEnriquecidos.filter(i => i.stage_id === mainStage.id);
+        
+        hierarchy.push({
+          id: mainStage.id,
+          nome: mainStage.nome,
+          number: `${mainIdx + 1}.`,
+          level: 0,
+          items: mainStageItems,
+          ordem: mainStage.ordem
+        });
+        
+        const subStages = projectStages.filter(s => s.parent_stage_id === mainStage.id).sort((a, b) => a.ordem - b.ordem);
+        subStages.forEach((subStage, subIdx) => {
+          const subStageItems = itemsEnriquecidos.filter(i => i.stage_id === subStage.id);
+          
+          hierarchy.push({
+            id: subStage.id,
+            nome: subStage.nome,
+            number: `${mainIdx + 1}.${subIdx + 1}`,
+            level: 1,
+            items: subStageItems,
+            ordem: subStage.ordem
+          });
+        });
+      });
+      
+      return hierarchy;
+    };
+
+    const stageHierarchy = createStageHierarchy();
+
+    // Verificar se uma etapa principal tem serviços (diretos ou em subetapas)
+    const hasItemsInHierarchy = (stageId) => {
+      if (itemsEnriquecidos.some(i => i.stage_id === stageId)) return true;
+      return projectStages.some(s => 
+        s.parent_stage_id === stageId && itemsEnriquecidos.some(i => i.stage_id === s.id)
+      );
+    };
 
     const subtotalPeriodo = totalMaterialPeriodo + totalMaoObraPeriodo;
     const bdiPercentual = budget?.bdi_padrao || 0;
