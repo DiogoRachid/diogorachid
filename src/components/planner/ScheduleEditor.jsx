@@ -107,15 +107,19 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     setMonths(newMonths);
     
     // Reajustar arrays de percentuais dos serviços
-    const newSchedule = { ...serviceSchedule };
-    Object.keys(newSchedule).forEach(serviceId => {
-      const current = newSchedule[serviceId].percentages;
+    const newSchedule = {};
+    Object.keys(serviceSchedule).forEach(serviceId => {
+      const current = serviceSchedule[serviceId].percentages;
+      let newPercentages;
       if (current.length > newMonths) {
-        newSchedule[serviceId].percentages = current.slice(0, newMonths);
+        newPercentages = current.slice(0, newMonths);
       } else {
-        newSchedule[serviceId].percentages = [...current, ...Array(newMonths - current.length).fill(0)];
+        newPercentages = [...current, ...Array(newMonths - current.length).fill(0)];
       }
-      newSchedule[serviceId].total = newSchedule[serviceId].percentages.reduce((sum, p) => sum + p, 0);
+      newSchedule[serviceId] = {
+        percentages: newPercentages,
+        total: newPercentages.reduce((sum, p) => sum + p, 0)
+      };
     });
     setServiceSchedule(newSchedule);
     onChange && onChange(newSchedule, newMonths);
