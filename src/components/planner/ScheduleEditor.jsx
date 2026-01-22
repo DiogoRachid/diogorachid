@@ -10,7 +10,7 @@ import { exportScheduleXLSX, exportSchedulePDF } from './ScheduleExporter';
 
 export default function ScheduleEditor({ budget, stages, items, onChange, onSave, isSaving }) {
   const [months, setMonths] = useState(budget?.duracao_meses || 12);
-  const [schedule, setSchedule] = useState({});
+  const [serviceSchedule, setServiceSchedule] = useState({});
   const [expandedStages, setExpandedStages] = useState(new Set());
   const [sortConfig, setSortConfig] = useState({ key: 'ordem', direction: 'asc' });
 
