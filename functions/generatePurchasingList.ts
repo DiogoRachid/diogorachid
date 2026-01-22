@@ -69,7 +69,6 @@ Deno.serve(async (req) => {
     }
 
     // Buscar distribuição mensal dos serviços a partir das medições
-    const measurements = await base44.asServiceRole.entities.Measurement.filter({ obra_id: workId });
     const measurementItems = [];
     for (const measurement of measurements) {
       const items = await base44.asServiceRole.entities.MeasurementItem.filter({ medicao_id: measurement.id });
