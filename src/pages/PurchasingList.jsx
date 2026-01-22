@@ -19,36 +19,18 @@ import * as XLSX from 'xlsx';
 
 export default function PurchasingListPage() {
   const [selectedWork, setSelectedWork] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState('');
   const [abcFilter, setAbcFilter] = useState('');
   const [listData, setListData] = useState(null);
-  const [periods, setPeriods] = useState([]);
 
   const { data: works = [] } = useQuery({
     queryKey: ['works'],
     queryFn: () => base44.entities.Project.list()
   });
 
-  // Calcular períodos quando obra for selecionada
-  React.useEffect(() => {
-    if (selectedWork) {
-      const work = works.find(w => w.id === selectedWork);
-      if (work?.data_inicio && work?.data_previsao) {
-        const startDate = new Date(work.data_inicio);
-        const endDate = new Date(work.data_previsao);
-        const months = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24 * 30.44));
-        const newPeriods = Array.from({ length: months }, (_, i) => `Mês ${i + 1}`);
-        setPeriods(newPeriods);
-        setSelectedPeriod('');
-      }
-    }
-  }, [selectedWork, works]);
-
   const generateMutation = useMutation({
     mutationFn: async () => {
       const response = await base44.functions.invoke('generatePurchasingList', {
         workId: selectedWork,
-        period: selectedPeriod,
         abcFilter: abcFilter || null
       });
       return response.data;
@@ -70,7 +52,7 @@ export default function PurchasingListPage() {
     
     doc.setFontSize(10);
     doc.text(`Obra: ${work?.nome}`, 14, 25);
-    doc.text(`Período: ${selectedPeriod}`, 14, 32);
+    doc.text(`Total de Períodos: ${listData.total_meses}`, 14, 32);
     doc.text(`Data de Geração: ${listData.data_geracao}`, 14, 39);
 
     // Tabela
@@ -97,7 +79,7 @@ export default function PurchasingListPage() {
     doc.setFont(undefined, 'bold');
     doc.text(`VALOR TOTAL: R$ ${listData.total_valor.toFixed(2)}`, 14, finalY);
 
-    doc.save(`lista_compras_${selectedWork}_${selectedPeriod}.pdf`);
+    doc.save(`lista_compras_${selectedWork}.pdf`);
   };
 
   const exportXLSX = () => {
@@ -107,7 +89,7 @@ export default function PurchasingListPage() {
     const wsData = [
       ['LISTA DE COMPRAS'],
       [`Obra: ${work?.nome}`],
-      [`Período: ${selectedPeriod}`],
+      [`Total de Períodos: ${listData.total_meses}`],
       [`Data de Geração: ${listData.data_geracao}`],
       [],
       ['ABC', 'Descrição', 'Unidade', 'Quantidade', 'Valor Unitário', 'Total']
@@ -132,7 +114,7 @@ export default function PurchasingListPage() {
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Lista de Compras');
-    XLSX.writeFile(wb, `lista_compras_${selectedWork}_${selectedPeriod}.xlsx`);
+    XLSX.writeFile(wb, `lista_compras_${selectedWork}.xlsx`);
   };
 
   const abcCounts = listData?.itens?.reduce((acc, item) => ({
@@ -154,7 +136,7 @@ export default function PurchasingListPage() {
           <CardTitle className="text-base">Parâmetros da Lista</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Obra</label>
               <Select value={selectedWork} onValueChange={setSelectedWork}>
@@ -165,22 +147,6 @@ export default function PurchasingListPage() {
                   {works.map(work => (
                     <SelectItem key={work.id} value={work.id}>
                       {work.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Período</label>
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod} disabled={!selectedWork || periods.length === 0}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o período" />
-                </SelectTrigger>
-                <SelectContent>
-                  {periods.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -205,10 +171,10 @@ export default function PurchasingListPage() {
 
           <Button
             onClick={() => generateMutation.mutate()}
-            disabled={!selectedWork || !selectedPeriod || generateMutation.isPending}
+            disabled={!selectedWork || generateMutation.isPending}
             className="mt-4 bg-blue-600 hover:bg-blue-700"
           >
-            {generateMutation.isPending ? 'Gerando...' : 'Gerar Lista'}
+            {generateMutation.isPending ? 'Gerando...' : 'Gerar Lista Completa'}
           </Button>
         </CardContent>
       </Card>

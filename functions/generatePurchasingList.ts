@@ -3,7 +3,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { workId, period, abcFilter } = await req.json();
+    const { workId, abcFilter } = await req.json();
 
     // Buscar projeto para obter datas
     const project = await base44.asServiceRole.entities.Project.filter({ id: workId }).then(r => r[0]);
@@ -28,15 +28,6 @@ Deno.serve(async (req) => {
     const endDate = new Date(project.data_previsao);
     const months = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24 * 30.44));
 
-    // Extrair número do período (ex: "Mês 3" -> 3)
-    const periodNum = parseInt(period.split(' ')[1]);
-    if (isNaN(periodNum) || periodNum < 1 || periodNum > months) {
-      return Response.json({ 
-        success: false, 
-        error: 'Período inválido' 
-      }, { status: 400 });
-    }
-
     // Buscar itens de orçamento
     const allBudgetItems = [];
     for (const budget of budgets) {
@@ -56,8 +47,8 @@ Deno.serve(async (req) => {
       distributionMap.set(key, dist);
     }
 
-    // Compilar lista de compras baseada no período selecionado
-    const inputMap = new Map();
+    // Compilar lista de compras para TODOS os períodos
+    const periodsMap = new Map(); // periodo -> { itens, valor_total }
 
     for (const item of allBudgetItems) {
       // Buscar histórico de compra para curva ABC
@@ -75,48 +66,75 @@ Deno.serve(async (req) => {
       // Aplicar filtro ABC
       if (abcFilter && abcFilter !== abcClass) continue;
 
-      // Buscar distribuição para este mês
-      const distKey = `${item.servico_id}_${periodNum}`;
-      const distribution = distributionMap.get(distKey);
-      
-      const quantidadeParaEsseMes = distribution 
-        ? (item.quantidade_orcada * (distribution.percentual_fisico / 100))
-        : 0;
-
-      if (quantidadeParaEsseMes > 0) {
-        const key = item.servico_id;
-        if (!inputMap.has(key)) {
-          inputMap.set(key, {
-            insumo_id: item.servico_id,
-            descricao: item.descricao,
-            unidade: item.unidade,
-            quantidade: 0,
-            valor_unitario: item.custo_unitario || 0,
-            abc_class: abcClass
-          });
-        }
+      // Calcular quantidade para cada período baseado na distribuição
+      for (let mes = 1; mes <= months; mes++) {
+        const distKey = `${item.servico_id}_${mes}`;
+        const distribution = distributionMap.get(distKey);
         
-        const entry = inputMap.get(key);
-        entry.quantidade += quantidadeParaEsseMes;
+        const quantidade = distribution 
+          ? (item.quantidade_orcada * (distribution.percentual_fisico / 100))
+          : 0;
+
+        if (quantidade > 0) {
+          // Garantir que o período existe no mapa
+          if (!periodsMap.has(mes)) {
+            periodsMap.set(mes, { itens: new Map(), valor_total: 0 });
+          }
+
+          const periodData = periodsMap.get(mes);
+          const key = item.servico_id;
+
+          if (!periodData.itens.has(key)) {
+            periodData.itens.set(key, {
+              insumo_id: item.servico_id,
+              descricao: item.descricao,
+              unidade: item.unidade,
+              quantidade: 0,
+              valor_unitario: item.custo_unitario || 0,
+              abc_class: abcClass
+            });
+          }
+
+          const entrada = periodData.itens.get(key);
+          entrada.quantidade += quantidade;
+          periodData.valor_total += quantidade * entrada.valor_unitario;
+        }
       }
     }
 
-    // Converter Map em Array e ordenar por ABC
-    const items = Array.from(inputMap.values()).sort((a, b) => {
-      const abcOrder = { 'A': 1, 'B': 2, 'C': 3 };
-      return abcOrder[a.abc_class] - abcOrder[b.abc_class];
-    });
+    // Converter para formato de resposta
+    const periodosFormatados = [];
+    for (let mes = 1; mes <= months; mes++) {
+      const periodData = periodsMap.get(mes);
+      const itens = periodData 
+        ? Array.from(periodData.itens.values()).sort((a, b) => {
+            const abcOrder = { 'A': 1, 'B': 2, 'C': 3 };
+            return abcOrder[a.abc_class] - abcOrder[b.abc_class];
+          })
+        : [];
+
+      periodosFormatados.push({
+        mes: mes,
+        periodo: `Mês ${mes}`,
+        itens: itens,
+        total_itens: itens.length,
+        total_valor: periodData ? periodData.valor_total : 0
+      });
+    }
+
+    // Calcular totais gerais
+    const totalGeralItens = periodosFormatados.reduce((sum, p) => sum + p.total_itens, 0);
+    const totalGeralValor = periodosFormatados.reduce((sum, p) => sum + p.total_valor, 0);
 
     return Response.json({ 
       success: true,
       data: {
         obra_id: workId,
-        periodo: period,
         total_meses: months,
         data_geracao: new Date().toISOString().split('T')[0],
-        itens: items,
-        total_valor: items.reduce((sum, item) => sum + (item.quantidade * item.valor_unitario), 0),
-        total_itens: items.length
+        periodos: periodosFormatados,
+        total_geral_itens: totalGeralItens,
+        total_geral_valor: totalGeralValor
       }
     });
 
