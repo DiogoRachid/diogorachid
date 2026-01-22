@@ -79,61 +79,67 @@ Deno.serve(async (req) => {
 
       if (serviceItems.length === 0) continue;
 
-      // Para cada período
-      for (let mes = 1; mes <= months; mes++) {
-        const distKey = `${budgetItem.servico_id}_${mes}`;
-        const distribution = distributionMap.get(distKey);
+      // Para cada insumo que compõe este serviço
+      for (const serviceItem of serviceItems) {
+        // Se for INSUMO
+        if (serviceItem.tipo_item === 'INSUMO' && serviceItem.item_id) {
+          const insumoId = serviceItem.item_id;
+          const insumo = inputMap.get(insumoId);
 
-        if (!distribution) continue;
+          if (!insumo) continue;
 
-        // Percentual de execução do serviço neste mês
-        const percentualMes = distribution.percentual || 0;
-        if (percentualMes <= 0) continue;
+          // Quantidade total de insumo necessária = quantidade_serviço * quantidade_insumo_por_serviço
+          const quantidadeTotalInsumo = budgetItem.quantidade * serviceItem.quantidade;
 
-        // Para cada insumo que compõe este serviço
-        for (const serviceItem of serviceItems) {
-          // Se for INSUMO
-          if (serviceItem.tipo_item === 'INSUMO' && serviceItem.item_id) {
-            // Calcular quantidade necessária
-            // quantidade_insumo = quantidade_serviço * quantidade_insumo_por_serviço * percentual_mes
-            const quantidadeServico = budgetItem.quantidade;
-            const quantidadeInsumo = serviceItem.quantidade;
-            const quantidadeNecessaria = (quantidadeServico * quantidadeInsumo * percentualMes) / 100;
+          // Buscar distribuição mensal para este serviço
+          const distribuicoesServico = [];
+          for (let mes = 1; mes <= months; mes++) {
+            const distKey = `${budgetItem.servico_id}_${mes}`;
+            const distribution = distributionMap.get(distKey);
+            if (distribution) {
+              distribuicoesServico.push({ mes, percentual: distribution.percentual || 0 });
+            }
+          }
+
+          // Se não há distribuição mensal, distribuir igualmente pelos meses
+          if (distribuicoesServico.length === 0) {
+            const quantidadePorMes = quantidadeTotalInsumo / months;
+            for (let mes = 1; mes <= months; mes++) {
+              distribuicoesServico.push({ mes, percentual: 100 / months });
+            }
+          }
+
+          // Aplicar distribuição
+          for (const dist of distribuicoesServico) {
+            const quantidadeNecessaria = (quantidadeTotalInsumo * dist.percentual) / 100;
 
             if (quantidadeNecessaria > 0) {
-              const insumoId = serviceItem.item_id;
-              const insumo = inputMap.get(insumoId);
-
-              if (insumo) {
-                // Garantir que o mês existe
-                if (!periodosMap.has(mes)) {
-                  periodosMap.set(mes, { insumos: new Map(), valor_total: 0 });
-                }
-
-                const periodData = periodosMap.get(mes);
-                const insumoKey = insumoId;
-
-                if (!periodData.insumos.has(insumoKey)) {
-                  periodData.insumos.set(insumoKey, {
-                    insumo_id: insumoId,
-                    codigo: insumo.codigo,
-                    descricao: insumo.descricao,
-                    unidade: insumo.unidade,
-                    quantidade: 0,
-                    valor_unitario: insumo.valor_unitario || 0,
-                    abc_class: 'C'
-                  });
-                }
-
-                const entrada = periodData.insumos.get(insumoKey);
-                entrada.quantidade += quantidadeNecessaria;
-                periodData.valor_total += quantidadeNecessaria * entrada.valor_unitario;
-
-                // Acumular para classificação ABC
-                const totalKey = insumoId;
-                const totalAtual = totalQuantidadesPorInsumo.get(totalKey) || 0;
-                totalQuantidadesPorInsumo.set(totalKey, totalAtual + quantidadeNecessaria);
+              // Garantir que o mês existe
+              if (!periodosMap.has(dist.mes)) {
+                periodosMap.set(dist.mes, { insumos: new Map(), valor_total: 0 });
               }
+
+              const periodData = periodosMap.get(dist.mes);
+
+              if (!periodData.insumos.has(insumoId)) {
+                periodData.insumos.set(insumoId, {
+                  insumo_id: insumoId,
+                  codigo: insumo.codigo,
+                  descricao: insumo.descricao,
+                  unidade: insumo.unidade,
+                  quantidade: 0,
+                  valor_unitario: insumo.valor_unitario || 0,
+                  abc_class: 'C'
+                });
+              }
+
+              const entrada = periodData.insumos.get(insumoId);
+              entrada.quantidade += quantidadeNecessaria;
+              periodData.valor_total += quantidadeNecessaria * entrada.valor_unitario;
+
+              // Acumular para classificação ABC
+              const totalAtual = totalQuantidadesPorInsumo.get(insumoId) || 0;
+              totalQuantidadesPorInsumo.set(insumoId, totalAtual + quantidadeNecessaria);
             }
           }
         }
