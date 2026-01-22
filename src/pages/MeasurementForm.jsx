@@ -39,6 +39,7 @@ export default function MeasurementForm() {
 
   const [items, setItems] = useState([]);
   const [editableQuantities, setEditableQuantities] = useState({});
+  const [scheduleData, setScheduleData] = useState([]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -66,9 +67,25 @@ export default function MeasurementForm() {
     enabled: isEditing
   });
 
+  // Funções para corrigir problema de timezone em datas
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toISOString().split('T')[0];
+  };
+
+  const formatDateForSave = (dateString) => {
+    if (!dateString) return '';
+    return dateString;
+  };
+
   useEffect(() => {
     if (measurement) {
-      setFormData(measurement);
+      setFormData({
+        ...measurement,
+        data_inicio: formatDateForInput(measurement.data_inicio),
+        data_fim: formatDateForInput(measurement.data_fim)
+      });
     }
   }, [measurement]);
 
@@ -111,9 +128,9 @@ export default function MeasurementForm() {
         numero_medicao: lastNumber + 1
       }));
 
-      // Buscar itens do orçamento
+      // Buscar itens e etapas do orçamento
       const budgetItems = await base44.entities.BudgetItem.filter({ orcamento_id: orcamentoId });
-      const stages = await base44.entities.BudgetStage.filter({ orcamento_id: orcamentoId });
+      const budgetStages = await base44.entities.BudgetStage.filter({ orcamento_id: orcamentoId });
       
       // Buscar última medição para pegar acumulados
       const lastMeasurement = existingMeasurements.length > 0
@@ -125,8 +142,9 @@ export default function MeasurementForm() {
         lastItems = await base44.entities.MeasurementItem.filter({ medicao_id: lastMeasurement.id });
       }
 
+      // Criar mapa de etapas do orçamento
       const stageMap = {};
-      stages.forEach(s => stageMap[s.id] = s.nome);
+      budgetStages.forEach(s => stageMap[s.id] = s.nome);
 
       const newItems = budgetItems.map(item => {
         const lastItem = lastItems.find(li => li.servico_id === item.servico_id);
@@ -138,7 +156,7 @@ export default function MeasurementForm() {
           descricao: item.descricao,
           unidade: item.unidade,
           stage_id: item.stage_id,
-          stage_nome: stageMap[item.stage_id] || '',
+          stage_nome: stageMap[item.stage_id] || 'Sem Etapa',
           quantidade_orcada: item.quantidade,
           quantidade_executada_periodo: 0,
           quantidade_executada_acumulada: acumulado,
@@ -148,6 +166,12 @@ export default function MeasurementForm() {
           valor_executado_acumulado: acumulado * (item.custo_com_bdi_unitario || 0)
         };
       });
+
+      // Buscar distribuição mensal para cronograma
+      const monthlyDistributions = await base44.entities.ServiceMonthlyDistribution.filter({ 
+        orcamento_id: orcamentoId 
+      });
+      setScheduleData(monthlyDistributions);
 
       setItems(newItems);
       const quantities = {};
@@ -207,6 +231,8 @@ export default function MeasurementForm() {
       
       const measurementData = {
         ...formData,
+        data_inicio: formatDateForSave(formData.data_inicio),
+        data_fim: formatDateForSave(formData.data_fim),
         status,
         valor_total_periodo: totalPeriodo,
         valor_total_acumulado: totalAcumulado,
@@ -352,6 +378,9 @@ export default function MeasurementForm() {
           <TabsTrigger value="dados">Dados da Medição</TabsTrigger>
           <TabsTrigger value="servicos" disabled={!formData.orcamento_id}>
             Serviços ({items.length})
+          </TabsTrigger>
+          <TabsTrigger value="cronograma" disabled={!formData.orcamento_id}>
+            Cronograma
           </TabsTrigger>
           <TabsTrigger value="resumo" disabled={!formData.orcamento_id}>
             Resumo
@@ -535,6 +564,103 @@ export default function MeasurementForm() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cronograma">
+          <Card>
+            <CardHeader>
+              <CardTitle>Cronograma: Previsto vs Executado</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                // Agrupar execução por etapa e período
+                const executionByStage = {};
+                items.forEach(item => {
+                  const stage = item.stage_nome || 'Sem Etapa';
+                  if (!executionByStage[stage]) {
+                    executionByStage[stage] = {
+                      previsto: 0,
+                      executado: item.valor_executado_acumulado || 0
+                    };
+                  } else {
+                    executionByStage[stage].executado += item.valor_executado_acumulado || 0;
+                  }
+                });
+
+                // Buscar dados previstos do cronograma
+                scheduleData.forEach(dist => {
+                  const stage = dist.stage_nome || 'Sem Etapa';
+                  if (executionByStage[stage]) {
+                    executionByStage[stage].previsto += dist.valor_mensal || 0;
+                  }
+                });
+
+                return (
+                  <div className="space-y-6">
+                    {Object.entries(executionByStage).map(([stage, data]) => {
+                      const percentExecuted = data.previsto > 0 
+                        ? (data.executado / data.previsto) * 100 
+                        : 0;
+                      const isOnTrack = percentExecuted >= 95;
+                      const isBehind = percentExecuted < 80;
+
+                      return (
+                        <div key={stage} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium text-slate-700">{stage}</h4>
+                            <span className={`text-sm font-semibold ${
+                              isOnTrack ? 'text-green-600' : 
+                              isBehind ? 'text-red-600' : 'text-yellow-600'
+                            }`}>
+                              {percentExecuted.toFixed(1)}%
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-slate-500">Previsto:</span>
+                              <span className="ml-2 font-medium">
+                                {new Intl.NumberFormat('pt-BR', { 
+                                  style: 'currency', 
+                                  currency: 'BRL' 
+                                }).format(data.previsto)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500">Executado:</span>
+                              <span className="ml-2 font-medium text-blue-600">
+                                {new Intl.NumberFormat('pt-BR', { 
+                                  style: 'currency', 
+                                  currency: 'BRL' 
+                                }).format(data.executado)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all ${
+                                isOnTrack ? 'bg-green-500' : 
+                                isBehind ? 'bg-red-500' : 'bg-yellow-500'
+                              }`}
+                              style={{ width: `${Math.min(percentExecuted, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {Object.keys(executionByStage).length === 0 && (
+                      <div className="text-center py-8 text-slate-500">
+                        <p>Nenhum dado de cronograma disponível</p>
+                        <p className="text-sm mt-2">Configure o cronograma no planejamento do orçamento</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
