@@ -53,12 +53,36 @@ Deno.serve(async (req) => {
       serviceItemMap.get(key).push(si);
     }
 
-    // Buscar distribuição mensal dos serviços
-    const distributions = await base44.asServiceRole.entities.ServiceMonthlyDistribution.list();
+    // Buscar distribuição mensal dos serviços a partir das medições
+    const measurements = await base44.asServiceRole.entities.Measurement.filter({ obra_id: workId });
+    const measurementItems = [];
+    for (const measurement of measurements) {
+      const items = await base44.asServiceRole.entities.MeasurementItem.filter({ medicao_id: measurement.id });
+      measurementItems.push(...items.map(item => ({
+        ...item,
+        mes: parseInt(measurement.periodo_referencia.split('/')[0])
+      })));
+    }
+
     const distributionMap = new Map();
-    for (const dist of distributions) {
-      const key = `${dist.servico_id}_${dist.mes}`;
-      distributionMap.set(key, dist);
+    for (const item of measurementItems) {
+      const key = `${item.servico_id}_${item.mes}`;
+      const existing = distributionMap.get(key) || { quantidade_total: 0, percentual: 0 };
+      existing.quantidade_total += item.quantidade_executada_periodo || 0;
+      distributionMap.set(key, existing);
+    }
+
+    // Calcular percentuais baseado na quantidade planejada
+    const servicoQtdMap = new Map();
+    for (const budgetItem of allBudgetItems) {
+      const key = budgetItem.servico_id;
+      servicoQtdMap.set(key, (servicoQtdMap.get(key) || 0) + budgetItem.quantidade);
+    }
+
+    for (const [key, dist] of distributionMap) {
+      const servico_id = key.split('_')[0];
+      const qtdPlanejada = servicoQtdMap.get(servico_id) || 1;
+      dist.percentual = (dist.quantidade_total / qtdPlanejada) * 100;
     }
 
     // Buscar insumos para obter dados completos
