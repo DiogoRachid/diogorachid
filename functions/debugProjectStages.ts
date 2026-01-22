@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      budgetId,
+      finalBudgetId,
       totalStages: stages.length,
       stages: stagesDebug
     });
