@@ -195,25 +195,23 @@ export async function exportMeasurementXLSX(measurementId) {
     });
     currentRow++;
 
-    // Agrupar por etapa
-    const itemsByStage = {};
-    itemsEnriquecidos.forEach(item => {
-      const stageName = item.stage_nome || 'Sem Etapa';
-      if (!itemsByStage[stageName]) {
-        itemsByStage[stageName] = [];
-      }
-      itemsByStage[stageName].push(item);
-    });
-
-    // Adicionar itens
-    Object.keys(itemsByStage).forEach(stageName => {
-      const stageItems = itemsByStage[stageName];
+    // Adicionar itens usando hierarquia com numeração
+    stageHierarchy.forEach(stage => {
+      // Para etapas principais (nível 0), mostrar sempre se tiver itens na hierarquia
+      if (stage.level === 0 && !hasItemsInHierarchy(stage.id)) return;
       
-      // Linha da etapa
+      // Para subetapas (nível 1+), só mostrar se tiver itens diretos
+      if (stage.level > 0 && stage.items.length === 0) return;
+      
+      // Linha da etapa com número hierárquico
       const stageRow = worksheet.getRow(currentRow);
-      stageRow.getCell(1).value = stageName;
+      stageRow.getCell(1).value = `${stage.number} ${stage.nome}`;
       stageRow.getCell(1).font = { bold: true };
-      stageRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+      stageRow.getCell(1).fill = { 
+        type: 'pattern', 
+        pattern: 'solid', 
+        fgColor: { argb: stage.level === 0 ? 'FFD0D0D0' : 'FFE8E8E8' } 
+      };
       for (let i = 1; i <= 8; i++) {
         stageRow.getCell(i).border = {
           top: { style: 'thin' },
@@ -224,8 +222,12 @@ export async function exportMeasurementXLSX(measurementId) {
       }
       currentRow++;
       
-      stageItems.forEach(item => {
+      stage.items.forEach((item, itemIdx) => {
         const row = worksheet.getRow(currentRow);
+        // Adicionar número hierárquico do item
+        const itemNumber = `${stage.number}${itemIdx + 1}`;
+        row.getCell(1).value = itemNumber;
+        row.getCell(1).alignment = { horizontal: 'center' };
         row.getCell(2).value = item.codigo;
         row.getCell(3).value = item.descricao;
         row.getCell(4).value = item.unidade;
