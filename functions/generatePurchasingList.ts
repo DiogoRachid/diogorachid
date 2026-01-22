@@ -122,18 +122,12 @@ Deno.serve(async (req) => {
           // Quantidade total de insumo necessária = quantidade_serviço * quantidade_insumo_por_serviço
           const quantidadeTotalInsumo = budgetItem.quantidade * serviceItem.quantidade;
 
-          // Buscar distribuição mensal para este serviço
-          const distribuicoesServico = [];
-          for (let mes = 1; mes <= months; mes++) {
-            const distKey = `${budgetItem.servico_id}_${mes}`;
-            const distribution = distributionMap.get(distKey);
-            if (distribution) {
-              distribuicoesServico.push({ mes, percentual: distribution.percentual || 0 });
-            }
-          }
+          // Buscar distribuição mensal para este serviço a partir do cronograma
+          let distribuicoesServico = stageDistributionMap.get(budgetItem.servico_id) || [];
 
-          // Se não há distribuição mensal, distribuir igualmente pelos meses
+          // Se não há distribuição no cronograma, distribuir igualmente pelos meses
           if (distribuicoesServico.length === 0) {
+            distribuicoesServico = [];
             for (let mes = 1; mes <= months; mes++) {
               distribuicoesServico.push({ mes, percentual: 100 / months });
             }
