@@ -19,17 +19,8 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    // Buscar cronograma (ProjectStage) para calcular meses
-    const projectStages = await base44.asServiceRole.entities.ProjectStage.filter({ orcamento_id: budgets[0]?.id });
-    let months = budgets[0]?.duracao_meses || 12;
-
-    if (projectStages.length > 0) {
-      const maxMesFim = Math.max(...projectStages.map(s => s.mes_fim || 0));
-      months = maxMesFim > 0 ? maxMesFim : months;
-    }
-
     // Buscar orçamentos da obra
-    const budgets = await base44.asServiceRole.entities.Budget.filter({ obra_id: workId });
+    const budgets = await base44.asServiceRole.entities.Budget.filter({ obra_id: project.id });
     if (!budgets.length) {
       return Response.json({ 
         success: false, 
