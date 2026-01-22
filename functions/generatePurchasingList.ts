@@ -63,27 +63,35 @@ Deno.serve(async (req) => {
     }
 
     // Buscar distribuição mensal do cronograma (ProjectStage)
-    const distributionMap = new Map();
-    const stageDistributionMap = new Map(); // Para mapear serviço_id -> distribuição mensal
+    const stageDistributionMap = new Map(); // Para mapear serviço_id -> { mes, percentual }
 
     for (const stage of projectStages) {
       if (stage.servicos_ids && Array.isArray(stage.servicos_ids)) {
-        // Cada serviço da etapa herda a distribuição mensal da etapa
-        for (const servico_id of stage.servicos_ids) {
-          if (stage.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
-            // Usar distribuição mensal da etapa para este serviço
-            stageDistributionMap.set(servico_id, stage.distribuicao_mensal);
-          } else {
-            // Fallback: criar distribuição uniforme entre mes_inicio e mes_fim
-            const duracao = (stage.mes_fim || stage.mes_inicio) - (stage.mes_inicio || 1) + 1;
-            const percentualPorMes = 100 / duracao;
-            const uniformDist = [];
-            
-            for (let mes = stage.mes_inicio || 1; mes <= (stage.mes_fim || stage.mes_inicio || 1); mes++) {
-              uniformDist.push({ mes, percentual: percentualPorMes });
-            }
-            stageDistributionMap.set(servico_id, uniformDist);
+        let distribuicaoMensal = [];
+        
+        // Se há distribuição mensal definida, usar ela
+        if (stage.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal) && stage.distribuicao_mensal.length > 0) {
+          distribuicaoMensal = stage.distribuicao_mensal;
+        } else {
+          // Fallback: distribuir igualmente entre mes_inicio e mes_fim
+          const mesInicio = stage.mes_inicio || 1;
+          const mesFim = stage.mes_fim || mesInicio;
+          const duracao = mesFim - mesInicio + 1;
+          const percentualPorMes = 100 / duracao;
+          
+          for (let mes = mesInicio; mes <= mesFim; mes++) {
+            distribuicaoMensal.push({ mes, percentual: percentualPorMes });
           }
+        }
+
+        // Mapear cada serviço da etapa com essa distribuição
+        for (const servico_id of stage.servicos_ids) {
+          // Armazenar a distribuição mensal por serviço
+          if (!stageDistributionMap.has(servico_id)) {
+            stageDistributionMap.set(servico_id, []);
+          }
+          // Adicionar distribuição mensal para este serviço
+          stageDistributionMap.set(servico_id, distribuicaoMensal);
         }
       }
     }
