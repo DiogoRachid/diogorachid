@@ -618,44 +618,61 @@ export default function MeasurementForm() {
               {(() => {
                 // Agrupar execução por etapa
                 const executionByStage = {};
+                
+                // Primeiro, processar os itens executados
                 items.forEach(item => {
                   const stage = item.stage_nome || 'Sem Etapa';
                   if (!executionByStage[stage]) {
                     executionByStage[stage] = {
                       previsto_periodo: 0,
-                      executado_periodo: item.valor_executado_periodo || 0,
-                      previsto_acumulado: 0,
-                      executado_acumulado: item.valor_executado_acumulado || 0
-                    };
-                  } else {
-                    executionByStage[stage].executado_periodo += item.valor_executado_periodo || 0;
-                    executionByStage[stage].executado_acumulado += item.valor_executado_acumulado || 0;
-                  }
-                });
-
-                // Processar dados do cronograma
-                scheduleData.forEach(dist => {
-                  // Buscar a project stage para obter o nome correto
-                  const projectStage = projectStages.find(ps => ps.id === dist.project_stage_id);
-                  const stageName = projectStage?.nome || 'Sem Etapa';
-                  
-                  if (!executionByStage[stageName]) {
-                    executionByStage[stageName] = {
-                      previsto_periodo: 0,
                       executado_periodo: 0,
                       previsto_acumulado: 0,
-                      executado_acumulado: 0
+                      executado_acumulado: 0,
+                      valor_total_etapa: 0
                     };
                   }
+                  executionByStage[stage].executado_periodo += item.valor_executado_periodo || 0;
+                  executionByStage[stage].executado_acumulado += item.valor_executado_acumulado || 0;
+                  // Calcular valor total da etapa (todos os serviços)
+                  executionByStage[stage].valor_total_etapa += (item.quantidade_orcada || 0) * (item.custo_unitario || 0);
+                });
+
+                // Agora calcular o previsto baseado na distribuição mensal das etapas
+                projectStages.forEach(stage => {
+                  const stageName = stage.nome;
                   
-                  // Previsto do período atual
-                  if (dist.mes === formData.numero_medicao) {
-                    executionByStage[stageName].previsto_periodo += dist.valor_mes || 0;
-                  }
-                  
-                  // Previsto acumulado até este período (somar todos os meses até a medição atual)
-                  if (dist.mes <= formData.numero_medicao) {
-                    executionByStage[stageName].previsto_acumulado += dist.valor_mes || 0;
+                  // Verificar se a etapa tem distribuição mensal
+                  if (stage.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
+                    // Calcular valor total dessa etapa específica
+                    const valorTotalEtapa = executionByStage[stageName]?.valor_total_etapa || 0;
+                    
+                    if (valorTotalEtapa > 0) {
+                      if (!executionByStage[stageName]) {
+                        executionByStage[stageName] = {
+                          previsto_periodo: 0,
+                          executado_periodo: 0,
+                          previsto_acumulado: 0,
+                          executado_acumulado: 0,
+                          valor_total_etapa: valorTotalEtapa
+                        };
+                      }
+                      
+                      // Calcular previsto do período atual e acumulado
+                      stage.distribuicao_mensal.forEach(dist => {
+                        const percentual = dist.percentual || 0;
+                        const valorMes = (percentual / 100) * valorTotalEtapa;
+                        
+                        // Previsto do período atual
+                        if (dist.mes === formData.numero_medicao) {
+                          executionByStage[stageName].previsto_periodo += valorMes;
+                        }
+                        
+                        // Previsto acumulado até este período
+                        if (dist.mes <= formData.numero_medicao) {
+                          executionByStage[stageName].previsto_acumulado += valorMes;
+                        }
+                      });
+                    }
                   }
                 });
 
