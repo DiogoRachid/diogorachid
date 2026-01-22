@@ -64,33 +64,25 @@ Deno.serve(async (req) => {
 
     // Buscar distribuição mensal do cronograma (ProjectStage)
     const distributionMap = new Map();
+    const stageDistributionMap = new Map(); // Para mapear serviço_id -> distribuição mensal
 
     for (const stage of projectStages) {
-      if (stage.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
-        // Usar distribuição mensal da etapa
-        for (const dist of stage.distribuicao_mensal) {
-          const mes = dist.mes;
-          const percentual = dist.percentual || 0;
-
-          // Para cada serviço nesta etapa
-          if (stage.servicos_ids && Array.isArray(stage.servicos_ids)) {
-            for (const servico_id of stage.servicos_ids) {
-              const key = `${servico_id}_${mes}`;
-              distributionMap.set(key, { percentual, quantidade_total: 0 });
+      if (stage.servicos_ids && Array.isArray(stage.servicos_ids)) {
+        // Cada serviço da etapa herda a distribuição mensal da etapa
+        for (const servico_id of stage.servicos_ids) {
+          if (stage.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
+            // Usar distribuição mensal da etapa para este serviço
+            stageDistributionMap.set(servico_id, stage.distribuicao_mensal);
+          } else {
+            // Fallback: criar distribuição uniforme entre mes_inicio e mes_fim
+            const duracao = (stage.mes_fim || stage.mes_inicio) - (stage.mes_inicio || 1) + 1;
+            const percentualPorMes = 100 / duracao;
+            const uniformDist = [];
+            
+            for (let mes = stage.mes_inicio || 1; mes <= (stage.mes_fim || stage.mes_inicio || 1); mes++) {
+              uniformDist.push({ mes, percentual: percentualPorMes });
             }
-          }
-        }
-      } else {
-        // Fallback: distribuir uniformemente entre mes_inicio e mes_fim
-        const duracao = (stage.mes_fim || stage.mes_inicio) - (stage.mes_inicio || 1) + 1;
-        const percentualPorMes = 100 / duracao;
-
-        if (stage.servicos_ids && Array.isArray(stage.servicos_ids)) {
-          for (let mes = stage.mes_inicio || 1; mes <= (stage.mes_fim || stage.mes_inicio || 1); mes++) {
-            for (const servico_id of stage.servicos_ids) {
-              const key = `${servico_id}_${mes}`;
-              distributionMap.set(key, { percentual: percentualPorMes, quantidade_total: 0 });
-            }
+            stageDistributionMap.set(servico_id, uniformDist);
           }
         }
       }
