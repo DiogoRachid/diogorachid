@@ -36,7 +36,9 @@ import {
                         Ruler,
                         ChevronLeft,
                         ChevronRight,
-                        Calendar
+                        Calendar,
+                        FileInput,
+                        Truck
                         } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -111,6 +113,16 @@ const menuItems = [
     submenu: [
       { title: 'Carteira', page: 'Investments', icon: TrendingUp },
       { title: 'Histórico Global', page: 'InvestmentTransactions', icon: History }
+    ]
+  },
+  {
+    title: 'Obra',
+    icon: Truck,
+    submenu: [
+      { title: 'Histórico de Insumos', page: 'InputPurchaseHistory', icon: History },
+      { title: 'Pedidos de Materiais', page: 'MaterialRequisitions', icon: FileInput },
+      { title: 'Lista de Compras', page: 'PurchasingList', icon: ShoppingCart },
+      { title: 'Importar Nota Fiscal', page: 'ImportInvoice', icon: UploadCloud }
     ]
   },
   {
