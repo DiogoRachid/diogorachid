@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { Package, Layers, FileText, FileSpreadsheet } from 'lucide-react';
-import { exportToPDF, exportToExcel } from './QuotationMapGenerator';
+import { exportQuotationMapXLSX, exportQuotationMapPDF } from './QuotationMapExporter';
 
 const COLORS_ABC = {
   A: '#ef4444',
