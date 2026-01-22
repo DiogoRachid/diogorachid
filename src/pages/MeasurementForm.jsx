@@ -204,7 +204,10 @@ export default function MeasurementForm() {
       }
 
       const newItems = budgetItems.map(item => {
-        const lastItem = lastItems.find(li => li.servico_id === item.servico_id);
+        // Buscar pela numeração hierárquica: mesmo stage_id E mesmo servico_id
+        const lastItem = lastItems.find(li => 
+          li.servico_id === item.servico_id && li.stage_id === item.stage_id
+        );
         const acumulado = lastItem?.quantidade_executada_acumulada || 0;
         
         // Buscar etapa a partir do stage_id do BudgetItem
