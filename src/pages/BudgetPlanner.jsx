@@ -24,7 +24,7 @@ const CORES_ABC = {
 
 export default function BudgetPlanner() {
   const [searchParams] = useSearchParams();
-  const budgetId = searchParams.get('id');
+  const budgetId = searchParams.get('budgetId');
   const queryClient = useQueryClient();
 
   const [duracao_meses, setDuracaoMeses] = useState(12);
@@ -52,7 +52,7 @@ export default function BudgetPlanner() {
 
   const { data: stages = [] } = useQuery({
     queryKey: ['stages', budgetId],
-    queryFn: () => base44.entities.BudgetStage.filter({ orcamento_id: budgetId }),
+    queryFn: () => base44.entities.ProjectStage.filter({ orcamento_id: budgetId }),
     enabled: !!budgetId
   });
 
