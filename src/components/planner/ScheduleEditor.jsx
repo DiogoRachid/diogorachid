@@ -5,12 +5,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { AlertCircle, ArrowUpDown, Save, FileSpreadsheet, FileText } from 'lucide-react';
+import { AlertCircle, ArrowUpDown, Save, FileSpreadsheet, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { exportScheduleXLSX, exportSchedulePDF } from './ScheduleExporter';
 
 export default function ScheduleEditor({ budget, stages, items, onChange, onSave, isSaving }) {
   const [months, setMonths] = useState(budget?.duracao_meses || 12);
   const [schedule, setSchedule] = useState({});
+  const [expandedStages, setExpandedStages] = useState(new Set());
   const [sortConfig, setSortConfig] = useState({ key: 'ordem', direction: 'asc' });
 
   // Atualizar duração quando o budget carregar
