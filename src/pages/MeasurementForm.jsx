@@ -42,6 +42,7 @@ export default function MeasurementForm() {
   const [editableQuantities, setEditableQuantities] = useState({});
   const [scheduleData, setScheduleData] = useState([]);
   const [projectStages, setProjectStages] = useState([]);
+  const [previousMeasurements, setPreviousMeasurements] = useState([]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -122,6 +123,23 @@ export default function MeasurementForm() {
     };
     loadStagesWhenEditing();
   }, [isEditing, formData.orcamento_id, projectStages.length]);
+
+  // Carregar medições anteriores para o gráfico de resumo
+  useEffect(() => {
+    const loadPreviousMeasurements = async () => {
+      if (formData.obra_id && formData.orcamento_id) {
+        const allMeasurements = await base44.entities.Measurement.filter({ 
+          obra_id: formData.obra_id,
+          orcamento_id: formData.orcamento_id
+        });
+        
+        // Ordenar por número de medição
+        const sortedMeasurements = allMeasurements.sort((a, b) => a.numero_medicao - b.numero_medicao);
+        setPreviousMeasurements(sortedMeasurements);
+      }
+    };
+    loadPreviousMeasurements();
+  }, [formData.obra_id, formData.orcamento_id]);
 
   const handleObraChange = async (obraId) => {
     const obra = projects.find(p => p.id === obraId);
@@ -1017,24 +1035,13 @@ export default function MeasurementForm() {
               }
 
               // Preencher realizado até a medição atual
-              // Buscar todas as medições anteriores + atual
-              const measurementsPromise = base44.entities.Measurement.filter({ 
-                obra_id: formData.obra_id,
-                orcamento_id: formData.orcamento_id 
+              // Preencher realizado de todas as medições (anteriores + atual)
+              previousMeasurements.forEach(med => {
+                const mesNumero = med.numero_medicao;
+                if (mesNumero > 0 && mesNumero <= chartData.length) {
+                  chartData[mesNumero - 1].realizado = med.valor_total_periodo || 0;
+                }
               });
-
-              // Como não podemos usar await aqui, vamos usar uma abordagem síncrona
-              // Assumindo que temos apenas a medição atual
-              const medicaoAtual = formData.numero_medicao;
-              
-              // Calcular realizado acumulado até o mês atual
-              let realizadoAcumulado = totals.totalAcumulado;
-              
-              // Distribuir o realizado proporcionalmente até o mês atual
-              // (simplificação: assumindo que o acumulado foi distribuído uniformemente)
-              if (medicaoAtual > 0 && medicaoAtual <= chartData.length) {
-                chartData[medicaoAtual - 1].realizado = totals.totalPeriodo;
-              }
 
               // Calcular compensação para meses futuros
               let compensacaoAcumulada = 0;
