@@ -186,13 +186,16 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     const isExpanded = expandedStages.has(stage.id);
     const stageServices = getStageServices(stage.id);
     const stageServiceItems = items.filter(i => stageServices.includes(i.servico_id));
+    const subStages = stages.filter(s => s.parent_stage_id === stage.id);
+    const hasContent = stageServiceItems.length > 0 || subStages.length > 0;
+    const paddingLeft = level * 12;
 
     return (
       <React.Fragment key={stage.id}>
-        <TableRow className="font-medium bg-slate-100">
-          <TableCell className="sticky left-0 bg-slate-100 z-10">
+        <TableRow className="font-medium" style={{ backgroundColor: level === 0 ? '#f1f5f9' : '#fafafa' }}>
+          <TableCell className="sticky left-0 z-10" style={{ backgroundColor: level === 0 ? '#f1f5f9' : '#fafafa', paddingLeft: `${16 + paddingLeft}px` }}>
             <div className="flex items-center gap-2">
-              {stageServices.length > 0 && (
+              {hasContent && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -202,7 +205,7 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
                   {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </Button>
               )}
-              {stageServices.length === 0 && <div className="w-6"></div>}
+              {!hasContent && <div className="w-6"></div>}
               <span>{stage.nome}</span>
             </div>
           </TableCell>
@@ -222,7 +225,7 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
           
           return (
             <TableRow key={`service-${service.servico_id}`} className="bg-white">
-              <TableCell className="sticky left-0 bg-white z-10 pl-12 text-sm">
+              <TableCell className="sticky left-0 bg-white z-10 text-sm" style={{ paddingLeft: `${32 + paddingLeft}px` }}>
                 {service.descricao || 'Sem descrição'}
               </TableCell>
               <TableCell className="text-right text-sm">
@@ -248,6 +251,8 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
             </TableRow>
           );
         })}
+
+        {isExpanded && subStages.length > 0 && subStages.map(subStage => renderStageRow(subStage, level + 1))}
       </React.Fragment>
     );
   };
