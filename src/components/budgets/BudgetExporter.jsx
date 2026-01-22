@@ -382,12 +382,12 @@ export async function exportBudgetPDF(budgetId) {
     doc.setFontSize(7);
     doc.setFont(undefined, 'bold');
     doc.text('Cód', 12, yPos + 5);
-    doc.text('Descrição', 28, yPos + 5);
-    doc.text('Un', 95, yPos + 5);
-    doc.text('Qtd', 110, yPos + 5);
-    doc.text('Material (R$)', 135, yPos + 5);
-    doc.text('Mão Obra (R$)', 175, yPos + 5);
-    doc.text('Total c/ BDI (R$)', 215, yPos + 5);
+    doc.text('Descrição', 32, yPos + 5);
+    doc.text('Un', 160, yPos + 5);
+    doc.text('Qtd', 175, yPos + 5, { align: 'right' });
+    doc.text('Material (R$)', 205, yPos + 5, { align: 'right' });
+    doc.text('Mão Obra (R$)', 240, yPos + 5, { align: 'right' });
+    doc.text('Total c/ BDI (R$)', 277, yPos + 5, { align: 'right' });
     yPos += 8;
 
     // Renderizar itens
@@ -420,15 +420,30 @@ export async function exportBudgetPDF(budgetId) {
             yPos = 20;
           }
 
+          // Código
           doc.text(item.codigo || '', 12, yPos + 4);
-          doc.text((item.descricao || '').substring(0, 40), 28, yPos + 4);
-          doc.text(item.unidade || '', 95, yPos + 4);
-          doc.text((item.quantidade || 0).toFixed(2), 110, yPos + 4, { align: 'right' });
-          doc.text(formatCurrency(item.valor_material), 135, yPos + 4, { align: 'right' });
-          doc.text(formatCurrency(item.valor_mao_obra), 175, yPos + 4, { align: 'right' });
-          doc.text(formatCurrency(item.subtotal || 0), 215, yPos + 4, { align: 'right' });
+          
+          // Descrição (com wrapping)
+          const descMaxWidth = 125;
+          const descLines = doc.splitTextToSize(item.descricao || '', descMaxWidth);
+          doc.text(descLines.slice(0, 2), 32, yPos + 4); // Max 2 linhas
+          
+          // Unidade
+          doc.text(item.unidade || '', 160, yPos + 4);
+          
+          // Quantidade
+          doc.text((item.quantidade || 0).toFixed(2), 175, yPos + 4, { align: 'right' });
+          
+          // Material
+          doc.text(formatCurrency(item.valor_material), 205, yPos + 4, { align: 'right' });
+          
+          // Mão de Obra
+          doc.text(formatCurrency(item.valor_mao_obra), 240, yPos + 4, { align: 'right' });
+          
+          // Total
+          doc.text(formatCurrency(item.subtotal || 0), 277, yPos + 4, { align: 'right' });
 
-          yPos += 5;
+          yPos += descLines.length > 1 ? 7 : 5;
         });
 
         yPos += 3;
