@@ -64,12 +64,9 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     setExpandedStages(newExpanded);
   };
 
-  // Buscar serviços de uma etapa filtrando itens pelo stage_id
-  const getStageServices = (stageId) => {
-    return items
-      .filter(item => item.stage_id === stageId)
-      .map(item => item.servico_id)
-      .filter(Boolean);
+  // Buscar itens de uma etapa pelo stage_id
+  const getStageItems = (stageId) => {
+    return items.filter(item => item.stage_id === stageId);
   };
 
   const handleServicePercentageChange = (itemId, monthIndex, value) => {
