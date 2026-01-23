@@ -115,14 +115,14 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
   // Ordenar etapas por ordem
   const sortedStages = [...mainStages].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
-  const renderStageRow = (stage, level = 0, parentNumber = '') => {
+  const renderStageRow = (stage, level = 0, parentNumber = '', stageIndex = 0) => {
     const stageValue = getStageValue(stage.id);
     const isExpanded = expandedStages.has(stage.id);
     const stageItems = getStageItems(stage.id).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
     const subStages = stages.filter(s => s.parent_stage_id === stage.id).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
     const hasContent = stageItems.length > 0 || subStages.length > 0;
     const paddingLeft = level * 12;
-    const stageNumber = parentNumber ? `${parentNumber}.${stage.ordem || 0}` : `${stage.ordem || 0}`;
+    const stageNumber = parentNumber ? `${parentNumber}.${stageIndex + 1}` : `${stageIndex + 1}`;
 
     return (
       <React.Fragment key={stage.id}>
@@ -190,7 +190,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
           );
         })}
 
-        {isExpanded && subStages.map(subStage => renderStageRow(subStage, level + 1, stageNumber))}
+        {isExpanded && subStages.map((subStage, subIdx) => renderStageRow(subStage, level + 1, stageNumber, subIdx))}
       </React.Fragment>
     );
   };
@@ -308,7 +308,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedStages.map(stage => renderStageRow(stage))}
+                {sortedStages.map((stage, idx) => renderStageRow(stage, 0, '', idx))}
                 
                 <TableRow className="bg-slate-100 font-bold border-t-2">
                   <TableCell className="sticky left-0 bg-slate-100 z-10">TOTAL MENSAL</TableCell>

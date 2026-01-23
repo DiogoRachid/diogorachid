@@ -143,7 +143,8 @@ export default function BudgetPlanner() {
     },
     onError: (error) => {
       console.error('Erro ao salvar:', error);
-      toast.error('Erro ao salvar: ' + error.message);
+      console.error('Stack:', error.stack);
+      toast.error('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
     }
   });
 
