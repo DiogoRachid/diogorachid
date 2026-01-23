@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,52 +13,39 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   const [serviceSchedule, setServiceSchedule] = useState({});
   const [expandedStages, setExpandedStages] = useState(new Set());
   const [sortConfig, setSortConfig] = useState({ key: 'ordem', direction: 'asc' });
-  const [isInitialized, setIsInitialized] = useState(false);
+  const initialLoadDone = useRef(false);
 
-  // Atualizar duração quando o budget carregar
+  // Carregar dados do banco APENAS UMA VEZ
   useEffect(() => {
-    if (budget?.duracao_meses && budget.duracao_meses !== months) {
-      setMonths(budget.duracao_meses);
-    }
-  }, [budget?.duracao_meses]);
-
-  useEffect(() => {
-    // Carregar dados salvos APENAS UMA VEZ, na primeira renderização
-    if (isInitialized || items.length === 0 || stages.length === 0) return;
+    if (initialLoadDone.current || !items || items.length === 0 || !stages) return;
     
-    console.log('Carregando dados iniciais do banco...');
-    const newSchedule = {};
+    console.log('=== CARGA INICIAL DO BANCO ===');
+    const loadedSchedule = {};
     
-    // Para cada item do orçamento, buscar sua distribuição no ProjectStage
     items.forEach(item => {
-      if (item.servico_id && item.stage_id) {
-        const stage = stages.find(s => s.id === item.stage_id);
-        
-        if (stage?.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
-          const percentages = Array(months).fill(0);
-          stage.distribuicao_mensal.forEach(d => {
-            if (d.mes >= 1 && d.mes <= months) {
-              percentages[d.mes - 1] = d.percentual || 0;
-            }
-          });
-          
-          newSchedule[item.id] = {
-            percentages,
-            total: percentages.reduce((sum, p) => sum + p, 0)
-          };
-        } else {
-          newSchedule[item.id] = {
-            percentages: Array(months).fill(0),
-            total: 0
-          };
-        }
+      if (!item.servico_id || !item.stage_id) return;
+      
+      const stage = stages.find(s => s.id === item.stage_id);
+      const percentages = Array(months).fill(0);
+      
+      if (stage?.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
+        stage.distribuicao_mensal.forEach(d => {
+          if (d.mes >= 1 && d.mes <= months) {
+            percentages[d.mes - 1] = d.percentual || 0;
+          }
+        });
       }
+      
+      loadedSchedule[item.id] = {
+        percentages,
+        total: percentages.reduce((sum, p) => sum + p, 0)
+      };
     });
     
-    console.log('Dados carregados:', newSchedule);
-    setServiceSchedule(newSchedule);
-    setIsInitialized(true);
-  }, [items, stages, months, isInitialized]);
+    console.log('Dados carregados:', loadedSchedule);
+    setServiceSchedule(loadedSchedule);
+    initialLoadDone.current = true;
+  }, [items, stages, months]);
 
   const toggleStageExpanded = (stageId) => {
     const newExpanded = new Set(expandedStages);
@@ -70,7 +57,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     setExpandedStages(newExpanded);
   };
 
-  // Buscar itens de uma etapa pelo stage_id
   const getStageItems = (stageId) => {
     return items.filter(item => item.stage_id === stageId);
   };
@@ -78,34 +64,28 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   const handleServicePercentageChange = (itemId, monthIndex, value) => {
     const percentage = parseFloat(value) || 0;
     
-    setServiceSchedule(prevSchedule => {
-      const newSchedule = { ...prevSchedule };
-      
-      if (!newSchedule[itemId]) {
-        newSchedule[itemId] = {
-          percentages: Array(months).fill(0),
-          total: 0
-        };
-      }
-      
-      // Clone o array de percentages para evitar mutações
-      const newPercentages = [...newSchedule[itemId].percentages];
+    setServiceSchedule(prev => {
+      const current = prev[itemId] || { percentages: Array(months).fill(0), total: 0 };
+      const newPercentages = [...current.percentages];
       newPercentages[monthIndex] = percentage;
       const newTotal = newPercentages.reduce((sum, p) => sum + p, 0);
       
       if (newTotal > 100) {
-        toast.error(`O item não pode ultrapassar 100% de execução`);
-        return prevSchedule;
+        toast.error('O total não pode ultrapassar 100%');
+        return prev;
       }
       
-      newSchedule[itemId] = {
-        percentages: newPercentages,
-        total: newTotal
+      const updated = {
+        ...prev,
+        [itemId]: {
+          percentages: newPercentages,
+          total: newTotal
+        }
       };
       
-      console.log(`Item ${itemId}, Mês ${monthIndex + 1}: ${percentage}%`);
-      onChange && onChange(newSchedule, months);
-      return newSchedule;
+      console.log(`Alterado: Item ${itemId}, Mês ${monthIndex + 1} = ${percentage}%`);
+      onChange?.(updated, months);
+      return updated;
     });
   };
 
@@ -113,33 +93,31 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     const newMonths = parseInt(value) || 12;
     setMonths(newMonths);
     
-    // Reajustar arrays de percentuais dos serviços
-    const newSchedule = {};
-    Object.keys(serviceSchedule).forEach(serviceId => {
-      const current = serviceSchedule[serviceId].percentages;
-      let newPercentages;
-      if (current.length > newMonths) {
-        newPercentages = current.slice(0, newMonths);
-      } else {
-        newPercentages = [...current, ...Array(newMonths - current.length).fill(0)];
-      }
-      newSchedule[serviceId] = {
-        percentages: newPercentages,
-        total: newPercentages.reduce((sum, p) => sum + p, 0)
-      };
+    setServiceSchedule(prev => {
+      const updated = {};
+      Object.keys(prev).forEach(itemId => {
+        const current = prev[itemId].percentages;
+        let newPercentages;
+        if (current.length > newMonths) {
+          newPercentages = current.slice(0, newMonths);
+        } else {
+          newPercentages = [...current, ...Array(newMonths - current.length).fill(0)];
+        }
+        updated[itemId] = {
+          percentages: newPercentages,
+          total: newPercentages.reduce((sum, p) => sum + p, 0)
+        };
+      });
+      onChange?.(updated, newMonths);
+      return updated;
     });
-    setServiceSchedule(newSchedule);
-    onChange && onChange(newSchedule, newMonths);
   };
 
-  // Calcular valor da etapa incluindo subetapas recursivamente
   const getStageValue = (stageId) => {
-    // Valor direto da etapa
     let value = items
       .filter(item => item.stage_id === stageId)
       .reduce((sum, item) => sum + (item.subtotal || 0), 0);
     
-    // Adicionar valores das subetapas
     const subStages = stages.filter(s => s.parent_stage_id === stageId);
     subStages.forEach(subStage => {
       value += getStageValue(subStage.id);
@@ -157,13 +135,10 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   };
 
   const handleSave = () => {
-    console.log('Salvando cronograma:', serviceSchedule);
-    if (onSave) {
-      onSave(serviceSchedule, months);
-    }
+    console.log('=== SALVANDO CRONOGRAMA ===');
+    console.log('Schedule atual:', serviceSchedule);
+    onSave?.(serviceSchedule, months);
   };
-
-
 
   const getTotalMonthlyByService = (monthIndex) => {
     return items.reduce((sum, item) => {
@@ -187,7 +162,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     return (getTotalCumulativeByService(monthIndex) / totalBudget) * 100;
   };
 
-  // Calcular percentual médio ponderado da etapa com base nos serviços
   const getStagePercentage = (stageId, monthIndex) => {
     const stageItems = items.filter(item => item.stage_id === stageId);
     const subStages = stages.filter(s => s.parent_stage_id === stageId);
@@ -195,7 +169,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     let totalValue = 0;
     let weightedPercentage = 0;
     
-    // Serviços diretos
     stageItems.forEach(item => {
       const itemValue = item.subtotal || 0;
       const itemPercentage = serviceSchedule[item.id]?.percentages[monthIndex] || 0;
@@ -203,7 +176,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
       weightedPercentage += itemValue * itemPercentage;
     });
     
-    // Subetapas recursivamente
     subStages.forEach(subStage => {
       const subValue = getStageValue(subStage.id);
       const subPercentage = getStagePercentage(subStage.id, monthIndex);
@@ -221,7 +193,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     let totalValue = 0;
     let weightedTotal = 0;
     
-    // Serviços diretos
     stageItems.forEach(item => {
       const itemValue = item.subtotal || 0;
       const itemTotal = serviceSchedule[item.id]?.total || 0;
@@ -229,7 +200,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
       weightedTotal += itemValue * itemTotal;
     });
     
-    // Subetapas recursivamente
     subStages.forEach(subStage => {
       const subValue = getStageValue(subStage.id);
       const subTotal = getStageTotalPercentage(subStage.id);
@@ -240,7 +210,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     return totalValue > 0 ? weightedTotal / totalValue : 0;
   };
 
-  // Filtrar e ordenar etapas principais (sem parent_stage_id) com valor > 0
   const mainStages = stages
     .filter(stage => !stage.parent_stage_id && getStageValue(stage.id) > 0)
     .sort((a, b) => {
@@ -254,7 +223,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
         const valueB = getStageValue(b.id);
         return sortConfig.direction === 'asc' ? valueA - valueB : valueB - valueA;
       }
-      // ordem padrão
       return sortConfig.direction === 'asc' 
         ? (a.ordem || 0) - (b.ordem || 0)
         : (b.ordem || 0) - (a.ordem || 0);
@@ -268,8 +236,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
     const hasContent = stageItems.length > 0 || subStages.length > 0;
     const paddingLeft = level * 12;
     const stageTotalPercentage = getStageTotalPercentage(stage.id);
-    
-    // Gerar número hierárquico da etapa
     const stageNumber = parentNumber 
       ? `${parentNumber}.${stage.ordem || 0}` 
       : `${stage.ordem || 0}`;
@@ -311,11 +277,9 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
         </TableRow>
         
         {isExpanded && stageItems.length > 0 && stageItems.map((item) => {
-          const itemData = serviceSchedule[item.id];
-          const isServiceComplete = itemData?.total === 100;
-          const isServiceOverLimit = itemData?.total > 100;
-          
-          // Gerar número hierárquico do serviço baseado na ordem do item
+          const itemData = serviceSchedule[item.id] || { percentages: Array(months).fill(0), total: 0 };
+          const isServiceComplete = itemData.total === 100;
+          const isServiceOverLimit = itemData.total > 100;
           const itemNumber = `${stageNumber}.${item.ordem || 0}`;
           
           return (
@@ -334,14 +298,14 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
                     min="0"
                     max="100"
                     step="0.01"
-                    value={itemData?.percentages[monthIdx]?.toFixed(2) || '0.00'}
+                    value={itemData.percentages[monthIdx]?.toFixed(2) || '0.00'}
                     onChange={(e) => handleServicePercentageChange(item.id, monthIdx, e.target.value)}
                     className="h-8 w-16 text-xs text-center"
                   />
                 </TableCell>
               ))}
               <TableCell className={`text-right font-bold text-sm ${isServiceOverLimit ? 'text-red-600' : isServiceComplete ? 'text-green-600' : 'text-slate-600'}`}>
-                {itemData?.total.toFixed(2)}%
+                {itemData.total.toFixed(2)}%
                 {isServiceOverLimit && <AlertCircle className="inline h-4 w-4 ml-1" />}
               </TableCell>
             </TableRow>
@@ -447,7 +411,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
               <TableBody>
                 {mainStages.map(stage => renderStageRow(stage))}
                 
-                {/* Linha de Totais Mensais */}
                 <TableRow className="bg-slate-100 font-bold border-t-2">
                   <TableCell className="sticky left-0 bg-slate-100 z-10">TOTAL MENSAL</TableCell>
                   <TableCell className="text-right">
@@ -461,7 +424,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
                   <TableCell></TableCell>
                 </TableRow>
 
-                {/* Linha de Totais Acumulados */}
                 <TableRow className="bg-slate-200 font-bold">
                   <TableCell className="sticky left-0 bg-slate-200 z-10">ACUMULADO</TableCell>
                   <TableCell></TableCell>
@@ -473,7 +435,6 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
                   <TableCell></TableCell>
                 </TableRow>
 
-                {/* Linha de Percentual Acumulado */}
                 <TableRow className="bg-blue-100 font-bold">
                   <TableCell className="sticky left-0 bg-blue-100 z-10">% ACUMULADO</TableCell>
                   <TableCell></TableCell>
