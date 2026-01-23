@@ -46,59 +46,95 @@ export default function BudgetPlanner() {
   const saveMutation = useMutation({
     mutationFn: async ({ itemPercentages, months }) => {
       console.log('=== SALVAMENTO INICIADO ===');
-      console.log('Percentuais:', itemPercentages);
-      console.log('Meses:', months);
 
       // 1. Atualizar duração do orçamento
       await base44.entities.Budget.update(budgetId, { duracao_meses: months });
 
-      // 2. Agrupar itens por etapa
-      const stageData = new Map();
+      // 2. Deletar distribuições antigas
+      const oldDistributions = await base44.entities.ServiceMonthlyDistribution.filter({ orcamento_id: budgetId });
+      await Promise.all(oldDistributions.map(d => base44.entities.ServiceMonthlyDistribution.delete(d.id)));
+
+      // 3. Salvar distribuição mensal de cada serviço
+      const distributionRecords = [];
       
       items.forEach(item => {
-        if (!item.stage_id || !itemPercentages[item.id]) return;
+        const percentages = itemPercentages[item.id] || [];
         
-        if (!stageData.has(item.stage_id)) {
-          stageData.set(item.stage_id, []);
-        }
-        
-        stageData.get(item.stage_id).push({
-          value: item.subtotal || 0,
-          percentages: itemPercentages[item.id]
+        percentages.forEach((percentual, idx) => {
+          if (percentual > 0) {
+            const mes = idx + 1;
+            const quantidade = ((item.quantidade || 0) * percentual) / 100;
+            const valor_mes = ((item.subtotal || 0) * percentual) / 100;
+            
+            distributionRecords.push({
+              orcamento_id: budgetId,
+              project_stage_id: item.stage_id,
+              servico_id: item.servico_id,
+              servico_codigo: item.codigo,
+              servico_descricao: item.descricao,
+              mes,
+              quantidade,
+              percentual,
+              valor_mes
+            });
+          }
         });
       });
 
-      // 3. Calcular distribuição mensal de cada etapa (média ponderada)
-      const updates = [];
+      if (distributionRecords.length > 0) {
+        await base44.entities.ServiceMonthlyDistribution.bulkCreate(distributionRecords);
+      }
+
+      // 4. Calcular e salvar distribuição agregada por etapa
+      const stageDistributions = {};
       
-      for (const [stageId, itemsData] of stageData.entries()) {
-        const totalValue = itemsData.reduce((sum, i) => sum + i.value, 0);
+      stages.forEach(stage => {
+        stageDistributions[stage.id] = {
+          totalValue: 0,
+          monthlyValues: Array(months).fill(0)
+        };
+      });
+
+      items.forEach(item => {
+        if (!item.stage_id) return;
+        
+        const percentages = itemPercentages[item.id] || [];
+        const itemValue = item.subtotal || 0;
+        
+        stageDistributions[item.stage_id].totalValue += itemValue;
+        
+        percentages.forEach((percentage, idx) => {
+          stageDistributions[item.stage_id].monthlyValues[idx] += (itemValue * percentage) / 100;
+        });
+      });
+
+      // 5. Atualizar etapas com distribuição percentual
+      const stageUpdates = [];
+      
+      for (const [stageId, data] of Object.entries(stageDistributions)) {
+        if (data.totalValue === 0) continue;
+        
         const distribuicao_mensal = [];
         
         for (let mes = 1; mes <= months; mes++) {
-          let weightedPercentage = 0;
-          
-          itemsData.forEach(itemData => {
-            const weight = itemData.value / totalValue;
-            const percentage = itemData.percentages[mes - 1] || 0;
-            weightedPercentage += weight * percentage;
-          });
-          
-          distribuicao_mensal.push({ mes, percentual: weightedPercentage });
+          const monthValue = data.monthlyValues[mes - 1];
+          const percentual = data.totalValue > 0 ? (monthValue / data.totalValue) * 100 : 0;
+          distribuicao_mensal.push({ mes, percentual });
         }
         
-        console.log(`Etapa ${stageId}:`, distribuicao_mensal);
-        
-        updates.push(
+        stageUpdates.push(
           base44.entities.ProjectStage.update(stageId, {
             distribuicao_mensal,
-            duracao_meses: months
+            duracao_meses: months,
+            valor_total: data.totalValue
           })
         );
       }
 
-      await Promise.all(updates);
+      await Promise.all(stageUpdates);
       console.log('=== SALVAMENTO CONCLUÍDO ===');
+      console.log('Distribuições salvas:', distributionRecords.length);
+      console.log('Etapas atualizadas:', stageUpdates.length);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projectStages', budgetId] });
@@ -107,7 +143,7 @@ export default function BudgetPlanner() {
     },
     onError: (error) => {
       console.error('Erro ao salvar:', error);
-      toast.error('Erro ao salvar cronograma');
+      toast.error('Erro ao salvar: ' + error.message);
     }
   });
 
