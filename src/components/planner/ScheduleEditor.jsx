@@ -129,8 +129,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
     const paddingLeft = level * 12;
     const stageNumber = parentNumber ? `${parentNumber}.${stageIndex + 1}` : `${stageIndex + 1}`;
 
-    return (
-      <React.Fragment key={`stage-${stage.id}`}>
+    return [
         <TableRow className="font-medium bg-slate-50">
           <TableCell className="sticky left-0 z-10 bg-slate-50" style={{ paddingLeft: `${16 + paddingLeft}px` }}>
             <div className="flex items-center gap-2">
@@ -196,8 +195,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
         })}
 
         {isExpanded && subStages.map((subStage, subIdx) => renderStageRow(subStage, level + 1, stageNumber, subIdx))}
-      </React.Fragment>
-    );
+    ];
   };
 
   const getTotalMonthly = (monthIndex) => {
