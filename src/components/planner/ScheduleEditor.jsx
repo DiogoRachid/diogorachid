@@ -13,6 +13,7 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   const [serviceSchedule, setServiceSchedule] = useState({});
   const [expandedStages, setExpandedStages] = useState(new Set());
   const [sortConfig, setSortConfig] = useState({ key: 'ordem', direction: 'asc' });
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Atualizar duração quando o budget carregar
   useEffect(() => {
@@ -22,9 +23,10 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   }, [budget?.duracao_meses]);
 
   useEffect(() => {
-    // Carregar dados salvos apenas se ainda não há dados
-    if (Object.keys(serviceSchedule).length > 0) return;
+    // Carregar dados salvos APENAS UMA VEZ, na primeira renderização
+    if (isInitialized || items.length === 0 || stages.length === 0) return;
     
+    console.log('Carregando dados iniciais do banco...');
     const newSchedule = {};
     
     // Para cada item do orçamento, buscar sua distribuição no ProjectStage
@@ -53,10 +55,10 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
       }
     });
     
-    if (Object.keys(newSchedule).length > 0) {
-      setServiceSchedule(newSchedule);
-    }
-  }, [items, stages, months]);
+    console.log('Dados carregados:', newSchedule);
+    setServiceSchedule(newSchedule);
+    setIsInitialized(true);
+  }, [items, stages, months, isInitialized]);
 
   const toggleStageExpanded = (stageId) => {
     const newExpanded = new Set(expandedStages);
