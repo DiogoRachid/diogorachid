@@ -210,14 +210,18 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
         : (b.ordem || 0) - (a.ordem || 0);
     });
 
-  const renderStageRow = (stage, level = 0) => {
+  const renderStageRow = (stage, level = 0, parentNumber = '') => {
     const stageValue = getStageValue(stage.id);
     const isExpanded = expandedStages.has(stage.id);
-    const stageServices = getStageServices(stage.id);
-    const stageServiceItems = items.filter(i => stageServices.includes(i.servico_id));
+    const stageItems = getStageItems(stage.id);
     const subStages = stages.filter(s => s.parent_stage_id === stage.id);
-    const hasContent = stageServiceItems.length > 0 || subStages.length > 0;
+    const hasContent = stageItems.length > 0 || subStages.length > 0;
     const paddingLeft = level * 12;
+    
+    // Gerar número hierárquico da etapa
+    const stageNumber = parentNumber 
+      ? `${parentNumber}.${stage.ordem || 0}` 
+      : `${stage.ordem || 0}`;
 
     return (
       <React.Fragment key={stage.id}>
