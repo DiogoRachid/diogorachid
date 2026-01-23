@@ -239,6 +239,7 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
                 </Button>
               )}
               {!hasContent && <div className="w-6"></div>}
+              <span className="font-mono text-xs text-slate-500 mr-2">{stageNumber}</span>
               <span>{stage.nome}</span>
             </div>
           </TableCell>
