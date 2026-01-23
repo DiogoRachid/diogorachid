@@ -9,8 +9,6 @@ import { AlertCircle, Save, FileSpreadsheet, FileText, ChevronDown, ChevronRight
 import { exportScheduleXLSX, exportSchedulePDF } from './ScheduleExporter';
 
 export default function ScheduleEditor({ budget, stages, items, onSave, isSaving }) {
-  console.log('ScheduleEditor renderizado com onSave:', typeof onSave);
-  
   const [months, setMonths] = useState(budget?.duracao_meses || 12);
   const [itemPercentages, setItemPercentages] = useState({});
   const [expandedStages, setExpandedStages] = useState(new Set());
@@ -90,24 +88,12 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
   };
 
   const handleSave = () => {
-    console.log('=== SCHEDULE EDITOR - CLIQUE NO BOTÃO ===');
-    console.log('itemPercentages:', itemPercentages);
-    console.log('months:', months);
-    console.log('typeof onSave:', typeof onSave);
-    console.log('onSave function:', onSave);
-    
-    if (!onSave || typeof onSave !== 'function') {
-      console.error('ERROR: onSave não é função!');
+    if (!onSave) {
       toast.error('Erro: função de salvamento não encontrada');
       return;
     }
     
-    const dataToSave = { itemPercentages, months };
-    console.log('Dados a salvar:', dataToSave);
-    console.log('Chamando onSave agora...');
-    
-    const result = onSave(dataToSave);
-    console.log('Resultado de onSave:', result);
+    onSave({ itemPercentages, months });
   };
 
   const toggleStageExpanded = (stageId) => {
@@ -179,12 +165,12 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
           const isOverLimit = total > 100;
           const itemNumber = `${stageNumber}.${itemIdx + 1}`;
 
-                  return (
-                    <TableRow key={item.id} className="bg-white">
-                      <TableCell className="sticky left-0 bg-white z-10 text-sm" style={{ paddingLeft: `${32 + paddingLeft}px` }}>
-                        <span className="font-mono text-xs text-blue-600 mr-2">{itemNumber}</span>
-                        {item.descricao || 'Sem descrição'}
-                      </TableCell>
+          return (
+            <TableRow key={item.id} className="bg-white">
+              <TableCell className="sticky left-0 bg-white z-10 text-sm" style={{ paddingLeft: `${32 + paddingLeft}px` }}>
+                <span className="font-mono text-xs text-blue-600 mr-2">{itemNumber}</span>
+                {item.descricao || 'Sem descrição'}
+              </TableCell>
               <TableCell className="text-right text-sm">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.subtotal || 0)}
               </TableCell>
