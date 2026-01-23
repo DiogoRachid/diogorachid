@@ -115,7 +115,22 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
     return getStageItems(stageId).reduce((sum, item) => sum + (item.subtotal || 0), 0);
   };
 
+  console.log('=== DEBUG RENDERIZAÇÃO ===');
+  console.log('Total de stages:', stages.length);
+  console.log('Total de items:', items.length);
+  console.log('Items por stage:', items.reduce((acc, item) => {
+    acc[item.stage_id] = (acc[item.stage_id] || 0) + 1;
+    return acc;
+  }, {}));
+  console.log('Valores por stage:', stages.map(s => ({
+    id: s.id,
+    nome: s.nome,
+    valor: getStageValue(s.id),
+    items: getStageItems(s.id).length
+  })));
+
   const mainStages = stages.filter(stage => !stage.parent_stage_id && getStageValue(stage.id) > 0);
+  console.log('Main stages filtradas:', mainStages.length);
 
   const renderStageRow = (stage, level = 0, parentNumber = '') => {
     const stageValue = getStageValue(stage.id);
