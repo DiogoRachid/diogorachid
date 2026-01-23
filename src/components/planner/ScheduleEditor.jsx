@@ -129,73 +129,85 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
     const paddingLeft = level * 12;
     const stageNumber = parentNumber ? `${parentNumber}.${stageIndex + 1}` : `${stageIndex + 1}`;
 
-    return [
-        <TableRow className="font-medium bg-slate-50">
-          <TableCell className="sticky left-0 z-10 bg-slate-50" style={{ paddingLeft: `${16 + paddingLeft}px` }}>
-            <div className="flex items-center gap-2">
-              {hasContent && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 p-0"
-                  onClick={() => toggleStageExpanded(stage.id)}
-                >
-                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </Button>
-              )}
-              {!hasContent && <div className="w-6"></div>}
-              <span className="font-mono text-xs text-slate-500 mr-2">{stageNumber}</span>
-              <span>{stage.nome}</span>
-            </div>
-          </TableCell>
-          <TableCell className="text-right text-sm">
-            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stageValue)}
-          </TableCell>
-          {Array.from({ length: months }).map((_, idx) => (
-            <TableCell key={idx} className="p-1 text-center text-xs text-slate-600">-</TableCell>
-          ))}
-          <TableCell className="text-right"></TableCell>
-        </TableRow>
-        
-        {isExpanded && stageItems.map((item, itemIdx) => {
-          const percentages = itemPercentages[item.id] || Array(months).fill(0);
-          const total = getItemTotal(item.id);
-          const isComplete = total === 100;
-          const isOverLimit = total > 100;
-          const itemNumber = `${stageNumber}.${itemIdx + 1}`;
+    const rows = [];
 
-          return (
-            <TableRow key={item.id} className="bg-white">
-              <TableCell className="sticky left-0 bg-white z-10 text-sm" style={{ paddingLeft: `${32 + paddingLeft}px` }}>
-                <span className="font-mono text-xs text-blue-600 mr-2">{itemNumber}</span>
-                {item.descricao || 'Sem descrição'}
-              </TableCell>
-              <TableCell className="text-right text-sm">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.subtotal || 0)}
-              </TableCell>
-              {Array.from({ length: months }).map((_, monthIdx) => (
-                <TableCell key={monthIdx} className="p-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={percentages[monthIdx]?.toFixed(2) || '0.00'}
-                    onChange={(e) => handlePercentageChange(item.id, monthIdx, e.target.value)}
-                    className="h-8 w-16 text-xs text-center"
-                  />
-                </TableCell>
-              ))}
-              <TableCell className={`text-right font-bold text-sm ${isOverLimit ? 'text-red-600' : isComplete ? 'text-green-600' : 'text-slate-600'}`}>
-                {total.toFixed(2)}%
-                {isOverLimit && <AlertCircle className="inline h-4 w-4 ml-1" />}
-              </TableCell>
-            </TableRow>
-          );
-        })}
+    // Linha da etapa
+    rows.push(
+      <TableRow key={`stage-${stage.id}`} className="font-medium bg-slate-50">
+        <TableCell className="sticky left-0 z-10 bg-slate-50" style={{ paddingLeft: `${16 + paddingLeft}px` }}>
+          <div className="flex items-center gap-2">
+            {hasContent && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 p-0"
+                onClick={() => toggleStageExpanded(stage.id)}
+              >
+                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </Button>
+            )}
+            {!hasContent && <div className="w-6"></div>}
+            <span className="font-mono text-xs text-slate-500 mr-2">{stageNumber}</span>
+            <span>{stage.nome}</span>
+          </div>
+        </TableCell>
+        <TableCell className="text-right text-sm">
+          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stageValue)}
+        </TableCell>
+        {Array.from({ length: months }).map((_, idx) => (
+          <TableCell key={idx} className="p-1 text-center text-xs text-slate-600">-</TableCell>
+        ))}
+        <TableCell className="text-right"></TableCell>
+      </TableRow>
+    );
 
-        {isExpanded && subStages.map((subStage, subIdx) => renderStageRow(subStage, level + 1, stageNumber, subIdx))}
-    ];
+    // Itens da etapa
+    if (isExpanded) {
+      stageItems.forEach((item, itemIdx) => {
+        const percentages = itemPercentages[item.id] || Array(months).fill(0);
+        const total = getItemTotal(item.id);
+        const isComplete = total === 100;
+        const isOverLimit = total > 100;
+        const itemNumber = `${stageNumber}.${itemIdx + 1}`;
+
+        rows.push(
+          <TableRow key={item.id} className="bg-white">
+            <TableCell className="sticky left-0 bg-white z-10 text-sm" style={{ paddingLeft: `${32 + paddingLeft}px` }}>
+              <span className="font-mono text-xs text-blue-600 mr-2">{itemNumber}</span>
+              {item.descricao || 'Sem descrição'}
+            </TableCell>
+            <TableCell className="text-right text-sm">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.subtotal || 0)}
+            </TableCell>
+            {Array.from({ length: months }).map((_, monthIdx) => (
+              <TableCell key={monthIdx} className="p-1">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={percentages[monthIdx]?.toFixed(2) || '0.00'}
+                  onChange={(e) => handlePercentageChange(item.id, monthIdx, e.target.value)}
+                  className="h-8 w-16 text-xs text-center"
+                />
+              </TableCell>
+            ))}
+            <TableCell className={`text-right font-bold text-sm ${isOverLimit ? 'text-red-600' : isComplete ? 'text-green-600' : 'text-slate-600'}`}>
+              {total.toFixed(2)}%
+              {isOverLimit && <AlertCircle className="inline h-4 w-4 ml-1" />}
+            </TableCell>
+          </TableRow>
+        );
+      });
+
+      // Subetapas
+      subStages.forEach((subStage, subIdx) => {
+        const subRows = renderStageRow(subStage, level + 1, stageNumber, subIdx);
+        rows.push(...subRows);
+      });
+    }
+
+    return rows;
   };
 
   const getTotalMonthly = (monthIndex) => {
