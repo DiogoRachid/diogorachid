@@ -60,35 +60,46 @@ export default function BudgetPlanner() {
 
   const saveMutation = useMutation({
     mutationFn: async ({ schedule, months }) => {
-      console.log('Iniciando salvamento com schedule:', schedule);
-      console.log('Items disponíveis:', items);
+      console.log('=== SALVAMENTO INICIADO ===');
+      console.log('Schedule recebido:', JSON.stringify(schedule, null, 2));
+      console.log('Meses:', months);
+      console.log('Items:', items.length);
       
-      const updates = [];
-      
-      // Atualizar duração no orçamento
-      updates.push(
-        base44.entities.Budget.update(budgetId, {
+      // Primeiro: limpar distribuições antigas de todas as etapas
+      const clearUpdates = stages.map(stage => 
+        base44.entities.ProjectStage.update(stage.id, {
+          distribuicao_mensal: [],
           duracao_meses: months
         })
       );
       
-      // Agrupar itens por stage_id e calcular distribuição mensal da etapa
+      await Promise.all(clearUpdates);
+      console.log('Distribuições antigas limpas');
+      
+      // Segundo: recalcular e salvar novas distribuições
       const stageDistributions = new Map();
       
       items.forEach(item => {
-        if (item.stage_id && schedule[item.id]) {
-          if (!stageDistributions.has(item.stage_id)) {
-            stageDistributions.set(item.stage_id, { items: [], totalValue: 0 });
-          }
-          const stageData = stageDistributions.get(item.stage_id);
-          stageData.items.push({ ...item, itemSchedule: schedule[item.id] });
-          stageData.totalValue += item.subtotal || 0;
+        const itemSchedule = schedule[item.id];
+        if (!item.stage_id || !itemSchedule) return;
+        
+        if (!stageDistributions.has(item.stage_id)) {
+          stageDistributions.set(item.stage_id, { items: [], totalValue: 0 });
         }
+        
+        const stageData = stageDistributions.get(item.stage_id);
+        stageData.items.push({
+          id: item.id,
+          subtotal: item.subtotal || 0,
+          percentages: itemSchedule.percentages
+        });
+        stageData.totalValue += item.subtotal || 0;
       });
       
-      console.log('Distribuições por etapa:', Array.from(stageDistributions.entries()));
+      console.log('Etapas com dados:', stageDistributions.size);
       
-      // Para cada etapa, calcular distribuição mensal ponderada
+      const saveUpdates = [];
+      
       for (const [stageId, data] of stageDistributions.entries()) {
         const distribuicao_mensal = [];
         
@@ -96,9 +107,9 @@ export default function BudgetPlanner() {
           let weightedPercentage = 0;
           
           data.items.forEach(item => {
-            const itemValue = item.subtotal || 0;
-            const itemPercentage = item.itemSchedule.percentages[mes - 1] || 0;
-            weightedPercentage += (itemValue / data.totalValue) * itemPercentage;
+            const itemPercentage = item.percentages[mes - 1] || 0;
+            const weight = item.subtotal / data.totalValue;
+            weightedPercentage += weight * itemPercentage;
           });
           
           distribuicao_mensal.push({
@@ -107,9 +118,9 @@ export default function BudgetPlanner() {
           });
         }
         
-        console.log(`Salvando etapa ${stageId} com distribuição:`, distribuicao_mensal);
+        console.log(`Etapa ${stageId}:`, distribuicao_mensal);
         
-        updates.push(
+        saveUpdates.push(
           base44.entities.ProjectStage.update(stageId, {
             distribuicao_mensal,
             duracao_meses: months
@@ -117,8 +128,15 @@ export default function BudgetPlanner() {
         );
       }
       
-      await Promise.all(updates);
-      console.log('Salvamento concluído');
+      // Atualizar duração do orçamento
+      saveUpdates.push(
+        base44.entities.Budget.update(budgetId, {
+          duracao_meses: months
+        })
+      );
+      
+      await Promise.all(saveUpdates);
+      console.log('=== SALVAMENTO CONCLUÍDO ===');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projectStages', budgetId] });
@@ -126,13 +144,14 @@ export default function BudgetPlanner() {
       toast.success('Cronograma salvo com sucesso!');
     },
     onError: (error) => {
-      console.error('Erro ao salvar:', error);
-      toast.error('Erro ao salvar cronograma');
+      console.error('=== ERRO NO SALVAMENTO ===', error);
+      toast.error('Erro ao salvar cronograma: ' + error.message);
     }
   });
 
   const handleSave = (receivedSchedule, receivedMonths) => {
-    console.log('handleSave recebeu:', receivedSchedule);
+    console.log('=== BOTÃO SALVAR CLICADO ===');
+    console.log('Schedule:', Object.keys(receivedSchedule).length, 'itens');
     console.log('Meses:', receivedMonths);
     saveMutation.mutate({ schedule: receivedSchedule, months: receivedMonths });
   };
