@@ -62,39 +62,27 @@ Deno.serve(async (req) => {
       serviceItemMap.get(key).push(si);
     }
 
-    // Buscar distribuição mensal do cronograma (ProjectStage)
-    // Usar a distribuição da primeira etapa como referência para todos os serviços
-    let distribuicaoMensalGlobal = [];
+    // Buscar distribuições mensais dos serviços do cronograma (ServiceMonthlyDistribution)
+    const monthlyDistributions = await base44.asServiceRole.entities.ServiceMonthlyDistribution.filter({ 
+      orcamento_id: budgets[0]?.id 
+    });
     
-    if (projectStages.length > 0) {
-      const firstStage = projectStages[0];
+    // Criar mapa: budget_item_id -> [{ mes, percentual }]
+    const distributionMap = new Map();
+    for (const dist of monthlyDistributions) {
+      if (!dist.budget_item_id) continue;
       
-      console.log(`[DEBUG] First Stage - mes_inicio: ${firstStage.mes_inicio}, mes_fim: ${firstStage.mes_fim}`);
-      console.log(`[DEBUG] First Stage - distribuicao_mensal:`, JSON.stringify(firstStage.distribuicao_mensal));
+      if (!distributionMap.has(dist.budget_item_id)) {
+        distributionMap.set(dist.budget_item_id, []);
+      }
       
-      // Se há distribuição mensal definida, usar ela
-      if (firstStage.distribuicao_mensal && Array.isArray(firstStage.distribuicao_mensal) && firstStage.distribuicao_mensal.length > 0) {
-        distribuicaoMensalGlobal = firstStage.distribuicao_mensal;
-      } else {
-        // Fallback: distribuir igualmente entre mes_inicio e mes_fim
-        const mesInicio = firstStage.mes_inicio || 1;
-        const mesFim = firstStage.mes_fim || mesInicio;
-        const duracao = mesFim - mesInicio + 1;
-        const percentualPorMes = 100 / duracao;
-        
-        for (let mes = mesInicio; mes <= mesFim; mes++) {
-          distribuicaoMensalGlobal.push({ mes, percentual: percentualPorMes });
-        }
-      }
-    } else {
-      // Se não houver etapas, distribuir igualmente pelos meses do orçamento
-      const percentualPorMes = 100 / months;
-      for (let mes = 1; mes <= months; mes++) {
-        distribuicaoMensalGlobal.push({ mes, percentual: percentualPorMes });
-      }
+      distributionMap.get(dist.budget_item_id).push({
+        mes: dist.mes,
+        percentual: dist.percentual || 0
+      });
     }
     
-    console.log(`[DEBUG] Distribuição global:`, JSON.stringify(distribuicaoMensalGlobal));
+    console.log(`[DEBUG] Found ${monthlyDistributions.length} monthly distributions for ${distributionMap.size} items`);
 
     // Buscar insumos para obter dados completos
     const allInputs = await base44.asServiceRole.entities.Input.list();
@@ -130,8 +118,13 @@ Deno.serve(async (req) => {
           // Quantidade total de insumo necessária = quantidade_serviço * quantidade_insumo_por_serviço
           const quantidadeTotalInsumo = budgetItem.quantidade * serviceItem.quantidade;
 
-          // Usar distribuição mensal global para este serviço
-          const distribuicoesServico = distribuicaoMensalGlobal;
+          // Buscar distribuição mensal deste item específico do orçamento
+          const distribuicoesServico = distributionMap.get(budgetItem.id) || [];
+          
+          // Se não houver distribuição, pular este item
+          if (distribuicoesServico.length === 0) {
+            continue;
+          }
 
           // Aplicar distribuição
           for (const dist of distribuicoesServico) {
