@@ -11,13 +11,16 @@ import { exportScheduleXLSX, exportSchedulePDF } from './ScheduleExporter';
 export default function ScheduleEditor({ budget, stages, items, onSave, isSaving }) {
   const [months, setMonths] = useState(budget?.duracao_meses || 12);
   const [itemPercentages, setItemPercentages] = useState({});
-  const [expandedStages, setExpandedStages] = useState(new Set());
+  const [expandedStages, setExpandedStages] = useState(new Set(stages.map(s => s.id)));
 
   // Carregar percentuais salvos das etapas
   useEffect(() => {
     if (!stages || !items || stages.length === 0 || items.length === 0) return;
 
     console.log('=== CARREGANDO DADOS SALVOS ===');
+    console.log('Stages:', stages.length);
+    console.log('Items:', items.length);
+    
     const loadedPercentages = {};
 
     // Para cada item, buscar a distribuição da sua etapa
@@ -41,6 +44,9 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
 
     console.log('Percentuais carregados:', loadedPercentages);
     setItemPercentages(loadedPercentages);
+    
+    // Expandir todas as etapas por padrão
+    setExpandedStages(new Set(stages.map(s => s.id)));
   }, [stages, items, months]);
 
   const handleMonthsChange = (newMonths) => {
