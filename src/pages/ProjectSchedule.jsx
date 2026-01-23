@@ -12,7 +12,7 @@ import SCurveChart from '@/components/planner/SCurveChart';
 import ABCAnalysis from '@/components/planner/ABCAnalysis';
 import StaffingCalculator from '@/components/planner/StaffingCalculator';
 
-export default function BudgetPlanner() {
+export default function ProjectSchedule() {
   const urlParams = new URLSearchParams(window.location.search);
   const budgetId = urlParams.get('budgetId');
   const queryClient = useQueryClient();
