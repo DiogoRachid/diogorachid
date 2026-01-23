@@ -11,19 +11,15 @@ import { exportScheduleXLSX, exportSchedulePDF } from './ScheduleExporter';
 export default function ScheduleEditor({ budget, stages, items, onSave, isSaving }) {
   const [months, setMonths] = useState(budget?.duracao_meses || 12);
   const [itemPercentages, setItemPercentages] = useState({});
-  const [expandedStages, setExpandedStages] = useState(new Set(stages.map(s => s.id)));
+  const [expandedStages, setExpandedStages] = useState(new Set());
 
-  // Carregar percentuais salvos das etapas
+  // Carregar percentuais salvos e expandir todas as etapas
   useEffect(() => {
-    if (!stages || !items || stages.length === 0 || items.length === 0) return;
+    if (!items || items.length === 0) return;
 
-    console.log('=== CARREGANDO DADOS SALVOS ===');
-    console.log('Stages:', stages.length);
-    console.log('Items:', items.length);
-    
     const loadedPercentages = {};
 
-    // Para cada item, buscar a distribuição da sua etapa
+    // Carregar percentuais para cada item
     items.forEach(item => {
       const stage = stages.find(s => s.id === item.stage_id);
       
@@ -42,11 +38,12 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
       }
     });
 
-    console.log('Percentuais carregados:', loadedPercentages);
     setItemPercentages(loadedPercentages);
     
-    // Expandir todas as etapas por padrão
-    setExpandedStages(new Set(stages.map(s => s.id)));
+    // Expandir todas as etapas
+    if (stages && stages.length > 0) {
+      setExpandedStages(new Set(stages.map(s => s.id)));
+    }
   }, [stages, items, months]);
 
   const handleMonthsChange = (newMonths) => {
@@ -91,9 +88,6 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
   };
 
   const handleSave = () => {
-    console.log('=== SALVANDO CRONOGRAMA ===');
-    console.log('Percentuais por item:', itemPercentages);
-    console.log('Meses:', months);
     onSave?.({ itemPercentages, months });
   };
 
@@ -115,22 +109,11 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
     return getStageItems(stageId).reduce((sum, item) => sum + (item.subtotal || 0), 0);
   };
 
-  console.log('=== DEBUG RENDERIZAÇÃO ===');
-  console.log('Total de stages:', stages.length);
-  console.log('Total de items:', items.length);
-  console.log('Items por stage:', items.reduce((acc, item) => {
-    acc[item.stage_id] = (acc[item.stage_id] || 0) + 1;
-    return acc;
-  }, {}));
-  console.log('Valores por stage:', stages.map(s => ({
-    id: s.id,
-    nome: s.nome,
-    valor: getStageValue(s.id),
-    items: getStageItems(s.id).length
-  })));
-
-  const mainStages = stages.filter(stage => !stage.parent_stage_id && getStageValue(stage.id) > 0);
-  console.log('Main stages filtradas:', mainStages.length);
+  // Mostrar TODAS as etapas principais (sem filtro de valor)
+  const mainStages = stages.filter(stage => !stage.parent_stage_id);
+  
+  // Ordenar etapas por ordem
+  const sortedStages = [...mainStages].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
   const renderStageRow = (stage, level = 0, parentNumber = '') => {
     const stageValue = getStageValue(stage.id);
@@ -234,6 +217,17 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
     return (getTotalCumulative(monthIndex) / totalBudget) * 100;
   };
 
+  if (!items || items.length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6 text-center">
+          <p className="text-slate-500">Nenhum serviço encontrado neste orçamento.</p>
+          <p className="text-sm text-slate-400 mt-2">Adicione serviços ao orçamento primeiro.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -255,7 +249,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
                 />
               </div>
               <div className="text-sm text-slate-500">
-                Defina os percentuais de execução mensais para cada serviço
+                {items.length} serviços • {stages.length} etapas
               </div>
             </div>
             <div className="flex gap-2">
@@ -305,7 +299,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 bg-white z-10 min-w-[200px]">Etapa / Serviço</TableHead>
+                  <TableHead className="sticky left-0 bg-white z-10 min-w-[300px]">Etapa / Serviço</TableHead>
                   <TableHead className="text-right min-w-[120px]">Valor Total</TableHead>
                   {Array.from({ length: months }).map((_, idx) => (
                     <TableHead key={idx} className="text-center min-w-[80px]">Mês {idx + 1}</TableHead>
@@ -314,7 +308,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mainStages.map(stage => renderStageRow(stage))}
+                {sortedStages.map(stage => renderStageRow(stage))}
                 
                 <TableRow className="bg-slate-100 font-bold border-t-2">
                   <TableCell className="sticky left-0 bg-slate-100 z-10">TOTAL MENSAL</TableCell>
