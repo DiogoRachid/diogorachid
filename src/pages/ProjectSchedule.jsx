@@ -45,6 +45,7 @@ export default function ProjectSchedule() {
 
   const saveMutation = useMutation({
     mutationFn: async ({ itemPercentages, months }) => {
+      console.log('!!! MUTATION FN EXECUTADA !!!');
       try {
         console.log('=== MUTATION INICIADA ===');
         console.log('BudgetId:', budgetId);
@@ -159,6 +160,7 @@ export default function ProjectSchedule() {
       }
     },
     onSuccess: () => {
+      console.log('!!! MUTATION SUCCESS !!!');
       queryClient.invalidateQueries({ queryKey: ['projectStages', budgetId] });
       queryClient.invalidateQueries({ queryKey: ['budget', budgetId] });
       toast.success('Cronograma salvo com sucesso!');

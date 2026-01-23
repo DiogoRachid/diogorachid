@@ -92,6 +92,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
     console.log('itemPercentages:', itemPercentages);
     console.log('months:', months);
     console.log('typeof onSave:', typeof onSave);
+    console.log('onSave function:', onSave);
     
     if (!onSave || typeof onSave !== 'function') {
       console.error('ERROR: onSave não é função!');
@@ -99,9 +100,12 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
       return;
     }
     
-    console.log('Chamando onSave({ itemPercentages, months })');
-    onSave({ itemPercentages, months });
-    console.log('onSave chamado');
+    const dataToSave = { itemPercentages, months };
+    console.log('Dados a salvar:', dataToSave);
+    console.log('Chamando onSave agora...');
+    
+    const result = onSave(dataToSave);
+    console.log('Resultado de onSave:', result);
   };
 
   const toggleStageExpanded = (stageId) => {
