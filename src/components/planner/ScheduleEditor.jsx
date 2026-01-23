@@ -83,7 +83,14 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
         }
       };
       
-      console.log(`Alterado: Item ${itemId}, Mês ${monthIndex + 1} = ${percentage}%`);
+      console.log('=== PERCENTUAL ALTERADO ===');
+      console.log(`Item ID: ${itemId}`);
+      console.log(`Mês: ${monthIndex + 1}`);
+      console.log(`Valor: ${percentage}%`);
+      console.log('Novo array de percentuais:', newPercentages);
+      console.log('Total:', newTotal);
+      console.log('Schedule completo:', updated);
+      
       onChange?.(updated, months);
       return updated;
     });
@@ -135,8 +142,10 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   };
 
   const handleSave = () => {
-    console.log('=== SALVANDO CRONOGRAMA ===');
-    console.log('Schedule atual:', serviceSchedule);
+    console.log('=== SALVANDO CRONOGRAMA (ScheduleEditor) ===');
+    console.log('Total de itens no schedule:', Object.keys(serviceSchedule).length);
+    console.log('Schedule completo:', JSON.stringify(serviceSchedule, null, 2));
+    console.log('Meses:', months);
     onSave?.(serviceSchedule, months);
   };
 
