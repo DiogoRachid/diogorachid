@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
@@ -45,94 +45,81 @@ export default function ProjectSchedule() {
 
   const saveMutation = useMutation({
     mutationFn: async ({ itemPercentages, months }) => {
-      // 1. Atualizar duração do orçamento
+      // Atualizar duração
       await base44.entities.Budget.update(budgetId, { duracao_meses: months });
 
-      // 2. Deletar distribuições antigas
-      const oldDistributions = await base44.entities.ServiceMonthlyDistribution.filter({ orcamento_id: budgetId });
-      
-      if (oldDistributions.length > 0) {
-        await Promise.all(oldDistributions.map(d => base44.entities.ServiceMonthlyDistribution.delete(d.id)));
+      // Limpar distribuições antigas
+      const oldDist = await base44.entities.ServiceMonthlyDistribution.filter({ orcamento_id: budgetId });
+      for (const d of oldDist) {
+        await base44.entities.ServiceMonthlyDistribution.delete(d.id);
       }
 
-      // 3. Salvar distribuição mensal de cada serviço
-      const distributionRecords = [];
+      // Criar novas distribuições
+      const newDistributions = [];
       
-      items.forEach(item => {
+      for (const item of items) {
         const percentages = itemPercentages[item.id] || [];
         
-        percentages.forEach((percentual, idx) => {
+        for (let monthIdx = 0; monthIdx < months; monthIdx++) {
+          const percentual = percentages[monthIdx] || 0;
+          
           if (percentual > 0) {
-            const mes = idx + 1;
-            const quantidade = ((item.quantidade || 0) * percentual) / 100;
-            const valor_mes = ((item.subtotal || 0) * percentual) / 100;
-            
-            distributionRecords.push({
+            newDistributions.push({
               orcamento_id: budgetId,
               project_stage_id: item.stage_id,
               servico_id: item.servico_id,
               servico_codigo: item.codigo,
               servico_descricao: item.descricao,
-              mes,
-              quantidade,
-              percentual,
-              valor_mes
+              mes: monthIdx + 1,
+              quantidade: ((item.quantidade || 0) * percentual) / 100,
+              percentual: percentual,
+              valor_mes: ((item.subtotal || 0) * percentual) / 100
             });
           }
-        });
-      });
-
-      if (distributionRecords.length > 0) {
-        await base44.entities.ServiceMonthlyDistribution.bulkCreate(distributionRecords);
+        }
       }
 
-      // 4. Calcular distribuição agregada por etapa
-      const stageDistributions = {};
-      
-      stages.forEach(stage => {
-        stageDistributions[stage.id] = {
-          totalValue: 0,
-          monthlyValues: Array(months).fill(0)
-        };
-      });
+      if (newDistributions.length > 0) {
+        await base44.entities.ServiceMonthlyDistribution.bulkCreate(newDistributions);
+      }
 
-      items.forEach(item => {
-        if (!item.stage_id) return;
-        
-        const percentages = itemPercentages[item.id] || [];
-        const itemValue = item.subtotal || 0;
-        
-        stageDistributions[item.stage_id].totalValue += itemValue;
-        
-        percentages.forEach((percentage, idx) => {
-          stageDistributions[item.stage_id].monthlyValues[idx] += (itemValue * percentage) / 100;
-        });
-      });
-
-      // 5. Atualizar etapas
-      const stageUpdates = [];
-      
-      for (const [stageId, data] of Object.entries(stageDistributions)) {
-        if (data.totalValue === 0) continue;
-        
+      // Atualizar etapas com distribuição mensal
+      for (const stage of stages) {
+        const stageItems = items.filter(i => i.stage_id === stage.id);
         const distribuicao_mensal = [];
-        
+        let valor_total = 0;
+
         for (let mes = 1; mes <= months; mes++) {
-          const monthValue = data.monthlyValues[mes - 1];
-          const percentual = data.totalValue > 0 ? (monthValue / data.totalValue) * 100 : 0;
+          let valorMes = 0;
+          
+          for (const item of stageItems) {
+            const percentages = itemPercentages[item.id] || [];
+            const percentual = percentages[mes - 1] || 0;
+            valorMes += ((item.subtotal || 0) * percentual) / 100;
+          }
+          
+          valor_total += valorMes;
+        }
+
+        for (let mes = 1; mes <= months; mes++) {
+          let valorMes = 0;
+          
+          for (const item of stageItems) {
+            const percentages = itemPercentages[item.id] || [];
+            const percentual = percentages[mes - 1] || 0;
+            valorMes += ((item.subtotal || 0) * percentual) / 100;
+          }
+          
+          const percentual = valor_total > 0 ? (valorMes / valor_total) * 100 : 0;
           distribuicao_mensal.push({ mes, percentual });
         }
-        
-        stageUpdates.push(
-          base44.entities.ProjectStage.update(stageId, {
-            distribuicao_mensal,
-            duracao_meses: months,
-            valor_total: data.totalValue
-          })
-        );
-      }
 
-      await Promise.all(stageUpdates);
+        await base44.entities.ProjectStage.update(stage.id, {
+          distribuicao_mensal,
+          duracao_meses: months,
+          valor_total
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projectStages', budgetId] });
@@ -140,14 +127,9 @@ export default function ProjectSchedule() {
       toast.success('Cronograma salvo com sucesso!');
     },
     onError: (error) => {
-      console.error('Erro ao salvar:', error);
-      toast.error('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
+      toast.error('Erro ao salvar: ' + error.message);
     }
   });
-
-  const handleSave = (data) => {
-    saveMutation.mutate(data);
-  };
 
   if (!budgetId) {
     return (
@@ -169,7 +151,7 @@ export default function ProjectSchedule() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Carregando dados do orçamento...</p>
+          <p className="text-slate-600">Carregando...</p>
         </div>
       </div>
     );
@@ -193,17 +175,17 @@ export default function ProjectSchedule() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-4 gap-6">
             <div>
-              <div className="text-sm opacity-90 mb-1">Valor Total do Orçamento</div>
+              <div className="text-sm opacity-90 mb-1">Valor Total</div>
               <div className="text-2xl font-bold">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(budget?.total_final || 0)}
               </div>
             </div>
             <div>
-              <div className="text-sm opacity-90 mb-1">Total de Etapas</div>
+              <div className="text-sm opacity-90 mb-1">Etapas</div>
               <div className="text-2xl font-bold">{stages.length}</div>
             </div>
             <div>
-              <div className="text-sm opacity-90 mb-1">Total de Serviços</div>
+              <div className="text-sm opacity-90 mb-1">Serviços</div>
               <div className="text-2xl font-bold">{items.length}</div>
             </div>
             <div>
@@ -218,7 +200,7 @@ export default function ProjectSchedule() {
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="schedule">
             <Calendar className="h-4 w-4 mr-2" />
-            Cronograma Detalhado
+            Cronograma
           </TabsTrigger>
           <TabsTrigger value="scurve">
             <TrendingUp className="h-4 w-4 mr-2" />
@@ -230,7 +212,7 @@ export default function ProjectSchedule() {
           </TabsTrigger>
           <TabsTrigger value="staffing">
             <Users className="h-4 w-4 mr-2" />
-            Recursos e Equipes
+            Recursos
           </TabsTrigger>
         </TabsList>
 
@@ -239,7 +221,7 @@ export default function ProjectSchedule() {
             budget={budget}
             stages={stages}
             items={items}
-            onSave={handleSave}
+            onSave={(data) => saveMutation.mutate(data)}
             isSaving={saveMutation.isPending}
           />
         </TabsContent>

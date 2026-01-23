@@ -7,50 +7,59 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import { AlertCircle, Save, FileSpreadsheet, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { exportScheduleXLSX, exportSchedulePDF } from './ScheduleExporter';
+import { base44 } from '@/api/base44Client';
 
 export default function ScheduleEditor({ budget, stages, items, onSave, isSaving }) {
   const [months, setMonths] = useState(budget?.duracao_meses || 12);
   const [itemPercentages, setItemPercentages] = useState({});
   const [expandedStages, setExpandedStages] = useState(new Set());
+  const [loading, setLoading] = useState(true);
 
-  // Carregar percentuais salvos e expandir todas as etapas
   useEffect(() => {
-    if (!items || items.length === 0) return;
+    async function loadData() {
+      if (!budget?.id || !items || items.length === 0) {
+        setLoading(false);
+        return;
+      }
 
-    const loadedPercentages = {};
+      try {
+        // Buscar distribuições salvas
+        const distributions = await base44.entities.ServiceMonthlyDistribution.filter({
+          orcamento_id: budget.id
+        });
 
-    // Carregar percentuais para cada item
-    items.forEach(item => {
-      const stage = stages.find(s => s.id === item.stage_id);
-      
-      if (stage?.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
-        const percentages = Array(months).fill(0);
+        const loaded = {};
         
-        stage.distribuicao_mensal.forEach(d => {
-          if (d.mes >= 1 && d.mes <= months) {
-            percentages[d.mes - 1] = d.percentual || 0;
+        // Inicializar todos os itens com array vazio
+        items.forEach(item => {
+          loaded[item.id] = Array(months).fill(0);
+        });
+
+        // Preencher com dados salvos
+        distributions.forEach(dist => {
+          const item = items.find(i => i.servico_id === dist.servico_id && i.stage_id === dist.project_stage_id);
+          if (item && dist.mes >= 1 && dist.mes <= months) {
+            loaded[item.id][dist.mes - 1] = dist.percentual || 0;
           }
         });
-        
-        loadedPercentages[item.id] = percentages;
-      } else {
-        loadedPercentages[item.id] = Array(months).fill(0);
-      }
-    });
 
-    setItemPercentages(loadedPercentages);
-    
-    // Expandir todas as etapas
-    if (stages && stages.length > 0) {
-      setExpandedStages(new Set(stages.map(s => s.id)));
+        setItemPercentages(loaded);
+        setExpandedStages(new Set(stages.map(s => s.id)));
+      } catch (error) {
+        console.error('Erro ao carregar distribuições:', error);
+        toast.error('Erro ao carregar dados salvos');
+      }
+      
+      setLoading(false);
     }
-  }, [stages, items, months]);
+
+    loadData();
+  }, [budget?.id, items, stages, months]);
 
   const handleMonthsChange = (newMonths) => {
     const monthCount = parseInt(newMonths) || 12;
     setMonths(monthCount);
 
-    // Ajustar arrays de percentuais
     const adjusted = {};
     Object.keys(itemPercentages).forEach(itemId => {
       const current = itemPercentages[itemId] || [];
@@ -88,11 +97,6 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
   };
 
   const handleSave = () => {
-    if (!onSave) {
-      toast.error('Erro: função de salvamento não encontrada');
-      return;
-    }
-    
     onSave({ itemPercentages, months });
   };
 
@@ -114,11 +118,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
     return getStageItems(stageId).reduce((sum, item) => sum + (item.subtotal || 0), 0);
   };
 
-  // Mostrar TODAS as etapas principais (sem filtro de valor)
-  const mainStages = stages.filter(stage => !stage.parent_stage_id);
-  
-  // Ordenar etapas por ordem
-  const sortedStages = [...mainStages].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  const mainStages = stages.filter(stage => !stage.parent_stage_id).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
   const renderStageRow = (stage, level = 0, parentNumber = '', stageIndex = 0) => {
     const stageValue = getStageValue(stage.id);
@@ -130,8 +130,8 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
     const stageNumber = parentNumber ? `${parentNumber}.${stageIndex + 1}` : `${stageIndex + 1}`;
 
     return (
-      <>
-        <TableRow key={`stage-${stage.id}`} className="font-medium bg-slate-50">
+      <React.Fragment key={`stage-${stage.id}`}>
+        <TableRow className="font-medium bg-slate-50">
           <TableCell className="sticky left-0 z-10 bg-slate-50" style={{ paddingLeft: `${16 + paddingLeft}px` }}>
             <div className="flex items-center gap-2">
               {hasContent && (
@@ -196,7 +196,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
         })}
 
         {isExpanded && subStages.map((subStage, subIdx) => renderStageRow(subStage, level + 1, stageNumber, subIdx))}
-      </>
+      </React.Fragment>
     );
   };
 
@@ -222,6 +222,17 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
     return (getTotalCumulative(monthIndex) / totalBudget) * 100;
   };
 
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="pt-6 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-slate-500">Carregando cronograma...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!items || items.length === 0) {
     return (
       <Card>
@@ -243,7 +254,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Label>Duração do Projeto (meses):</Label>
+                <Label>Duração (meses):</Label>
                 <Input
                   type="number"
                   min="1"
@@ -267,7 +278,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
                 }}
               >
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Exportar XLSX
+                XLSX
               </Button>
               <Button 
                 variant="outline"
@@ -278,7 +289,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
                 }}
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Exportar PDF
+                PDF
               </Button>
               <Button onClick={handleSave} disabled={isSaving} className="gap-2">
                 {isSaving ? (
@@ -289,7 +300,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
                 ) : (
                   <>
                     <Save className="h-4 w-4" />
-                    Salvar Cronograma
+                    Salvar
                   </>
                 )}
               </Button>
@@ -313,7 +324,7 @@ export default function ScheduleEditor({ budget, stages, items, onSave, isSaving
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedStages.map((stage, idx) => renderStageRow(stage, 0, '', idx))}
+                {mainStages.map((stage, idx) => renderStageRow(stage, 0, '', idx))}
                 
                 <TableRow className="bg-slate-100 font-bold border-t-2">
                   <TableCell className="sticky left-0 bg-slate-100 z-10">TOTAL MENSAL</TableCell>
