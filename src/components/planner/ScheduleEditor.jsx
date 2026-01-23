@@ -290,7 +290,7 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
           );
         })}
 
-        {isExpanded && subStages.length > 0 && subStages.map(subStage => renderStageRow(subStage, level + 1))}
+        {isExpanded && subStages.length > 0 && subStages.map(subStage => renderStageRow(subStage, level + 1, stageNumber))}
       </React.Fragment>
     );
   };
