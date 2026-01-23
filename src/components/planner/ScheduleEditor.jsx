@@ -22,42 +22,40 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   }, [budget?.duracao_meses]);
 
   useEffect(() => {
-    // Carregar dados salvos de distribuição mensal do banco
-    const loadScheduleFromStages = async () => {
-      if (!stages || stages.length === 0) return;
-      
-      const newSchedule = {};
-      
-      // Para cada item do orçamento, buscar sua distribuição no ProjectStage
-      items.forEach(item => {
-        if (item.servico_id && item.stage_id) {
-          const stage = stages.find(s => s.id === item.stage_id);
-          
-          if (stage?.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
-            const percentages = Array(months).fill(0);
-            stage.distribuicao_mensal.forEach(d => {
-              if (d.mes >= 1 && d.mes <= months) {
-                percentages[d.mes - 1] = d.percentual || 0;
-              }
-            });
-            
-            newSchedule[item.id] = {
-              percentages,
-              total: percentages.reduce((sum, p) => sum + p, 0)
-            };
-          } else {
-            newSchedule[item.id] = {
-              percentages: Array(months).fill(0),
-              total: 0
-            };
-          }
-        }
-      });
-      
-      setServiceSchedule(newSchedule);
-    };
+    // Carregar dados salvos apenas se ainda não há dados
+    if (Object.keys(serviceSchedule).length > 0) return;
     
-    loadScheduleFromStages();
+    const newSchedule = {};
+    
+    // Para cada item do orçamento, buscar sua distribuição no ProjectStage
+    items.forEach(item => {
+      if (item.servico_id && item.stage_id) {
+        const stage = stages.find(s => s.id === item.stage_id);
+        
+        if (stage?.distribuicao_mensal && Array.isArray(stage.distribuicao_mensal)) {
+          const percentages = Array(months).fill(0);
+          stage.distribuicao_mensal.forEach(d => {
+            if (d.mes >= 1 && d.mes <= months) {
+              percentages[d.mes - 1] = d.percentual || 0;
+            }
+          });
+          
+          newSchedule[item.id] = {
+            percentages,
+            total: percentages.reduce((sum, p) => sum + p, 0)
+          };
+        } else {
+          newSchedule[item.id] = {
+            percentages: Array(months).fill(0),
+            total: 0
+          };
+        }
+      }
+    });
+    
+    if (Object.keys(newSchedule).length > 0) {
+      setServiceSchedule(newSchedule);
+    }
   }, [items, stages, months]);
 
   const toggleStageExpanded = (stageId) => {
@@ -155,6 +153,7 @@ export default function ScheduleEditor({ budget, stages, items, onChange, onSave
   };
 
   const handleSave = () => {
+    console.log('Salvando cronograma:', serviceSchedule);
     if (onSave) {
       onSave(serviceSchedule, months);
     }

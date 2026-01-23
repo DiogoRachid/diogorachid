@@ -60,6 +60,9 @@ export default function BudgetPlanner() {
 
   const saveMutation = useMutation({
     mutationFn: async ({ schedule, months }) => {
+      console.log('Iniciando salvamento com schedule:', schedule);
+      console.log('Items disponíveis:', items);
+      
       const updates = [];
       
       // Atualizar duração no orçamento
@@ -78,10 +81,12 @@ export default function BudgetPlanner() {
             stageDistributions.set(item.stage_id, { items: [], totalValue: 0 });
           }
           const stageData = stageDistributions.get(item.stage_id);
-          stageData.items.push({ ...item, schedule: schedule[item.id] });
+          stageData.items.push({ ...item, itemSchedule: schedule[item.id] });
           stageData.totalValue += item.subtotal || 0;
         }
       });
+      
+      console.log('Distribuições por etapa:', Array.from(stageDistributions.entries()));
       
       // Para cada etapa, calcular distribuição mensal ponderada
       for (const [stageId, data] of stageDistributions.entries()) {
@@ -92,7 +97,7 @@ export default function BudgetPlanner() {
           
           data.items.forEach(item => {
             const itemValue = item.subtotal || 0;
-            const itemPercentage = item.schedule.percentages[mes - 1] || 0;
+            const itemPercentage = item.itemSchedule.percentages[mes - 1] || 0;
             weightedPercentage += (itemValue / data.totalValue) * itemPercentage;
           });
           
@@ -101,6 +106,8 @@ export default function BudgetPlanner() {
             percentual: weightedPercentage
           });
         }
+        
+        console.log(`Salvando etapa ${stageId} com distribuição:`, distribuicao_mensal);
         
         updates.push(
           base44.entities.ProjectStage.update(stageId, {
@@ -111,6 +118,7 @@ export default function BudgetPlanner() {
       }
       
       await Promise.all(updates);
+      console.log('Salvamento concluído');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projectStages', budgetId] });
