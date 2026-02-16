@@ -43,6 +43,7 @@ export default function AccountsPayable() {
   const [deleteId, setDeleteId] = useState(null);
   const [paymentDialog, setPaymentDialog] = useState(null);
   const [paymentDate, setPaymentDate] = useState('');
+  const [paymentBankAccountId, setPaymentBankAccountId] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [batchPaymentDialog, setBatchPaymentDialog] = useState(false);
   const queryClient = useQueryClient();
@@ -60,6 +61,11 @@ export default function AccountsPayable() {
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: () => base44.entities.Project.list()
+  });
+
+  const { data: bankAccounts = [] } = useQuery({
+    queryKey: ['bankAccounts'],
+    queryFn: () => base44.entities.BankAccount.list()
   });
 
   const adjustToBusinessDay = (dateStr) => {
@@ -136,30 +142,36 @@ export default function AccountsPayable() {
   });
 
   const payMutation = useMutation({
-    mutationFn: async ({ id, date }) => {
+    mutationFn: async ({ id, date, bankAccountId }) => {
       const account = accounts.find(a => a.id === id);
+      const selectedBankAccount = bankAccounts.find(ba => ba.id === bankAccountId);
+      
       await base44.entities.AccountPayable.update(id, { 
         status: 'pago',
-        data_pagamento: date
+        data_pagamento: date,
+        conta_bancaria_id: bankAccountId,
+        conta_bancaria_nome: selectedBankAccount?.nome
       });
+      
       // Atualizar saldo da conta bancária
-      if (account.conta_bancaria_id) {
-        const [bankAccount] = await base44.entities.BankAccount.filter({ id: account.conta_bancaria_id });
+      if (bankAccountId) {
+        const [bankAccount] = await base44.entities.BankAccount.filter({ id: bankAccountId });
         if (bankAccount) {
           const novoSaldo = Math.round((Number(bankAccount.saldo_atual || 0) - Number(account.valor || 0)) * 100) / 100;
-          await base44.entities.BankAccount.update(account.conta_bancaria_id, {
+          await base44.entities.BankAccount.update(bankAccountId, {
             saldo_atual: novoSaldo
           });
         }
       }
+      
       // Registrar transação
       await base44.entities.Transaction.create({
         tipo: 'saida',
         descricao: account.descricao,
         valor: account.valor,
         data: date,
-        conta_bancaria_id: account.conta_bancaria_id,
-        conta_bancaria_nome: account.conta_bancaria_nome,
+        conta_bancaria_id: bankAccountId,
+        conta_bancaria_nome: selectedBankAccount?.nome,
         centro_custo_id: account.centro_custo_id,
         centro_custo_nome: account.centro_custo_nome,
         fornecedor_id: account.fornecedor_id,
@@ -181,20 +193,23 @@ export default function AccountsPayable() {
   });
 
   const batchPayMutation = useMutation({
-    mutationFn: async (date) => {
+    mutationFn: async ({ date, bankAccountId }) => {
       const accountsToPay = accounts.filter(a => selectedIds.includes(a.id));
+      const selectedBankAccount = bankAccounts.find(ba => ba.id === bankAccountId);
       
       for (const account of accountsToPay) {
         await base44.entities.AccountPayable.update(account.id, { 
           status: 'pago',
-          data_pagamento: date
+          data_pagamento: date,
+          conta_bancaria_id: bankAccountId,
+          conta_bancaria_nome: selectedBankAccount?.nome
         });
         
-        if (account.conta_bancaria_id) {
-          const [bankAccount] = await base44.entities.BankAccount.filter({ id: account.conta_bancaria_id });
+        if (bankAccountId) {
+          const [bankAccount] = await base44.entities.BankAccount.filter({ id: bankAccountId });
           if (bankAccount) {
             const novoSaldo = Math.round((Number(bankAccount.saldo_atual || 0) - Number(account.valor || 0)) * 100) / 100;
-            await base44.entities.BankAccount.update(account.conta_bancaria_id, {
+            await base44.entities.BankAccount.update(bankAccountId, {
               saldo_atual: novoSaldo
             });
           }
@@ -205,8 +220,8 @@ export default function AccountsPayable() {
           descricao: account.descricao,
           valor: account.valor,
           data: date,
-          conta_bancaria_id: account.conta_bancaria_id,
-          conta_bancaria_nome: account.conta_bancaria_nome,
+          conta_bancaria_id: bankAccountId,
+          conta_bancaria_nome: selectedBankAccount?.nome,
           centro_custo_id: account.centro_custo_id,
           centro_custo_nome: account.centro_custo_nome,
           fornecedor_id: account.fornecedor_id,
@@ -405,6 +420,7 @@ export default function AccountsPayable() {
             {(row.status === 'em_aberto' || row.status === 'atrasado') && (
               <DropdownMenuItem onClick={() => {
                 setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
+                setPaymentBankAccountId(row.conta_bancaria_id || '');
                 setPaymentDialog(row);
               }}>
                 <CheckCircle className="h-4 w-4 mr-2" />
@@ -457,6 +473,7 @@ export default function AccountsPayable() {
                     }
                     setSelectedIds(pendingIds);
                     setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
+                    setPaymentBankAccountId('');
                     setBatchPaymentDialog(true);
                   }}
                   className="bg-emerald-600 hover:bg-emerald-700"
@@ -651,8 +668,8 @@ export default function AccountsPayable() {
           <DialogHeader>
             <DialogTitle>Dar Baixa no Pagamento</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-slate-600 mb-4">
+          <div className="py-4 space-y-4">
+            <p className="text-slate-600">
               Confirmar pagamento de{' '}
               <strong>
                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(paymentDialog?.valor || 0))}
@@ -669,13 +686,36 @@ export default function AccountsPayable() {
                 className="mt-1.5"
               />
             </div>
+            <div>
+              <Label htmlFor="paymentBankAccount">Conta Bancária *</Label>
+              <select
+                id="paymentBankAccount"
+                value={paymentBankAccountId}
+                onChange={(e) => setPaymentBankAccountId(e.target.value)}
+                className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Selecione a conta bancária</option>
+                {bankAccounts.map(ba => (
+                  <option key={ba.id} value={ba.id}>
+                    {ba.nome} - Saldo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ba.saldo_atual || 0)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPaymentDialog(null)}>
               Cancelar
             </Button>
             <Button 
-              onClick={() => payMutation.mutate({ id: paymentDialog.id, date: paymentDate })}
+              onClick={() => {
+                if (!paymentBankAccountId) {
+                  toast.error('Selecione uma conta bancária');
+                  return;
+                }
+                payMutation.mutate({ id: paymentDialog.id, date: paymentDate, bankAccountId: paymentBankAccountId });
+              }}
               disabled={payMutation.isPending}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
@@ -692,8 +732,8 @@ export default function AccountsPayable() {
           <DialogHeader>
             <DialogTitle>Dar Baixa em Múltiplos Pagamentos</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-slate-600 mb-4">
+          <div className="py-4 space-y-4">
+            <p className="text-slate-600">
               Confirmar pagamento de <strong>{selectedIds.length}</strong> contas no valor total de{' '}
               <strong>
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
@@ -712,13 +752,36 @@ export default function AccountsPayable() {
                 className="mt-1.5"
               />
             </div>
+            <div>
+              <Label htmlFor="batchPaymentBankAccount">Conta Bancária *</Label>
+              <select
+                id="batchPaymentBankAccount"
+                value={paymentBankAccountId}
+                onChange={(e) => setPaymentBankAccountId(e.target.value)}
+                className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Selecione a conta bancária</option>
+                {bankAccounts.map(ba => (
+                  <option key={ba.id} value={ba.id}>
+                    {ba.nome} - Saldo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ba.saldo_atual || 0)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBatchPaymentDialog(false)}>
               Cancelar
             </Button>
             <Button 
-              onClick={() => batchPayMutation.mutate(paymentDate)}
+              onClick={() => {
+                if (!paymentBankAccountId) {
+                  toast.error('Selecione uma conta bancária');
+                  return;
+                }
+                batchPayMutation.mutate({ date: paymentDate, bankAccountId: paymentBankAccountId });
+              }}
               disabled={batchPayMutation.isPending}
               className="bg-emerald-600 hover:bg-emerald-700"
             >

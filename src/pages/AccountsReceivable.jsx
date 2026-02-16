@@ -43,6 +43,7 @@ export default function AccountsReceivable() {
   const [deleteId, setDeleteId] = useState(null);
   const [receiveDialog, setReceiveDialog] = useState(null);
   const [receiveDate, setReceiveDate] = useState('');
+  const [receiveBankAccountId, setReceiveBankAccountId] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const queryClient = useQueryClient();
 
@@ -59,6 +60,11 @@ export default function AccountsReceivable() {
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: () => base44.entities.Project.list()
+  });
+
+  const { data: bankAccounts = [] } = useQuery({
+    queryKey: ['bankAccounts'],
+    queryFn: () => base44.entities.BankAccount.list()
   });
 
   const adjustToBusinessDay = (dateStr) => {
@@ -139,30 +145,36 @@ export default function AccountsReceivable() {
   });
 
   const receiveMutation = useMutation({
-    mutationFn: async ({ id, date }) => {
+    mutationFn: async ({ id, date, bankAccountId }) => {
       const account = accounts.find(a => a.id === id);
+      const selectedBankAccount = bankAccounts.find(ba => ba.id === bankAccountId);
+      
       await base44.entities.AccountReceivable.update(id, { 
         status: 'recebido',
-        data_recebimento: date
+        data_recebimento: date,
+        conta_bancaria_id: bankAccountId,
+        conta_bancaria_nome: selectedBankAccount?.nome
       });
+      
       // Atualizar saldo da conta bancária
-      if (account.conta_bancaria_id) {
-        const [bankAccount] = await base44.entities.BankAccount.filter({ id: account.conta_bancaria_id });
+      if (bankAccountId) {
+        const [bankAccount] = await base44.entities.BankAccount.filter({ id: bankAccountId });
         if (bankAccount) {
           const novoSaldo = Math.round(((bankAccount.saldo_atual || 0) + Number(account.valor || 0)) * 100) / 100;
-          await base44.entities.BankAccount.update(account.conta_bancaria_id, {
+          await base44.entities.BankAccount.update(bankAccountId, {
             saldo_atual: novoSaldo
           });
         }
       }
+      
       // Registrar transação
       await base44.entities.Transaction.create({
         tipo: 'entrada',
         descricao: account.descricao,
         valor: account.valor,
         data: date,
-        conta_bancaria_id: account.conta_bancaria_id,
-        conta_bancaria_nome: account.conta_bancaria_nome,
+        conta_bancaria_id: bankAccountId,
+        conta_bancaria_nome: selectedBankAccount?.nome,
         centro_custo_id: account.centro_custo_id,
         centro_custo_nome: account.centro_custo_nome,
         cliente_id: account.cliente_id,
@@ -363,6 +375,7 @@ export default function AccountsReceivable() {
               <>
                 <DropdownMenuItem onClick={() => {
                   setReceiveDate(format(new Date(), 'yyyy-MM-dd'));
+                  setReceiveBankAccountId(row.conta_bancaria_id || '');
                   setReceiveDialog(row);
                 }}>
                   <CheckCircle className="h-4 w-4 mr-2" />
@@ -591,8 +604,8 @@ export default function AccountsReceivable() {
           <DialogHeader>
             <DialogTitle>Registrar Recebimento</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-slate-600 mb-4">
+          <div className="py-4 space-y-4">
+            <p className="text-slate-600">
               Confirmar recebimento de{' '}
               <strong>
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receiveDialog?.valor || 0)}
@@ -609,13 +622,36 @@ export default function AccountsReceivable() {
                 className="mt-1.5"
               />
             </div>
+            <div>
+              <Label htmlFor="receiveBankAccount">Conta Bancária *</Label>
+              <select
+                id="receiveBankAccount"
+                value={receiveBankAccountId}
+                onChange={(e) => setReceiveBankAccountId(e.target.value)}
+                className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Selecione a conta bancária</option>
+                {bankAccounts.map(ba => (
+                  <option key={ba.id} value={ba.id}>
+                    {ba.nome} - Saldo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ba.saldo_atual || 0)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReceiveDialog(null)}>
               Cancelar
             </Button>
             <Button 
-              onClick={() => receiveMutation.mutate({ id: receiveDialog.id, date: receiveDate })}
+              onClick={() => {
+                if (!receiveBankAccountId) {
+                  toast.error('Selecione uma conta bancária');
+                  return;
+                }
+                receiveMutation.mutate({ id: receiveDialog.id, date: receiveDate, bankAccountId: receiveBankAccountId });
+              }}
               disabled={receiveMutation.isPending}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
