@@ -298,7 +298,7 @@ export default function PurchasingListPage() {
     URL.revokeObjectURL(link.href);
   };
 
-  // Filtrar itens por mês selecionado
+  // Filtrar itens por mês selecionado e consolidar insumos duplicados
   let filteredPeriodos = listData?.periodos || [];
   let displayData = {
     ...listData,
@@ -321,6 +321,31 @@ export default function PurchasingListPage() {
       total_geral_valor: totalValue
     };
   }
+
+  // Consolidar insumos com mesmo código e descrição
+  const consolidatedItems = React.useMemo(() => {
+    const itemsMap = new Map();
+    
+    (displayData?.itens || []).forEach(item => {
+      const key = `${item.codigo || ''}_${item.descricao}`;
+      
+      if (itemsMap.has(key)) {
+        const existing = itemsMap.get(key);
+        existing.quantidade += item.quantidade;
+      } else {
+        itemsMap.set(key, { ...item });
+      }
+    });
+    
+    return Array.from(itemsMap.values());
+  }, [displayData?.itens]);
+
+  displayData = {
+    ...displayData,
+    itens: consolidatedItems,
+    total_geral_itens: consolidatedItems.length,
+    total_geral_valor: consolidatedItems.reduce((sum, item) => sum + (item.quantidade * item.valor_unitario), 0)
+  };
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -412,15 +437,15 @@ export default function PurchasingListPage() {
 
              <div className="space-y-2">
                <label className="text-sm font-medium">Período</label>
-               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+               <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={!selectedWork || workMonths === 0}>
                  <SelectTrigger>
-                   <SelectValue placeholder="Todos" />
+                   <SelectValue placeholder="Selecione a obra primeiro" />
                  </SelectTrigger>
                  <SelectContent>
                    <SelectItem value="all">Todos os Meses</SelectItem>
-                   {listData?.periodos?.map(p => (
-                     <SelectItem key={p.mes} value={p.mes.toString()}>
-                       {p.periodo}
+                   {Array.from({ length: workMonths }, (_, i) => i + 1).map(month => (
+                     <SelectItem key={month} value={month.toString()}>
+                       Mês {month}
                      </SelectItem>
                    ))}
                  </SelectContent>
@@ -444,12 +469,20 @@ export default function PurchasingListPage() {
            </div>
 
           <Button
-            onClick={() => generateMutation.mutate()}
+            onClick={() => {
+              setSelectedMonth('all');
+              generateMutation.mutate();
+            }}
             disabled={!selectedWork || generateMutation.isPending}
             className="mt-4 bg-blue-600 hover:bg-blue-700"
           >
-            {generateMutation.isPending ? 'Gerando...' : 'Gerar Lista Completa'}
+            {generateMutation.isPending ? 'Gerando...' : 'Gerar Lista'}
           </Button>
+          {workMonths > 0 && (
+            <p className="text-xs text-slate-500 mt-2">
+              Obra com {workMonths} meses de duração
+            </p>
+          )}
         </CardContent>
       </Card>
 
