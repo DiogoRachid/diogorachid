@@ -407,32 +407,7 @@ export default function PurchasingListPage() {
     return items;
   }, [consolidatedItems, sortConfig]);
 
-  // Consolidar itens antes de calcular ABC
-  const consolidatedItems = useMemo(() => {
-    const itemsMap = new Map();
-    
-    (displayData?.itens || []).forEach(item => {
-      const key = `${item.codigo || ''}_${item.descricao}`;
-      
-      if (itemsMap.has(key)) {
-        const existing = itemsMap.get(key);
-        existing.quantidade += item.quantidade;
-      } else {
-        itemsMap.set(key, { ...item });
-      }
-    });
-    
-    return Array.from(itemsMap.values());
-  }, [displayData?.itens]);
-
-  const finalDisplayData = {
-    ...displayData,
-    itens: consolidatedItems,
-    total_geral_itens: consolidatedItems.length,
-    total_geral_valor: consolidatedItems.reduce((sum, item) => sum + (item.quantidade * item.valor_unitario), 0)
-  };
-
-  const abcCounts = (consolidatedItems || []).reduce((acc, item) => ({
+  const abcCounts = (sortedItems || []).reduce((acc, item) => ({
     ...acc,
     [item.abc_class]: (acc[item.abc_class] || 0) + 1
   }), {});
@@ -560,7 +535,7 @@ export default function PurchasingListPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-slate-600">Valor Total</p>
-                <p className="text-2xl font-bold">R$ {(finalDisplayData?.total_geral_valor || 0).toFixed(2)}</p>
+                <p className="text-2xl font-bold">R$ {(displayData?.total_geral_valor || 0).toFixed(2)}</p>
               </CardContent>
             </Card>
           </div>
