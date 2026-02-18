@@ -5,7 +5,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const { workId, abcFilter } = await req.json();
 
-    console.log('[START] Gerando lista de compras para obra:', workId);
+
 
     // 1. Buscar projeto
     const projects = await base44.asServiceRole.entities.Project.filter({ id: workId });
@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       }, { status: 404 });
     }
     const project = projects[0];
-    console.log('[OK] Projeto encontrado:', project.nome);
+
 
     // 2. Buscar orçamento da obra
     const budgets = await base44.asServiceRole.entities.Budget.filter({ obra_id: project.id });
@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     }
     const budget = budgets[0];
     const months = budget.duracao_meses || 12;
-    console.log('[OK] Orçamento encontrado. Duração:', months, 'meses');
+
 
     // 3. Buscar itens do orçamento (BudgetItems - serviços)
     const budgetItems = await base44.asServiceRole.entities.BudgetItem.filter({ 
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
         error: 'Orçamento sem serviços. Adicione serviços ao orçamento primeiro.' 
       }, { status: 404 });
     }
-    console.log('[OK] Itens do orçamento:', budgetItems.length);
+
 
     // 4. Buscar distribuições mensais (cronograma salvo)
     const monthlyDist = await base44.asServiceRole.entities.ServiceMonthlyDistribution.filter({ 
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
         error: 'Cronograma não foi salvo. Vá em Planejamento, preencha os percentuais mensais e clique em Salvar.' 
       }, { status: 404 });
     }
-    console.log('[OK] Distribuições mensais:', monthlyDist.length);
+
 
     // Criar mapa: budget_item_id -> [{ mes, percentual }]
     const distMap = new Map();
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
         percentual: dist.percentual || 0
       });
     }
-    console.log('[OK] Itens com distribuição mensal:', distMap.size);
+
 
     // 5. Buscar todos os ServiceItems (composição dos serviços)
     const allServiceItems = await base44.asServiceRole.entities.ServiceItem.list();
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       }
       serviceItemsMap.get(si.servico_id).push(si);
     }
-    console.log('[OK] ServiceItems carregados:', allServiceItems.length);
+
 
     // 6. Buscar todos os insumos
     const allInputs = await base44.asServiceRole.entities.Input.list();
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     for (const input of allInputs) {
       inputsMap.set(input.id, input);
     }
-    console.log('[OK] Insumos carregados:', allInputs.length);
+
 
     // 7. Processar lista de compras
     const periodosMap = new Map(); // mes -> Map(insumo_id -> dados)
@@ -154,13 +154,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log('[OK] Serviços processados:', servicosProcessados);
-    if (servicosSemInsumos.length > 0) {
-      console.log('[WARN] Serviços sem insumos:', servicosSemInsumos.length);
-    }
-    if (servicosSemDistribuicao.length > 0) {
-      console.log('[WARN] Serviços sem distribuição:', servicosSemDistribuicao.length);
-    }
+
 
     // 8. Calcular classificação ABC
     const abcMap = new Map();
@@ -217,7 +211,7 @@ Deno.serve(async (req) => {
     const totalGeralItens = periodosFormatados.reduce((sum, p) => sum + p.total_itens, 0);
     const totalGeralValor = periodosFormatados.reduce((sum, p) => sum + p.total_valor, 0);
 
-    console.log('[FINISH] Total itens:', totalGeralItens, '/ Valor:', totalGeralValor.toFixed(2));
+
 
     // Verificar se gerou algum item
     if (totalGeralItens === 0) {
