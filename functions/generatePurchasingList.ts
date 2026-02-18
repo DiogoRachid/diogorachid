@@ -3,263 +3,178 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const { workId, workName, abcFilter } = await req.json();
+    const { workId, abcFilter } = await req.json();
 
-    console.log('[INFO] Iniciando geração de lista de compras', { workId, workName, abcFilter });
+    console.log('[START] Gerando lista de compras para obra:', workId);
 
-    // Buscar projeto por ID ou Nome
-    let project;
-    try {
-      if (workId) {
-        const projects = await base44.asServiceRole.entities.Project.filter({ id: workId });
-        project = projects[0];
-      } else if (workName) {
-        const projects = await base44.asServiceRole.entities.Project.filter({ nome: workName });
-        project = projects[0];
-      }
-    } catch (error) {
-      console.error('[ERROR] Erro ao buscar projeto:', error);
-      return Response.json({ 
-        success: false, 
-        error: `Erro ao buscar projeto: ${error.message}` 
-      }, { status: 500 });
-    }
-
-    if (!project) {
-      console.error('[ERROR] Projeto não encontrado');
+    // 1. Buscar projeto
+    const projects = await base44.asServiceRole.entities.Project.filter({ id: workId });
+    if (!projects || projects.length === 0) {
       return Response.json({ 
         success: false, 
         error: 'Obra não encontrada' 
       }, { status: 404 });
     }
+    const project = projects[0];
+    console.log('[OK] Projeto encontrado:', project.nome);
 
-    console.log('[INFO] Projeto encontrado:', project.nome);
-
-    // Buscar orçamentos da obra
+    // 2. Buscar orçamento da obra
     const budgets = await base44.asServiceRole.entities.Budget.filter({ obra_id: project.id });
-    console.log(`[INFO] Encontrados ${budgets.length} orçamentos`);
-    
-    if (!budgets.length) {
+    if (!budgets || budgets.length === 0) {
       return Response.json({ 
         success: false, 
-        error: 'Nenhum orçamento encontrado para esta obra' 
+        error: 'Nenhum orçamento cadastrado para esta obra' 
       }, { status: 404 });
     }
+    const budget = budgets[0];
+    const months = budget.duracao_meses || 12;
+    console.log('[OK] Orçamento encontrado. Duração:', months, 'meses');
 
-    // Buscar cronograma (ProjectStage) para calcular meses
-    const projectStages = await base44.asServiceRole.entities.ProjectStage.filter({ orcamento_id: budgets[0]?.id });
-    let months = budgets[0]?.duracao_meses || 12;
-
-    if (projectStages.length > 0) {
-      const maxMesFim = Math.max(...projectStages.map(s => s.mes_fim || 0));
-      months = maxMesFim > 0 ? maxMesFim : months;
-    }
-
-    // Buscar todos os BudgetItems
-    const allBudgetItems = [];
-    for (const budget of budgets) {
-      const items = await base44.asServiceRole.entities.BudgetItem.filter({ orcamento_id: budget.id });
-      allBudgetItems.push(...items);
-    }
-
-    console.log(`[INFO] Total de itens de orçamento: ${allBudgetItems.length}`);
-
-    if (!allBudgetItems.length) {
-      return Response.json({ 
-        success: false, 
-        error: 'Nenhum serviço encontrado no orçamento. Adicione serviços ao orçamento primeiro.' 
-      }, { status: 404 });
-    }
-
-    // Buscar todos os ServiceItems para decompor os serviços em insumos
-    let allServiceItems = [];
-    try {
-      allServiceItems = await base44.asServiceRole.entities.ServiceItem.list();
-      console.log(`[INFO] Encontrados ${allServiceItems.length} ServiceItems`);
-    } catch (error) {
-      console.error('[ERROR] Erro ao buscar ServiceItems:', error);
-      return Response.json({ 
-        success: false, 
-        error: `Erro ao buscar insumos dos serviços: ${error.message}` 
-      }, { status: 500 });
-    }
-    
-    const serviceItemMap = new Map();
-    for (const si of allServiceItems) {
-      const key = si.servico_id;
-      if (!serviceItemMap.has(key)) {
-        serviceItemMap.set(key, []);
-      }
-      serviceItemMap.get(key).push(si);
-    }
-    
-    console.log(`[INFO] ${serviceItemMap.size} serviços têm insumos vinculados`);
-
-    // Buscar distribuições mensais dos serviços do cronograma (ServiceMonthlyDistribution)
-    const monthlyDistributions = await base44.asServiceRole.entities.ServiceMonthlyDistribution.filter({ 
-      orcamento_id: budgets[0]?.id 
+    // 3. Buscar itens do orçamento (BudgetItems - serviços)
+    const budgetItems = await base44.asServiceRole.entities.BudgetItem.filter({ 
+      orcamento_id: budget.id 
     });
-    
+    if (!budgetItems || budgetItems.length === 0) {
+      return Response.json({ 
+        success: false, 
+        error: 'Orçamento sem serviços. Adicione serviços ao orçamento primeiro.' 
+      }, { status: 404 });
+    }
+    console.log('[OK] Itens do orçamento:', budgetItems.length);
+
+    // 4. Buscar distribuições mensais (cronograma salvo)
+    const monthlyDist = await base44.asServiceRole.entities.ServiceMonthlyDistribution.filter({ 
+      orcamento_id: budget.id 
+    });
+    if (!monthlyDist || monthlyDist.length === 0) {
+      return Response.json({ 
+        success: false, 
+        error: 'Cronograma não foi salvo. Vá em Planejamento, preencha os percentuais mensais e clique em Salvar.' 
+      }, { status: 404 });
+    }
+    console.log('[OK] Distribuições mensais:', monthlyDist.length);
+
     // Criar mapa: budget_item_id -> [{ mes, percentual }]
-    const distributionMap = new Map();
-    for (const dist of monthlyDistributions) {
+    const distMap = new Map();
+    for (const dist of monthlyDist) {
       if (!dist.budget_item_id) continue;
-      
-      if (!distributionMap.has(dist.budget_item_id)) {
-        distributionMap.set(dist.budget_item_id, []);
+      if (!distMap.has(dist.budget_item_id)) {
+        distMap.set(dist.budget_item_id, []);
       }
-      
-      distributionMap.get(dist.budget_item_id).push({
+      distMap.get(dist.budget_item_id).push({
         mes: dist.mes,
         percentual: dist.percentual || 0
       });
     }
-    
-    console.log(`[INFO] Encontradas ${monthlyDistributions.length} distribuições mensais para ${distributionMap.size} itens`);
-    
-    if (monthlyDistributions.length === 0) {
-      return Response.json({ 
-        success: false, 
-        error: 'Nenhuma distribuição mensal encontrada. É necessário salvar o cronograma no Planejamento antes de gerar a lista de compras.' 
-      }, { status: 404 });
-    }
+    console.log('[OK] Itens com distribuição mensal:', distMap.size);
 
-    // Buscar insumos para obter dados completos
-    let allInputs = [];
-    try {
-      allInputs = await base44.asServiceRole.entities.Input.list();
-      console.log(`[INFO] Encontrados ${allInputs.length} insumos cadastrados`);
-    } catch (error) {
-      console.error('[ERROR] Erro ao buscar insumos:', error);
-      return Response.json({ 
-        success: false, 
-        error: `Erro ao buscar insumos: ${error.message}` 
-      }, { status: 500 });
+    // 5. Buscar todos os ServiceItems (composição dos serviços)
+    const allServiceItems = await base44.asServiceRole.entities.ServiceItem.list();
+    const serviceItemsMap = new Map();
+    for (const si of allServiceItems) {
+      if (!serviceItemsMap.has(si.servico_id)) {
+        serviceItemsMap.set(si.servico_id, []);
+      }
+      serviceItemsMap.get(si.servico_id).push(si);
     }
-    
-    const inputMap = new Map();
+    console.log('[OK] ServiceItems carregados:', allServiceItems.length);
+
+    // 6. Buscar todos os insumos
+    const allInputs = await base44.asServiceRole.entities.Input.list();
+    const inputsMap = new Map();
     for (const input of allInputs) {
-      inputMap.set(input.id, input);
+      inputsMap.set(input.id, input);
     }
+    console.log('[OK] Insumos carregados:', allInputs.length);
 
-    // Compilar lista de compras por período
-    const periodosMap = new Map(); // mes -> { insumos_map, valor_total }
-    const totalQuantidadesPorInsumo = new Map(); // insumo_id -> total_quantidade
-
-    // Rastrear serviços sem insumos
-    const servicosSemInsumos = [];
-    const servicosComInsumos = [];
+    // 7. Processar lista de compras
+    const periodosMap = new Map(); // mes -> Map(insumo_id -> dados)
+    const totalQtyMap = new Map(); // insumo_id -> quantidade total (para ABC)
     
-    // Para cada BudgetItem (serviço do orçamento)
-    for (const budgetItem of allBudgetItems) {
-      console.log(`[DEBUG] === Processando BudgetItem ===`);
-      console.log(`[DEBUG] ID: ${budgetItem.id}`);
-      console.log(`[DEBUG] Código: ${budgetItem.codigo}`);
-      console.log(`[DEBUG] Descrição: ${budgetItem.descricao}`);
-      console.log(`[DEBUG] Serviço ID: ${budgetItem.servico_id}`);
-      console.log(`[DEBUG] Quantidade: ${budgetItem.quantidade}`);
-      
-      // Buscar distribuição mensal deste item
-      const distribuicoesServico = distributionMap.get(budgetItem.id) || [];
-      console.log(`[DEBUG] Distribuições mensais: ${distribuicoesServico.length}`);
-      
-      if (distribuicoesServico.length === 0) {
-        console.log(`[DEBUG] ⚠️ Item ${budgetItem.codigo} não tem distribuição mensal - PULANDO`);
+    let servicosProcessados = 0;
+    let servicosSemInsumos = [];
+    let servicosSemDistribuicao = [];
+
+    for (const budgetItem of budgetItems) {
+      // Verificar se tem distribuição mensal
+      const distribuicoes = distMap.get(budgetItem.id);
+      if (!distribuicoes || distribuicoes.length === 0) {
+        servicosSemDistribuicao.push(budgetItem.codigo || budgetItem.descricao);
         continue;
       }
-      
-      // Buscar ServiceItems deste serviço
-      const serviceItems = serviceItemMap.get(budgetItem.servico_id) || [];
-      console.log(`[DEBUG] ServiceItems encontrados: ${serviceItems.length}`);
 
-      if (serviceItems.length === 0) {
-        console.log(`[DEBUG] ⚠️ Serviço ${budgetItem.codigo} (ID: ${budgetItem.servico_id}) não tem insumos cadastrados`);
-        servicosSemInsumos.push(`${budgetItem.codigo} - ${budgetItem.descricao}`);
+      // Buscar insumos deste serviço
+      const serviceItems = serviceItemsMap.get(budgetItem.servico_id) || [];
+      const insumos = serviceItems.filter(si => si.tipo_item === 'INSUMO');
+      
+      if (insumos.length === 0) {
+        servicosSemInsumos.push(budgetItem.codigo || budgetItem.descricao);
         continue;
       }
-      
-      // Filtrar apenas insumos (não incluir serviços aninhados)
-      const insumoItems = serviceItems.filter(si => si.tipo_item === 'INSUMO');
-      console.log(`[DEBUG] Insumos (filtrado): ${insumoItems.length}`);
-      
-      if (insumoItems.length === 0) {
-        console.log(`[DEBUG] ⚠️ Serviço ${budgetItem.codigo} só tem serviços aninhados`);
-        servicosSemInsumos.push(`${budgetItem.codigo} - ${budgetItem.descricao} (só serviços aninhados)`);
-        continue;
-      }
-      
-      servicosComInsumos.push(`${budgetItem.codigo} - ${insumoItems.length} insumos`);
-      console.log(`[DEBUG] ✓ Processando ${insumoItems.length} insumos`);
 
-      // Para cada insumo que compõe este serviço (já filtrado acima)
-      for (const serviceItem of insumoItems) {
-        if (serviceItem.item_id) {
-          const insumoId = serviceItem.item_id;
-          const insumo = inputMap.get(insumoId);
+      servicosProcessados++;
 
-          if (!insumo) {
-            console.log(`[DEBUG] ⚠️ Insumo ID ${insumoId} não encontrado no cadastro de insumos`);
-            continue;
+      // Para cada insumo do serviço
+      for (const serviceItem of insumos) {
+        const insumo = inputsMap.get(serviceItem.item_id);
+        if (!insumo) continue;
+
+        const qtdTotalInsumo = budgetItem.quantidade * serviceItem.quantidade;
+
+        // Distribuir por mês
+        for (const dist of distribuicoes) {
+          const qtdMes = (qtdTotalInsumo * dist.percentual) / 100;
+          
+          if (qtdMes <= 0) continue;
+
+          // Inicializar mês se não existir
+          if (!periodosMap.has(dist.mes)) {
+            periodosMap.set(dist.mes, new Map());
           }
 
-          console.log(`[DEBUG]   → Insumo: ${insumo.codigo} - ${insumo.descricao}, Qtd/serviço: ${serviceItem.quantidade}`);
-
-          // Quantidade total de insumo necessária = quantidade_serviço * quantidade_insumo_por_serviço
-          const quantidadeTotalInsumo = budgetItem.quantidade * serviceItem.quantidade;
-          console.log(`[DEBUG]   → Quantidade total necessária: ${quantidadeTotalInsumo.toFixed(4)}`);
-
-          // Aplicar distribuição mensal
-          for (const dist of distribuicoesServico) {
-            const quantidadeNecessaria = (quantidadeTotalInsumo * dist.percentual) / 100;
-            
-            console.log(`[DEBUG]   → Mês ${dist.mes}: ${dist.percentual}% = ${quantidadeNecessaria.toFixed(4)}`);
-
-            if (quantidadeNecessaria > 0) {
-              // Garantir que o mês existe
-              if (!periodosMap.has(dist.mes)) {
-                periodosMap.set(dist.mes, { insumos: new Map(), valor_total: 0 });
-              }
-
-              const periodData = periodosMap.get(dist.mes);
-
-              if (!periodData.insumos.has(insumoId)) {
-                periodData.insumos.set(insumoId, {
-                  insumo_id: insumoId,
-                  codigo: insumo.codigo,
-                  descricao: insumo.descricao,
-                  unidade: insumo.unidade,
-                  quantidade: 0,
-                  valor_unitario: insumo.valor_unitario || 0,
-                  abc_class: 'C'
-                });
-              }
-
-              const entrada = periodData.insumos.get(insumoId);
-              entrada.quantidade += quantidadeNecessaria;
-              periodData.valor_total += quantidadeNecessaria * entrada.valor_unitario;
-
-              // Acumular para classificação ABC
-              const totalAtual = totalQuantidadesPorInsumo.get(insumoId) || 0;
-              totalQuantidadesPorInsumo.set(insumoId, totalAtual + quantidadeNecessaria);
-            }
+          const mesMap = periodosMap.get(dist.mes);
+          
+          if (!mesMap.has(insumo.id)) {
+            mesMap.set(insumo.id, {
+              insumo_id: insumo.id,
+              codigo: insumo.codigo,
+              descricao: insumo.descricao,
+              unidade: insumo.unidade,
+              valor_unitario: insumo.valor_unitario || 0,
+              quantidade: 0
+            });
           }
+
+          mesMap.get(insumo.id).quantidade += qtdMes;
+          
+          // Acumular para ABC
+          const totalAtual = totalQtyMap.get(insumo.id) || 0;
+          totalQtyMap.set(insumo.id, totalAtual + qtdMes);
         }
       }
     }
 
-    // Calcular curva ABC baseado nas quantidades totais
+    console.log('[OK] Serviços processados:', servicosProcessados);
+    if (servicosSemInsumos.length > 0) {
+      console.log('[WARN] Serviços sem insumos:', servicosSemInsumos.length);
+    }
+    if (servicosSemDistribuicao.length > 0) {
+      console.log('[WARN] Serviços sem distribuição:', servicosSemDistribuicao.length);
+    }
+
+    // 8. Calcular classificação ABC
     const abcMap = new Map();
-    const quantidadesArray = Array.from(totalQuantidadesPorInsumo.entries())
+    const qtdArray = Array.from(totalQtyMap.entries())
       .map(([id, qty]) => ({ id, qty }))
       .sort((a, b) => b.qty - a.qty);
 
-    const totalQtd = quantidadesArray.reduce((sum, item) => sum + item.qty, 0);
+    const totalQtd = qtdArray.reduce((sum, item) => sum + item.qty, 0);
     let acumulado = 0;
 
-    for (const item of quantidadesArray) {
+    for (const item of qtdArray) {
       acumulado += item.qty;
       const percentual = (acumulado / totalQtd) * 100;
-
+      
       if (percentual <= 80) {
         abcMap.set(item.id, 'A');
       } else if (percentual <= 95) {
@@ -269,28 +184,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Aplicar classificação ABC aos períodos
+    // 9. Formatar períodos
     const periodosFormatados = [];
     for (let mes = 1; mes <= months; mes++) {
-      const periodData = periodosMap.get(mes);
+      const mesMap = periodosMap.get(mes);
       
       let itens = [];
-      let totalValor = 0;
-
-      if (periodData) {
-        itens = Array.from(periodData.insumos.values())
+      if (mesMap) {
+        itens = Array.from(mesMap.values())
           .map(item => ({
             ...item,
             abc_class: abcMap.get(item.insumo_id) || 'C'
           }))
           .filter(item => !abcFilter || item.abc_class === abcFilter)
           .sort((a, b) => {
-            const abcOrder = { 'A': 1, 'B': 2, 'C': 3 };
-            return abcOrder[a.abc_class] - abcOrder[b.abc_class];
+            const order = { 'A': 1, 'B': 2, 'C': 3 };
+            return order[a.abc_class] - order[b.abc_class];
           });
-
-        totalValor = itens.reduce((sum, item) => sum + (item.quantidade * item.valor_unitario), 0);
       }
+
+      const totalValor = itens.reduce((sum, i) => sum + (i.quantidade * i.valor_unitario), 0);
 
       periodosFormatados.push({
         mes: mes,
@@ -301,40 +214,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Calcular totais gerais
     const totalGeralItens = periodosFormatados.reduce((sum, p) => sum + p.total_itens, 0);
     const totalGeralValor = periodosFormatados.reduce((sum, p) => sum + p.total_valor, 0);
 
-    console.log(`[INFO] === RESUMO DA GERAÇÃO ===`);
-    console.log(`[INFO] Serviços com insumos: ${servicosComInsumos.length}`);
-    console.log(`[INFO] Serviços sem insumos: ${servicosSemInsumos.length}`);
-    if (servicosSemInsumos.length > 0) {
-      console.log(`[INFO] Serviços sem insumos:`, servicosSemInsumos);
-    }
-    if (servicosComInsumos.length > 0) {
-      console.log(`[INFO] Serviços com insumos:`, servicosComInsumos);
-    }
-    console.log(`[INFO] Total de itens gerados: ${totalGeralItens}`);
-    console.log(`[INFO] Valor total: R$ ${totalGeralValor.toFixed(2)}`);
+    console.log('[FINISH] Total itens:', totalGeralItens, '/ Valor:', totalGeralValor.toFixed(2));
 
-    const hasItems = periodosFormatados.some(p => p.itens.length > 0);
-    if (!hasItems) {
-      let errorMsg = 'Nenhum insumo encontrado na lista de compras.\n\n';
+    // Verificar se gerou algum item
+    if (totalGeralItens === 0) {
+      let errorMsg = 'Lista de compras vazia.\n\n';
       
       if (servicosSemInsumos.length > 0) {
-        errorMsg += `Serviços sem insumos cadastrados (${servicosSemInsumos.length}):\n`;
-        errorMsg += servicosSemInsumos.slice(0, 5).join('\n');
-        if (servicosSemInsumos.length > 5) {
-          errorMsg += `\n... e mais ${servicosSemInsumos.length - 5} serviços`;
+        errorMsg += `${servicosSemInsumos.length} serviço(s) sem insumos:\n`;
+        errorMsg += servicosSemInsumos.slice(0, 3).join(', ');
+        if (servicosSemInsumos.length > 3) {
+          errorMsg += ` e mais ${servicosSemInsumos.length - 3}...`;
         }
-        errorMsg += '\n\nVá em Cadastros > Serviços e adicione insumos a cada serviço.';
-      } else if (distributionMap.size === 0) {
-        errorMsg += 'O cronograma não foi salvo com distribuição mensal.\n';
-        errorMsg += 'Vá em Planejamento > selecione o orçamento > preencha os percentuais mensais > clique em Salvar.';
+        errorMsg += '\n\nCadastre insumos em: Cadastros > Serviços';
+      } else if (servicosSemDistribuicao.length > 0) {
+        errorMsg += 'Todos os serviços estão sem distribuição mensal.\n';
+        errorMsg += 'Vá em Planejamento > preencha os percentuais > Salvar.';
       } else {
-        errorMsg += 'Verifique:\n';
-        errorMsg += '1. Os serviços do orçamento têm insumos cadastrados\n';
-        errorMsg += '2. O cronograma foi salvo com percentuais preenchidos (0-100%)';
+        errorMsg += 'Verifique o cronograma e os insumos dos serviços.';
       }
       
       return Response.json({ 
@@ -357,10 +257,10 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Erro ao gerar lista de compras:', error);
+    console.error('[ERROR]', error);
     return Response.json({ 
       success: false, 
-      error: error.message 
+      error: `Erro interno: ${error.message}` 
     }, { status: 500 });
   }
 });
