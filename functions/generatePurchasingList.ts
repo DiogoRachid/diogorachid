@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'ID da obra é obrigatório' }, { status: 400 });
     }
 
-    // 1. Buscar orçamento da obra (qualquer status, incluindo rascunho)
-    const budgets = await base44.asServiceRole.entities.Budget.filter({ obra_id: workId });
+    // 1. Buscar orçamento mais recente da obra (aceita rascunho)
+    const budgets = await base44.asServiceRole.entities.Budget.filter({ obra_id: workId }, '-updated_date', 1);
     
     if (!budgets || budgets.length === 0) {
       return Response.json({ 
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       }, { status: 404 });
     }
 
-    // 3. Buscar cronograma (distribuição mensal dos serviços)
+    // 3. Buscar cronograma (distribuição mensal dos serviços - aceita rascunho)
     const distributions = await base44.asServiceRole.entities.ServiceMonthlyDistribution.filter({
       orcamento_id: budget.id
     });
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     if (!distributions || distributions.length === 0) {
       return Response.json({ 
         success: false, 
-        error: 'O cronograma não foi salvo. Acesse Planejamento e salve o cronograma com a distribuição mensal dos serviços.' 
+        error: 'O cronograma não está configurado. Acesse Planejamento e configure a distribuição mensal dos serviços.' 
       }, { status: 404 });
     }
 
