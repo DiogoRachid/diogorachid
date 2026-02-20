@@ -502,6 +502,12 @@ export default function MeasurementForm() {
           <TabsTrigger value="servicos" disabled={!formData.orcamento_id}>
             Serviços ({items.length})
           </TabsTrigger>
+          <TabsTrigger value="planilha" disabled={!formData.orcamento_id}>
+            Planilha de Medição
+          </TabsTrigger>
+          <TabsTrigger value="curvas" disabled={!formData.orcamento_id}>
+            Curva S
+          </TabsTrigger>
           <TabsTrigger value="cronograma" disabled={!formData.orcamento_id}>
             Cronograma
           </TabsTrigger>
@@ -706,6 +712,372 @@ export default function MeasurementForm() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="planilha">
+          <Card>
+            <CardHeader>
+              <CardTitle>Planilha Detalhada de Medição</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className="px-3 py-2 text-left border">Código</th>
+                      <th className="px-3 py-2 text-left border">Descrição</th>
+                      <th className="px-3 py-2 text-center border">Un</th>
+                      <th className="px-3 py-2 text-right border">Qtd. Orçada</th>
+                      <th className="px-3 py-2 text-right border bg-blue-50">Qtd. Medida</th>
+                      <th className="px-3 py-2 text-right border">Saldo a Medir</th>
+                      <th className="px-3 py-2 text-right border">Material (R$)</th>
+                      <th className="px-3 py-2 text-right border">Mão de Obra (R$)</th>
+                      <th className="px-3 py-2 text-right border">Total Direto (R$)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stageHierarchy.map(stage => {
+                      if (stage.level === 0 && !hasItemsInHierarchy(stage.id)) return null;
+                      if (stage.level > 0 && stage.items.length === 0) return null;
+                      
+                      return (
+                        <React.Fragment key={stage.id}>
+                          <tr className="bg-slate-50 font-semibold">
+                            <td colSpan="9" className="px-3 py-2 border" style={{ paddingLeft: `${stage.level * 20 + 12}px` }}>
+                              {stage.number} {stage.nome}
+                            </td>
+                          </tr>
+                          {stage.items.map((item, itemIdx) => {
+                            const itemId = item.id || items.indexOf(item);
+                            const qtdMedida = parseFloat(editableQuantities[itemId] || 0);
+                            const valorMaterial = qtdMedida * (item.custo_unitario_material || 0);
+                            const valorMaoObra = qtdMedida * (item.custo_unitario_mao_obra || 0);
+                            const totalDireto = valorMaterial + valorMaoObra;
+                            const itemNumber = `${stage.number}${itemIdx + 1}`;
+                            
+                            return (
+                              <tr key={itemId} className="border-b hover:bg-slate-50">
+                                <td className="px-3 py-2 border">
+                                  <div className="text-xs text-slate-400">{itemNumber}</div>
+                                  <div className="text-slate-600">{item.codigo}</div>
+                                </td>
+                                <td className="px-3 py-2 border">{item.descricao}</td>
+                                <td className="px-3 py-2 text-center border">{item.unidade}</td>
+                                <td className="px-3 py-2 text-right border font-medium">
+                                  {(item.quantidade_orcada || 0).toFixed(2)}
+                                </td>
+                                <td className="px-3 py-2 border bg-blue-50">
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={editableQuantities[itemId] || 0}
+                                    onChange={(e) => handleQuantityChange(itemId, e.target.value)}
+                                    className="w-24 text-right"
+                                  />
+                                </td>
+                                <td className={`px-3 py-2 text-right border font-medium ${
+                                  item.saldo_a_executar < 0 ? 'text-red-600' : 'text-slate-700'
+                                }`}>
+                                  {(item.saldo_a_executar || 0).toFixed(2)}
+                                </td>
+                                <td className="px-3 py-2 text-right border">
+                                  {new Intl.NumberFormat('pt-BR', { 
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                  }).format(valorMaterial)}
+                                </td>
+                                <td className="px-3 py-2 text-right border">
+                                  {new Intl.NumberFormat('pt-BR', { 
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                  }).format(valorMaoObra)}
+                                </td>
+                                <td className="px-3 py-2 text-right border font-semibold">
+                                  {new Intl.NumberFormat('pt-BR', { 
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                  }).format(totalDireto)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-slate-200 font-bold">
+                    <tr>
+                      <td colSpan="6" className="px-3 py-3 text-right border">TOTAL DIRETO:</td>
+                      <td className="px-3 py-3 text-right border">
+                        {(() => {
+                          const totalMaterial = items.reduce((sum, item) => {
+                            const itemId = item.id || items.indexOf(item);
+                            const qtd = parseFloat(editableQuantities[itemId] || 0);
+                            return sum + (qtd * (item.custo_unitario_material || 0));
+                          }, 0);
+                          return new Intl.NumberFormat('pt-BR', { 
+                            style: 'currency', 
+                            currency: 'BRL' 
+                          }).format(totalMaterial);
+                        })()}
+                      </td>
+                      <td className="px-3 py-3 text-right border">
+                        {(() => {
+                          const totalMaoObra = items.reduce((sum, item) => {
+                            const itemId = item.id || items.indexOf(item);
+                            const qtd = parseFloat(editableQuantities[itemId] || 0);
+                            return sum + (qtd * (item.custo_unitario_mao_obra || 0));
+                          }, 0);
+                          return new Intl.NumberFormat('pt-BR', { 
+                            style: 'currency', 
+                            currency: 'BRL' 
+                          }).format(totalMaoObra);
+                        })()}
+                      </td>
+                      <td className="px-3 py-3 text-right border">
+                        {(() => {
+                          const totalDireto = items.reduce((sum, item) => {
+                            const itemId = item.id || items.indexOf(item);
+                            const qtd = parseFloat(editableQuantities[itemId] || 0);
+                            return sum + (qtd * ((item.custo_unitario_material || 0) + (item.custo_unitario_mao_obra || 0)));
+                          }, 0);
+                          return new Intl.NumberFormat('pt-BR', { 
+                            style: 'currency', 
+                            currency: 'BRL' 
+                          }).format(totalDireto);
+                        })()}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan="6" className="px-3 py-3 text-right border">BDI ({(() => {
+                        const budget = budgets.find(b => b.id === formData.orcamento_id);
+                        return budget?.bdi_padrao || 30;
+                      })()}%):</td>
+                      <td colSpan="3" className="px-3 py-3 text-right border">
+                        {(() => {
+                          const totalDireto = items.reduce((sum, item) => {
+                            const itemId = item.id || items.indexOf(item);
+                            const qtd = parseFloat(editableQuantities[itemId] || 0);
+                            return sum + (qtd * ((item.custo_unitario_material || 0) + (item.custo_unitario_mao_obra || 0)));
+                          }, 0);
+                          const budget = budgets.find(b => b.id === formData.orcamento_id);
+                          const bdiPercentual = budget?.bdi_padrao || 30;
+                          const valorBdi = totalDireto * (bdiPercentual / 100);
+                          return new Intl.NumberFormat('pt-BR', { 
+                            style: 'currency', 
+                            currency: 'BRL' 
+                          }).format(valorBdi);
+                        })()}
+                      </td>
+                    </tr>
+                    <tr className="text-lg">
+                      <td colSpan="6" className="px-3 py-3 text-right border">TOTAL COM BDI:</td>
+                      <td colSpan="3" className="px-3 py-3 text-right border text-blue-600">
+                        {(() => {
+                          const totalDireto = items.reduce((sum, item) => {
+                            const itemId = item.id || items.indexOf(item);
+                            const qtd = parseFloat(editableQuantities[itemId] || 0);
+                            return sum + (qtd * ((item.custo_unitario_material || 0) + (item.custo_unitario_mao_obra || 0)));
+                          }, 0);
+                          const budget = budgets.find(b => b.id === formData.orcamento_id);
+                          const bdiPercentual = budget?.bdi_padrao || 30;
+                          const totalComBdi = totalDireto * (1 + bdiPercentual / 100);
+                          return new Intl.NumberFormat('pt-BR', { 
+                            style: 'currency', 
+                            currency: 'BRL' 
+                          }).format(totalComBdi);
+                        })()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="curvas">
+          <Card>
+            <CardHeader>
+              <CardTitle>Curva S: Planejamento vs Execução</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const budget = budgets.find(b => b.id === formData.orcamento_id);
+                const totalMeses = budget?.duracao_meses || 12;
+                const mesAtual = formData.numero_medicao || 1;
+                
+                // Buscar todas as medições até agora
+                const medicoesAteAgora = previousMeasurements
+                  .filter(m => m.numero_medicao <= mesAtual)
+                  .sort((a, b) => a.numero_medicao - b.numero_medicao);
+                
+                // Calcular curva planejada (baseada na distribuição mensal)
+                const curvaPlaneada = [];
+                const distribuicoes = scheduleData || [];
+                
+                for (let mes = 1; mes <= totalMeses; mes++) {
+                  const distMes = distribuicoes.filter(d => d.mes === mes);
+                  const valorMes = distMes.reduce((sum, d) => sum + (d.valor_mes || 0), 0);
+                  
+                  const valorAcumulado = distribuicoes
+                    .filter(d => d.mes <= mes)
+                    .reduce((sum, d) => sum + (d.valor_mes || 0), 0);
+                  
+                  const percentual = budget?.total_final ? (valorAcumulado / budget.total_final) * 100 : 0;
+                  
+                  curvaPlaneada.push({
+                    mes,
+                    planejado: percentual
+                  });
+                }
+                
+                // Calcular curva executada
+                const curvaExecutada = [];
+                let acumuladoExecucao = 0;
+                
+                for (let mes = 1; mes <= totalMeses; mes++) {
+                  const medicaoMes = medicoesAteAgora.find(m => m.numero_medicao === mes);
+                  
+                  if (medicaoMes) {
+                    acumuladoExecucao = medicaoMes.valor_total_acumulado || 0;
+                  }
+                  
+                  const percentualExec = budget?.total_final ? (acumuladoExecucao / budget.total_final) * 100 : 0;
+                  
+                  curvaExecutada.push({
+                    mes,
+                    executado: mes <= mesAtual ? percentualExec : null
+                  });
+                }
+                
+                // Calcular curva projetada (redistribuição)
+                const curvaProjetada = [];
+                const valorTotalOrcamento = budget?.total_final || 0;
+                
+                // Pegar execução acumulada até o mês atual
+                const execucaoAcumulada = acumuladoExecucao;
+                const planejamantoAcumulado = curvaPlaneada[mesAtual - 1]?.planejado || 0;
+                const planejadoValor = (planejamantoAcumulado / 100) * valorTotalOrcamento;
+                
+                // Calcular diferença
+                const diferenca = execucaoAcumulada - planejadoValor;
+                const mesesRestantes = totalMeses - mesAtual;
+                const ajustePorMes = mesesRestantes > 0 ? diferenca / mesesRestantes : 0;
+                
+                // Valor restante a executar
+                const valorRestante = valorTotalOrcamento - execucaoAcumulada;
+                
+                let acumuladoProjetado = execucaoAcumulada;
+                
+                for (let mes = 1; mes <= totalMeses; mes++) {
+                  if (mes <= mesAtual) {
+                    // Até o mês atual, usar execução real
+                    curvaProjetada.push({
+                      mes,
+                      projetado: curvaExecutada[mes - 1].executado
+                    });
+                  } else {
+                    // Após o mês atual, distribuir uniformemente o restante
+                    const valorMesProjetado = valorRestante / mesesRestantes;
+                    acumuladoProjetado += valorMesProjetado;
+                    const percentualProj = (acumuladoProjetado / valorTotalOrcamento) * 100;
+                    
+                    curvaProjetada.push({
+                      mes,
+                      projetado: Math.min(percentualProj, 100)
+                    });
+                  }
+                }
+                
+                // Combinar dados
+                const chartData = [];
+                for (let mes = 1; mes <= totalMeses; mes++) {
+                  chartData.push({
+                    mes: `M${mes}`,
+                    planejado: curvaPlaneada[mes - 1]?.planejado || 0,
+                    executado: curvaExecutada[mes - 1]?.executado,
+                    projetado: curvaProjetada[mes - 1]?.projetado || 0
+                  });
+                }
+                
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-slate-500">Planejado (Mês {mesAtual})</p>
+                          <p className="text-2xl font-bold text-slate-900">
+                            {planejamantoAcumulado.toFixed(1)}%
+                          </p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-slate-500">Executado (Mês {mesAtual})</p>
+                          <p className="text-2xl font-bold text-blue-600">
+                            {((execucaoAcumulada / valorTotalOrcamento) * 100).toFixed(1)}%
+                          </p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-slate-500">Diferença</p>
+                          <p className={`text-2xl font-bold ${diferenca >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {diferenca >= 0 ? '+' : ''}{((diferenca / valorTotalOrcamento) * 100).toFixed(1)}%
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    
+                    <ResponsiveContainer width="100%" height={400}>
+                      <ComposedChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="mes" />
+                        <YAxis label={{ value: '% Execução', angle: -90, position: 'insideLeft' }} />
+                        <Tooltip />
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="planejado" 
+                          stroke="#64748b" 
+                          strokeWidth={2}
+                          name="Planejado"
+                          dot={false}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="executado" 
+                          stroke="#2563eb" 
+                          strokeWidth={2}
+                          name="Executado"
+                          connectNulls={false}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="projetado" 
+                          stroke="#10b981" 
+                          strokeWidth={2}
+                          strokeDasharray="5 5"
+                          name="Projetado"
+                          dot={false}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                    
+                    <div className="bg-slate-50 p-4 rounded-lg">
+                      <h4 className="font-semibold mb-2">Interpretação:</h4>
+                      <ul className="text-sm space-y-1 text-slate-600">
+                        <li><span className="font-medium text-slate-700">Planejado:</span> Curva S original do planejamento</li>
+                        <li><span className="font-medium text-blue-600">Executado:</span> Progresso real das medições</li>
+                        <li><span className="font-medium text-green-600">Projetado:</span> Redistribuição do restante considerando a execução atual</li>
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
