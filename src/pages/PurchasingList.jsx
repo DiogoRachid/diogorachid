@@ -57,7 +57,7 @@ export default function PurchasingListPage() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      // Validar antes de enviar
+      // Validar antes de processar
       if (!selectedWork) {
         throw new Error('Selecione uma obra');
       }
@@ -65,22 +65,217 @@ export default function PurchasingListPage() {
         throw new Error('Selecione um orçamento');
       }
 
-      const payload = {
-        workId: selectedWork,
-        budgetId: selectedBudget,
-        abcFilter: abcFilter || null
+      // 1. Buscar orçamento
+      const budgets = await base44.entities.Budget.filter({ 
+        id: selectedBudget,
+        obra_id: selectedWork 
+      });
+      const budget = budgets[0];
+      
+      if (!budget) {
+        throw new Error('Orçamento não encontrado');
+      }
+      
+      const totalMeses = budget.duracao_meses || 12;
+
+      // 2. Buscar itens do orçamento
+      const budgetItems = await base44.entities.BudgetItem.filter({ 
+        orcamento_id: budget.id 
+      });
+
+      if (!budgetItems || budgetItems.length === 0) {
+        throw new Error('O orçamento não tem serviços cadastrados');
+      }
+
+      // 3. Buscar cronograma
+      const distributions = await base44.entities.ServiceMonthlyDistribution.filter({
+        orcamento_id: budget.id
+      });
+
+      if (!distributions || distributions.length === 0) {
+        throw new Error('O cronograma não está configurado. Acesse Planejamento primeiro.');
+      }
+
+      // 4. Buscar serviços
+      const serviceIds = [...new Set(budgetItems.map(item => item.servico_id))];
+      const services = await base44.entities.Service.filter({
+        id: { $in: serviceIds }
+      });
+
+      // 5. Buscar composições
+      const allServiceItems = await base44.entities.ServiceItem.filter({
+        servico_id: { $in: serviceIds }
+      });
+
+      if (!allServiceItems || allServiceItems.length === 0) {
+        throw new Error('Os serviços não têm composições cadastradas');
+      }
+
+      // Função recursiva para expandir serviços
+      const expandService = async (servicoId, quantidade = 1, visited = new Set()) => {
+        if (visited.has(servicoId)) return [];
+        visited.add(servicoId);
+
+        const items = allServiceItems.filter(si => si.servico_id === servicoId);
+        const expandedItems = [];
+
+        for (const item of items) {
+          if (item.tipo_item === 'INSUMO') {
+            expandedItems.push({
+              item_id: item.item_id,
+              quantidade: item.quantidade * quantidade
+            });
+          } else if (item.tipo_item === 'SERVICO') {
+            const nested = await expandService(item.item_id, item.quantidade * quantidade, visited);
+            expandedItems.push(...nested);
+          }
+        }
+
+        return expandedItems;
       };
 
-      console.log('[FRONTEND] Enviando requisição:', payload);
-      
-      try {
-        const response = await base44.functions.invoke('generatePurchasingList', payload);
-        console.log('[FRONTEND] Resposta recebida:', response);
-        return response.data || response;
-      } catch (err) {
-        console.error('[FRONTEND] Erro na requisição:', err);
-        throw err;
+      // 6. Expandir composições
+      const serviceCompositions = new Map();
+      for (const serviceId of serviceIds) {
+        const expandedItems = await expandService(serviceId);
+        serviceCompositions.set(serviceId, expandedItems);
       }
+
+      // 7. Buscar insumos
+      const allInsumoIds = new Set();
+      serviceCompositions.forEach(items => {
+        items.forEach(item => allInsumoIds.add(item.item_id));
+      });
+
+      const inputs = await base44.entities.Input.filter({
+        id: { $in: Array.from(allInsumoIds) }
+      });
+
+      const inputMap = new Map(inputs.map(i => [i.id, i]));
+
+      // 8. Calcular insumos por mês
+      const periodoMap = new Map();
+
+      for (const dist of distributions) {
+        const budgetItem = budgetItems.find(bi => bi.id === dist.budget_item_id);
+        if (!budgetItem) continue;
+
+        const quantidadeServico = (budgetItem.quantidade * dist.percentual) / 100;
+        if (quantidadeServico <= 0) continue;
+
+        const composicao = serviceCompositions.get(budgetItem.servico_id) || [];
+
+        for (const compItem of composicao) {
+          const input = inputMap.get(compItem.item_id);
+          if (!input) continue;
+
+          const quantidadeInsumo = quantidadeServico * compItem.quantidade;
+
+          if (!periodoMap.has(dist.mes)) {
+            periodoMap.set(dist.mes, new Map());
+          }
+
+          const mesMap = periodoMap.get(dist.mes);
+
+          if (mesMap.has(input.id)) {
+            const existing = mesMap.get(input.id);
+            existing.quantidade += quantidadeInsumo;
+          } else {
+            mesMap.set(input.id, {
+              insumo_id: input.id,
+              codigo: input.codigo,
+              descricao: input.descricao,
+              unidade: input.unidade,
+              valor_unitario: input.valor_unitario || 0,
+              quantidade: quantidadeInsumo
+            });
+          }
+        }
+      }
+
+      // 9. Classificação ABC
+      const allItems = [];
+      periodoMap.forEach(mesMap => {
+        mesMap.forEach(item => {
+          const existing = allItems.find(i => i.insumo_id === item.insumo_id);
+          if (existing) {
+            existing.quantidade += item.quantidade;
+          } else {
+            allItems.push({ ...item });
+          }
+        });
+      });
+
+      allItems.forEach(item => {
+        item.valor_total = item.quantidade * item.valor_unitario;
+      });
+
+      const totalValue = allItems.reduce((sum, item) => sum + item.valor_total, 0);
+      allItems.sort((a, b) => b.valor_total - a.valor_total);
+
+      let accumulated = 0;
+      allItems.forEach(item => {
+        accumulated += item.valor_total;
+        const percentage = (accumulated / totalValue) * 100;
+        
+        if (percentage <= 80) {
+          item.abc_class = 'A';
+        } else if (percentage <= 95) {
+          item.abc_class = 'B';
+        } else {
+          item.abc_class = 'C';
+        }
+      });
+
+      const abcMap = new Map(allItems.map(item => [item.insumo_id, item.abc_class]));
+
+      // 10. Montar resposta
+      const periodos = [];
+      for (let mes = 1; mes <= totalMeses; mes++) {
+        const mesMap = periodoMap.get(mes);
+        if (!mesMap || mesMap.size === 0) continue;
+
+        const itens = Array.from(mesMap.values()).map(item => ({
+          ...item,
+          abc_class: abcMap.get(item.insumo_id) || 'C'
+        }));
+
+        const itensFiltrados = abcFilter 
+          ? itens.filter(item => item.abc_class === abcFilter)
+          : itens;
+
+        if (itensFiltrados.length === 0) continue;
+
+        const totalValor = itensFiltrados.reduce((sum, item) => 
+          sum + (item.quantidade * item.valor_unitario), 0
+        );
+
+        periodos.push({
+          mes,
+          periodo: `Mês ${mes}`,
+          itens: itensFiltrados.sort((a, b) => {
+            const classOrder = { 'A': 0, 'B': 1, 'C': 2 };
+            return classOrder[a.abc_class] - classOrder[b.abc_class];
+          }),
+          total_itens: itensFiltrados.length,
+          total_valor: totalValor
+        });
+      }
+
+      const obra = await base44.entities.Project.get(selectedWork);
+
+      return {
+        success: true,
+        data: {
+          obra_id: selectedWork,
+          obra_nome: obra?.nome || 'N/A',
+          total_meses: totalMeses,
+          data_geracao: new Date().toISOString().split('T')[0],
+          periodos,
+          total_geral_itens: allItems.length,
+          total_geral_valor: totalValue
+        }
+      };
     },
     onSuccess: (data) => {
       if (data?.success) {
