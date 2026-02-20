@@ -58,6 +58,7 @@ export default function PurchasingListPage() {
     mutationFn: async () => {
       const response = await base44.functions.invoke('generatePurchasingList', {
         workId: selectedWork,
+        budgetId: selectedBudget,
         abcFilter: abcFilter || null
       });
       
