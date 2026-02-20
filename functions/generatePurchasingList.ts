@@ -15,31 +15,46 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { workId, budgetId, abcFilter } = body;
 
-    if (!workId) {
-      return new Response(JSON.stringify({ success: false, error: 'ID da obra é obrigatório' }), {
+    console.log('[INFO] Requisição recebida:', { workId, budgetId, abcFilter });
+
+    if (!workId || typeof workId !== 'string') {
+      return new Response(JSON.stringify({ success: false, error: 'ID da obra inválido' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    if (!budgetId) {
-      return new Response(JSON.stringify({ success: false, error: 'ID do orçamento é obrigatório' }), {
+    if (!budgetId || typeof budgetId !== 'string') {
+      return new Response(JSON.stringify({ success: false, error: 'ID do orçamento inválido' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-
-    console.log(`[DEBUG] Buscando orçamento: ${budgetId} para obra: ${workId}`);
 
     // 1. Buscar orçamento específico
-    const budget = await base44.asServiceRole.entities.Budget.get(budgetId);
-    
-    console.log(`[DEBUG] Orçamento encontrado: ${budget ? 'Sim' : 'Não'}`);
+    let budget;
+    try {
+      const budgets = await base44.asServiceRole.entities.Budget.filter({ 
+        id: budgetId,
+        obra_id: workId 
+      });
+      budget = budgets[0];
+      console.log('[INFO] Orçamento encontrado:', budget ? budget.id : 'Nenhum');
+    } catch (error) {
+      console.error('[ERROR] Erro ao buscar orçamento:', error.message);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Erro ao buscar orçamento: ' + error.message 
+      }), { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     
     if (!budget) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'Orçamento não encontrado.' 
+        error: `Orçamento ${budgetId} não encontrado para a obra selecionada.` 
       }), { 
         status: 404,
         headers: { 'Content-Type': 'application/json' }

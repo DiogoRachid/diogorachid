@@ -57,54 +57,46 @@ export default function PurchasingListPage() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      console.log('Enviando para backend:', {
-        workId: selectedWork,
-        budgetId: selectedBudget,
-        abcFilter: abcFilter || null
-      });
-      
-      const response = await base44.functions.invoke('generatePurchasingList', {
-        workId: selectedWork,
-        budgetId: selectedBudget,
-        abcFilter: abcFilter || null
-      });
-      
-      console.log('Resposta do backend:', response);
-      
-      // Acessar a resposta diretamente
-      if (response.data) {
-        return response.data;
+      // Validar antes de enviar
+      if (!selectedWork) {
+        throw new Error('Selecione uma obra');
       }
+      if (!selectedBudget) {
+        throw new Error('Selecione um orçamento');
+      }
+
+      const payload = {
+        workId: selectedWork,
+        budgetId: selectedBudget,
+        abcFilter: abcFilter || null
+      };
+
+      console.log('[FRONTEND] Enviando requisição:', payload);
       
-      return response;
+      try {
+        const response = await base44.functions.invoke('generatePurchasingList', payload);
+        console.log('[FRONTEND] Resposta recebida:', response);
+        return response.data || response;
+      } catch (err) {
+        console.error('[FRONTEND] Erro na requisição:', err);
+        throw err;
+      }
     },
     onSuccess: (data) => {
-      console.log('Resposta recebida:', data);
-      
       if (data?.success) {
         setListData(data.data);
+        toast.success('Lista gerada com sucesso!');
         if (!data.data?.periodos || data.data.periodos.length === 0) {
-          alert('Lista gerada mas não há itens. Verifique se:\n1. O orçamento tem serviços cadastrados\n2. Os serviços têm insumos vinculados\n3. O cronograma está salvo com distribuição mensal');
+          toast.warning('Nenhum item encontrado. Verifique se o cronograma está configurado.');
         }
       } else {
-        alert(`Erro: ${data?.error || 'Erro desconhecido'}`);
+        toast.error(data?.error || 'Erro ao gerar lista');
       }
     },
     onError: (error) => {
-      console.error('Erro na geração:', error);
-      
-      // Tentar extrair mensagem de erro
-      let errorMsg = 'Erro ao gerar lista';
-      
-      if (error?.response?.data?.error) {
-        errorMsg = error.response.data.error;
-      } else if (error?.data?.error) {
-        errorMsg = error.data.error;
-      } else if (error?.message) {
-        errorMsg = error.message;
-      }
-      
-      alert(`Erro: ${errorMsg}`);
+      console.error('[FRONTEND] Erro:', error);
+      const errorMsg = error?.response?.data?.error || error?.message || 'Erro desconhecido';
+      toast.error(`Erro: ${errorMsg}`);
     }
   });
 
