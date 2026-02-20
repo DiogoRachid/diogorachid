@@ -48,21 +48,12 @@ export default function PurchasingListPage() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      try {
-        const response = await base44.functions.invoke('generatePurchasingList', {
-          workId: selectedWork,
-          abcFilter: abcFilter || null
-        });
-        
-        if (!response.data) {
-          throw new Error('Resposta vazia do servidor');
-        }
-        
-        return response.data;
-      } catch (error) {
-        console.error('Erro ao chamar função:', error);
-        throw error;
-      }
+      const response = await base44.functions.invoke('generatePurchasingList', {
+        workId: selectedWork,
+        abcFilter: abcFilter || null
+      });
+      
+      return response.data;
     },
     onSuccess: (data) => {
       if (data?.success) {
@@ -71,13 +62,12 @@ export default function PurchasingListPage() {
           alert('Lista gerada mas não há itens. Verifique se:\n1. O orçamento tem serviços cadastrados\n2. Os serviços têm insumos vinculados\n3. O cronograma está salvo com distribuição mensal');
         }
       } else {
-        alert(`Erro ao gerar lista: ${data?.error || 'Erro desconhecido'}`);
+        alert(`Erro: ${data?.error || 'Erro desconhecido'}`);
       }
     },
     onError: (error) => {
-      console.error('Erro na mutation:', error);
-      const errorMessage = error?.response?.data?.error || error?.message || 'Erro ao gerar lista de compras';
-      alert(`Erro: ${errorMessage}\n\nVerifique:\n1. A obra tem orçamento cadastrado\n2. O orçamento tem serviços\n3. Os serviços têm insumos\n4. O cronograma foi salvo`);
+      console.error('Erro completo:', error);
+      alert(`Erro: ${error?.response?.data?.error || error?.message || 'Erro ao gerar lista'}`);
     }
   });
 
