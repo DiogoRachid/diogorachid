@@ -18,8 +18,8 @@ import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 export default function PurchasingListPage() {
-  const [selectedWork, setSelectedWork] = useState('');
-  const [selectedBudget, setSelectedBudget] = useState('');
+  const [selectedWork, setSelectedWork] = useState(null);
+  const [selectedBudget, setSelectedBudget] = useState(null);
   const [abcFilter, setAbcFilter] = useState('');
   const [listData, setListData] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState('all');
