@@ -244,6 +244,8 @@ export default function MeasurementForm() {
           quantidade_executada_acumulada: acumulado,
           saldo_a_executar: item.quantidade - acumulado,
           custo_unitario: item.custo_com_bdi_unitario || 0,
+          custo_unitario_material: item.custo_unitario_material || 0,
+          custo_unitario_mao_obra: item.custo_unitario_mao_obra || 0,
           valor_executado_periodo: 0,
           valor_executado_acumulado: acumulado * (item.custo_com_bdi_unitario || 0)
         };
