@@ -76,6 +76,22 @@ export default function ImportInvoiceManual() {
     setItems(items.filter((_, i) => i !== index));
   };
 
+  const addParcela = () => {
+    setParcelas([...parcelas, { data_vencimento: '', valor: 0 }]);
+  };
+
+  const removeParcela = (index) => {
+    if (parcelas.length > 1) {
+      setParcelas(parcelas.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateParcela = (index, field, value) => {
+    const newParcelas = [...parcelas];
+    newParcelas[index][field] = value;
+    setParcelas(newParcelas);
+  };
+
   const updateItem = (index, field, value) => {
     const newItems = [...items];
     newItems[index][field] = value;
