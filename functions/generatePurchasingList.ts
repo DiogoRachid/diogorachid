@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
 
     console.log(`[DEBUG] Lista gerada com sucesso: ${periodos.length} períodos, ${allItems.length} insumos únicos`);
 
-    return Response.json({
+    return new Response(JSON.stringify({
       success: true,
       data: {
         obra_id: workId,
@@ -268,13 +268,19 @@ Deno.serve(async (req) => {
         total_geral_itens: allItems.length,
         total_geral_valor: totalValue
       }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     console.error('Erro ao gerar lista:', error);
-    return Response.json({ 
+    return new Response(JSON.stringify({ 
       success: false, 
       error: error.message || 'Erro interno do servidor' 
-    }, { status: 500 });
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 });
