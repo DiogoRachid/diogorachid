@@ -311,10 +311,12 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Erro ao gerar lista:', error);
+    console.error('[ERROR] Erro ao gerar lista:', error.message);
+    console.error('[ERROR] Stack:', error.stack);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message || 'Erro interno do servidor' 
+      error: error.message || 'Erro interno do servidor',
+      details: error.stack
     }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
