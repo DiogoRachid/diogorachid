@@ -31,21 +31,28 @@ export default function PurchasingListPage() {
     queryFn: () => base44.entities.Project.list()
   });
 
-  // Buscar meses da obra selecionada
-  useQuery({
-    queryKey: ['workBudget', selectedWork],
+  // Buscar orçamentos da obra selecionada
+  const { data: budgets = [] } = useQuery({
+    queryKey: ['workBudgets', selectedWork],
     queryFn: async () => {
-      if (!selectedWork) return null;
-      const budgets = await base44.entities.Budget.filter({ obra_id: selectedWork });
-      if (budgets.length > 0) {
-        setWorkMonths(budgets[0].duracao_meses || 12);
-        return budgets[0];
-      }
-      setWorkMonths(0);
-      return null;
+      if (!selectedWork) return [];
+      const budgets = await base44.entities.Budget.filter({ obra_id: selectedWork }, '-updated_date');
+      return budgets;
     },
     enabled: !!selectedWork
   });
+
+  // Atualizar meses quando orçamento for selecionado
+  React.useEffect(() => {
+    if (selectedBudget) {
+      const budget = budgets.find(b => b.id === selectedBudget);
+      if (budget) {
+        setWorkMonths(budget.duracao_meses || 12);
+      }
+    } else {
+      setWorkMonths(0);
+    }
+  }, [selectedBudget, budgets]);
 
   const generateMutation = useMutation({
     mutationFn: async () => {
