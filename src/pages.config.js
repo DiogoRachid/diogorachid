@@ -73,6 +73,7 @@ import Employees from './pages/Employees';
 import HRReports from './pages/HRReports';
 import Home from './pages/Home';
 import ImportInvoice from './pages/ImportInvoice';
+import ImportInvoiceManual from './pages/ImportInvoiceManual';
 import ImportInvoiceMapping from './pages/ImportInvoiceMapping';
 import InputPurchaseHistory from './pages/InputPurchaseHistory';
 import Inputs from './pages/Inputs';
@@ -108,7 +109,6 @@ import TimeSheet from './pages/TimeSheet';
 import Transactions from './pages/Transactions';
 import VersionHistory from './pages/VersionHistory';
 import VersionHistoryForm from './pages/VersionHistoryForm';
-import ImportInvoiceManual from './pages/ImportInvoiceManual';
 import __Layout from './Layout.jsx';
 
 
@@ -139,6 +139,7 @@ export const PAGES = {
     "HRReports": HRReports,
     "Home": Home,
     "ImportInvoice": ImportInvoice,
+    "ImportInvoiceManual": ImportInvoiceManual,
     "ImportInvoiceMapping": ImportInvoiceMapping,
     "InputPurchaseHistory": InputPurchaseHistory,
     "Inputs": Inputs,
@@ -174,7 +175,6 @@ export const PAGES = {
     "Transactions": Transactions,
     "VersionHistory": VersionHistory,
     "VersionHistoryForm": VersionHistoryForm,
-    "ImportInvoiceManual": ImportInvoiceManual,
 }
 
 export const pagesConfig = {
