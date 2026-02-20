@@ -550,14 +550,14 @@ export default function PurchasingListPage() {
               setSelectedMonth('all');
               generateMutation.mutate();
             }}
-            disabled={!selectedWork || generateMutation.isPending}
+            disabled={!selectedBudget || generateMutation.isPending}
             className="mt-4 bg-blue-600 hover:bg-blue-700"
           >
             {generateMutation.isPending ? 'Gerando...' : 'Gerar Lista'}
           </Button>
-          {workMonths > 0 && (
+          {selectedBudget && workMonths > 0 && (
             <p className="text-xs text-slate-500 mt-2">
-              Obra com {workMonths} meses de duração
+              Orçamento com {workMonths} meses de duração
             </p>
           )}
         </CardContent>
