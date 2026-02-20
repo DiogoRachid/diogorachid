@@ -36,8 +36,9 @@ export default function PurchasingListPage() {
     queryKey: ['workBudgets', selectedWork],
     queryFn: async () => {
       if (!selectedWork) return [];
-      const allBudgets = await base44.entities.Budget.list('-updated_date');
-      return allBudgets.filter(b => b.obra_id === selectedWork);
+      const budgetsList = await base44.entities.Budget.filter({ obra_id: selectedWork }, '-updated_date');
+      console.log('Orçamentos encontrados:', budgetsList);
+      return budgetsList;
     },
     enabled: !!selectedWork
   });
