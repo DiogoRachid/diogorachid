@@ -48,12 +48,17 @@ export default function PurchasingListPage() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('generatePurchasingList', {
-        workId: selectedWork,
-        abcFilter: abcFilter || null
-      });
-      
-      return response.data;
+      try {
+        const result = await base44.functions.invoke('generatePurchasingList', {
+          workId: selectedWork,
+          abcFilter: abcFilter || null
+        });
+        
+        return result?.data || result;
+      } catch (error) {
+        console.error('Erro na chamada:', error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       if (data?.success) {
@@ -67,7 +72,8 @@ export default function PurchasingListPage() {
     },
     onError: (error) => {
       console.error('Erro completo:', error);
-      alert(`Erro: ${error?.response?.data?.error || error?.message || 'Erro ao gerar lista'}`);
+      const errorMsg = error?.data?.error || error?.message || 'Erro ao gerar lista';
+      alert(`Erro: ${errorMsg}`);
     }
   });
 
