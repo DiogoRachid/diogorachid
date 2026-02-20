@@ -36,8 +36,8 @@ export default function PurchasingListPage() {
     queryKey: ['workBudgets', selectedWork],
     queryFn: async () => {
       if (!selectedWork) return [];
-      const budgets = await base44.entities.Budget.filter({ obra_id: selectedWork }, '-updated_date');
-      return budgets;
+      const allBudgets = await base44.entities.Budget.list('-updated_date');
+      return allBudgets.filter(b => b.obra_id === selectedWork);
     },
     enabled: !!selectedWork
   });
