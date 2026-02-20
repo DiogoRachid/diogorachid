@@ -52,10 +52,13 @@ Deno.serve(async (req) => {
     console.log(`[DEBUG] Itens do orçamento: ${budgetItems?.length || 0}`);
 
     if (!budgetItems || budgetItems.length === 0) {
-      return Response.json({ 
+      return new Response(JSON.stringify({ 
         success: false, 
         error: 'O orçamento não tem serviços cadastrados. Adicione serviços ao orçamento.' 
-      }, { status: 404 });
+      }), { 
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // 3. Buscar cronograma (distribuição mensal dos serviços - aceita rascunho)
