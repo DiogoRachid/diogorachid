@@ -1091,6 +1091,15 @@ export default function MeasurementForm() {
             </CardHeader>
             <CardContent>
               {(() => {
+                if (!scheduleData || scheduleData.length === 0 || projectStages.length === 0) {
+                  return (
+                    <div className="text-center py-12 text-slate-500">
+                      <p className="text-lg mb-2">Nenhum dado de cronograma disponível</p>
+                      <p className="text-sm">Configure o cronograma no planejamento do orçamento</p>
+                    </div>
+                  );
+                }
+                
                 // Agrupar execução por etapa PRINCIPAL apenas
                 const executionByMainStage = {};
                 
