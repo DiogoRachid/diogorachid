@@ -123,7 +123,8 @@ const menuItems = [
       { title: 'Histórico de Insumos', page: 'InputPurchaseHistory', icon: History },
       { title: 'Pedidos de Materiais', page: 'MaterialRequisitions', icon: FileInput },
       { title: 'Lista de Compras', page: 'PurchasingList', icon: ShoppingCart },
-      { title: 'Importar Nota Fiscal', page: 'ImportInvoice', icon: UploadCloud }
+      { title: 'Importar Nota Fiscal', page: 'ImportInvoice', icon: UploadCloud },
+      { title: 'Importar NF Manual', page: 'ImportInvoiceManual', icon: FileInput }
     ]
   },
   {
