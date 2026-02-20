@@ -183,11 +183,13 @@ export default function ImportInvoiceManual() {
 
       await base44.entities.InvoiceItem.bulkCreate(invoiceItems);
 
-      // 3. Criar conta a pagar
-      const accountPayable = {
-        descricao: `NF ${formData.numero_nota} - ${supplier?.razao_social || ''}`,
-        valor: formData.valor_total,
-        data_vencimento: formData.data_vencimento,
+      // 3. Criar contas a pagar (uma para cada parcela)
+      const accountsPayable = parcelas.map((parcela, index) => ({
+        descricao: parcelas.length > 1 
+          ? `NF ${formData.numero_nota} - ${supplier?.razao_social || ''} - Parcela ${index + 1}/${parcelas.length}`
+          : `NF ${formData.numero_nota} - ${supplier?.razao_social || ''}`,
+        valor: parseFloat(parcela.valor) || 0,
+        data_vencimento: parcela.data_vencimento,
         data_compra: formData.data_emissao,
         fornecedor_id: formData.fornecedor_id,
         fornecedor_nome: supplier?.razao_social || '',
@@ -196,9 +198,9 @@ export default function ImportInvoiceManual() {
         status: 'em_aberto',
         forma_pagamento: formData.forma_pagamento,
         numero_documento: formData.numero_nota
-      };
+      }));
 
-      await base44.entities.AccountPayable.create(accountPayable);
+      await base44.entities.AccountPayable.bulkCreate(accountsPayable);
 
       // 4. Criar histórico de compra para itens mapeados
       const purchaseHistory = items
