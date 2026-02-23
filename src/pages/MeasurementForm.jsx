@@ -44,6 +44,8 @@ export default function MeasurementForm() {
   const [projectStages, setProjectStages] = useState([]);
   const [previousMeasurements, setPreviousMeasurements] = useState([]);
   const [budgetItemsData, setBudgetItemsData] = useState([]);
+  const [historicMeasurementData, setHistoricMeasurementData] = useState({});
+  const [isLoadingHistoric, setIsLoadingHistoric] = useState(false);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -141,6 +143,37 @@ export default function MeasurementForm() {
     };
     loadPreviousMeasurements();
   }, [formData.obra_id, formData.orcamento_id]);
+
+  // Carregar dados históricos de medições anteriores para o cronograma
+  useEffect(() => {
+    const loadHistoricData = async () => {
+      const mesAtual = formData.numero_medicao || 1;
+      if (mesAtual <= 1 || previousMeasurements.length === 0) {
+        setIsLoadingHistoric(false);
+        return;
+      }
+
+      setIsLoadingHistoric(true);
+      const histMap = {};
+      
+      // Buscar items de todas as medições anteriores
+      for (const prevMed of previousMeasurements.filter(m => m.numero_medicao < mesAtual)) {
+        const itemsFromMed = await base44.entities.MeasurementItem.filter({ 
+          medicao_id: prevMed.id
+        });
+        
+        itemsFromMed.forEach(item => {
+          const key = `${item.servico_id}_${item.stage_id}_${prevMed.numero_medicao}`;
+          histMap[key] = item.quantidade_executada_periodo || 0;
+        });
+      }
+      
+      setHistoricMeasurementData(histMap);
+      setIsLoadingHistoric(false);
+    };
+    
+    loadHistoricData();
+  }, [formData.numero_medicao, previousMeasurements]);
 
   // Carregar custos do orçamento para planilha
   useEffect(() => {
@@ -1083,6 +1116,14 @@ export default function MeasurementForm() {
                   );
                 }
                 
+                if (isLoadingHistoric) {
+                  return (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                    </div>
+                  );
+                }
+                
                 const budget = budgets.find(b => b.id === formData.orcamento_id);
                 const bdiPercentual = budget?.bdi_padrao || 30;
                 const mesAtual = formData.numero_medicao || 1;
@@ -1095,45 +1136,6 @@ export default function MeasurementForm() {
                     mao_obra: bi.custo_unitario_mao_obra || 0
                   };
                 });
-                
-                // Buscar dados históricos de MeasurementItems de todas as medições anteriores
-                const [historicData, setHistoricData] = React.useState({});
-                const [isLoadingHistoric, setIsLoadingHistoric] = React.useState(true);
-                
-                React.useEffect(() => {
-                  const loadHistoricData = async () => {
-                    const histMap = {};
-                    
-                    // Buscar items de todas as medições anteriores
-                    for (const prevMed of previousMeasurements.filter(m => m.numero_medicao < mesAtual)) {
-                      const itemsFromMed = await base44.entities.MeasurementItem.filter({ 
-                        medicao_id: prevMed.id
-                      });
-                      
-                      itemsFromMed.forEach(item => {
-                        const key = `${item.servico_id}_${item.stage_id}_${prevMed.numero_medicao}`;
-                        histMap[key] = item.quantidade_executada_periodo || 0;
-                      });
-                    }
-                    
-                    setHistoricData(histMap);
-                    setIsLoadingHistoric(false);
-                  };
-                  
-                  if (mesAtual > 1) {
-                    loadHistoricData();
-                  } else {
-                    setIsLoadingHistoric(false);
-                  }
-                }, [mesAtual, previousMeasurements.length]);
-                
-                if (isLoadingHistoric) {
-                  return (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                    </div>
-                  );
-                }
                 
                 // Montar dados por serviço com hierarquia incluindo etapas
                 const servicosData = [];
@@ -1176,7 +1178,7 @@ export default function MeasurementForm() {
                       } else {
                         // Medições anteriores - buscar do histórico
                         const key = `${item.servico_id}_${item.stage_id}_${numMed}`;
-                        qtdExecutada = historicData[key] || 0;
+                        qtdExecutada = historicMeasurementData[key] || 0;
                       }
                       
                       qtdAcumulada += qtdExecutada;
