@@ -1127,22 +1127,6 @@ export default function MeasurementForm() {
                     const medicoes = [];
                     let qtdAcumulada = 0;
                     
-                    // Buscar MeasurementItems de todas as medições anteriores para este serviço específico
-                    const measurementItemsHistory = [];
-                    for (const prevMed of previousMeasurements.filter(m => m.numero_medicao < mesAtual)) {
-                      const itemsFromMed = await base44.entities.MeasurementItem.filter({ 
-                        medicao_id: prevMed.id,
-                        servico_id: item.servico_id,
-                        stage_id: item.stage_id
-                      });
-                      if (itemsFromMed.length > 0) {
-                        measurementItemsHistory.push({
-                          numero_medicao: prevMed.numero_medicao,
-                          item: itemsFromMed[0]
-                        });
-                      }
-                    }
-                    
                     // Buscar todas as medições anteriores deste item
                     for (let numMed = 1; numMed <= mesAtual; numMed++) {
                       let qtdExecutada = 0;
@@ -1151,10 +1135,12 @@ export default function MeasurementForm() {
                         // Medição atual
                         qtdExecutada = item.quantidade_executada_periodo || 0;
                       } else {
-                        // Medições anteriores - buscar quantidade real do histórico
-                        const historicItem = measurementItemsHistory.find(h => h.numero_medicao === numMed);
-                        if (historicItem) {
-                          qtdExecutada = historicItem.item.quantidade_executada_periodo || 0;
+                        // Medições anteriores - usar acumulado como aproximação
+                        if (numMed === 1) {
+                          qtdExecutada = item.quantidade_executada_acumulada ? 
+                            (item.quantidade_executada_acumulada / mesAtual) : 0;
+                        } else {
+                          qtdExecutada = 0;
                         }
                       }
                       
