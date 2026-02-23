@@ -1071,231 +1071,246 @@ export default function MeasurementForm() {
         <TabsContent value="cronograma">
           <Card>
             <CardHeader>
-              <CardTitle>Cronograma Detalhado: Serviços por Mês</CardTitle>
+              <CardTitle>Cronograma de Medições</CardTitle>
             </CardHeader>
             <CardContent>
               {(() => {
-                if (!scheduleData || scheduleData.length === 0 || projectStages.length === 0) {
+                if (!formData.orcamento_id) {
                   return (
                     <div className="text-center py-12 text-slate-500">
-                      <p className="text-lg mb-2">Nenhum dado de cronograma disponível</p>
-                      <p className="text-sm">Configure o cronograma no planejamento do orçamento</p>
+                      <p className="text-lg mb-2">Selecione um orçamento</p>
                     </div>
                   );
                 }
                 
                 const budget = budgets.find(b => b.id === formData.orcamento_id);
-                const totalMeses = budget?.duracao_meses || 12;
+                const bdiPercentual = budget?.bdi_padrao || 30;
                 const mesAtual = formData.numero_medicao || 1;
                 
-                // Agrupar serviços do cronograma por serviço
-                const servicosPlanejados = {};
-                scheduleData.forEach(dist => {
-                  const key = `${dist.servico_id}_${dist.project_stage_id}`;
-                  if (!servicosPlanejados[key]) {
-                    servicosPlanejados[key] = {
-                      servico_id: dist.servico_id,
-                      codigo: dist.servico_codigo,
-                      descricao: dist.servico_descricao,
-                      stage_id: dist.project_stage_id,
-                      meses: {}
-                    };
-                  }
-                  servicosPlanejados[key].meses[dist.mes] = {
-                    quantidade: dist.quantidade || 0,
-                    valor: dist.valor_mes || 0
+                // Criar mapa de custos unitários
+                const costMap = {};
+                budgetItemsData.forEach(bi => {
+                  costMap[bi.servico_id] = {
+                    material: bi.custo_unitario_material || 0,
+                    mao_obra: bi.custo_unitario_mao_obra || 0
                   };
                 });
                 
-                // Agrupar executado por serviço e mês
-                const servicosExecutados = {};
-                items.forEach(item => {
-                  const key = `${item.servico_id}_${item.stage_id}`;
-                  if (!servicosExecutados[key]) {
-                    servicosExecutados[key] = {
-                      quantidade_periodo: item.quantidade_executada_periodo || 0,
-                      valor_periodo: item.valor_executado_periodo || 0
-                    };
-                  }
-                });
-                
-                // Montar dados por serviço
-                const servicosData = Object.values(servicosPlanejados).map(servico => {
-                  const key = `${servico.servico_id}_${servico.stage_id}`;
-                  const executado = servicosExecutados[key] || { quantidade_periodo: 0, valor_periodo: 0 };
+                // Montar dados por serviço com hierarquia
+                const servicosData = [];
+                stageHierarchy.forEach(stage => {
+                  if (stage.level === 0 && !hasItemsInHierarchy(stage.id)) return;
+                  if (stage.level > 0 && stage.items.length === 0) return;
                   
-                  // Criar array de meses com planejado e executado
-                  const mesesData = [];
-                  let planejadoAjustado = { ...servico.meses };
-                  
-                  for (let mes = 1; mes <= totalMeses; mes++) {
-                    const planejado = planejadoAjustado[mes] || { quantidade: 0, valor: 0 };
-                    const exec = mes === mesAtual ? executado : { quantidade_periodo: 0, valor_periodo: 0 };
+                  stage.items.forEach((item, itemIdx) => {
+                    const costs = costMap[item.servico_id] || { material: 0, mao_obra: 0 };
+                    const itemNumber = `${stage.number}${itemIdx + 1}`;
                     
-                    const difQtd = mes === mesAtual ? (exec.quantidade_periodo - planejado.quantidade) : 0;
-                    const difValor = mes === mesAtual ? (exec.valor_periodo - planejado.valor) : 0;
+                    // Calcular para cada medição até a atual
+                    const medicoes = [];
+                    let qtdPrevista = item.quantidade_orcada || 0;
+                    let qtdAcumulada = 0;
                     
-                    // Redistribuir diferença no próximo mês
-                    if (mes === mesAtual && (difQtd !== 0 || difValor !== 0)) {
-                      let qtdRedistribuir = -difQtd;
-                      let valorRedistribuir = -difValor;
+                    // Buscar todas as medições anteriores deste item
+                    for (let numMed = 1; numMed <= mesAtual; numMed++) {
+                      let qtdExecutada = 0;
                       
-                      for (let futuro = mes + 1; futuro <= totalMeses && (qtdRedistribuir !== 0 || valorRedistribuir !== 0); futuro++) {
-                        const atual = planejadoAjustado[futuro] || { quantidade: 0, valor: 0 };
-                        
-                        if (qtdRedistribuir > 0) {
-                          planejadoAjustado[futuro] = {
-                            quantidade: atual.quantidade + qtdRedistribuir,
-                            valor: atual.valor + valorRedistribuir
-                          };
-                          qtdRedistribuir = 0;
-                          valorRedistribuir = 0;
-                        } else {
-                          const novaQtd = atual.quantidade + qtdRedistribuir;
-                          const novoValor = atual.valor + valorRedistribuir;
-                          
-                          if (novaQtd >= 0 && novoValor >= 0) {
-                            planejadoAjustado[futuro] = {
-                              quantidade: novaQtd,
-                              valor: novoValor
-                            };
-                            qtdRedistribuir = 0;
-                            valorRedistribuir = 0;
-                          } else {
-                            qtdRedistribuir = Math.min(0, novaQtd);
-                            valorRedistribuir = Math.min(0, novoValor);
-                            planejadoAjustado[futuro] = {
-                              quantidade: Math.max(0, novaQtd),
-                              valor: Math.max(0, novoValor)
-                            };
-                          }
+                      if (numMed === mesAtual) {
+                        // Medição atual
+                        qtdExecutada = item.quantidade_executada_periodo || 0;
+                      } else {
+                        // Medições anteriores - buscar do histórico
+                        const medicaoAnterior = previousMeasurements.find(m => m.numero_medicao === numMed);
+                        if (medicaoAnterior) {
+                          // Proporcionalidade simplificada
+                          const totalMed = medicaoAnterior.valor_total_periodo || 0;
+                          const totalOrc = budget?.total_final || 1;
+                          qtdExecutada = ((item.quantidade_orcada || 0) * totalMed) / totalOrc;
                         }
                       }
+                      
+                      qtdAcumulada += qtdExecutada;
+                      const valorMaterial = qtdExecutada * costs.material;
+                      const valorMaoObra = qtdExecutada * costs.mao_obra;
+                      const qtdAMedir = Math.max(0, (item.quantidade_orcada || 0) - qtdAcumulada);
+                      
+                      medicoes.push({
+                        numero: numMed,
+                        qtdPrevista,
+                        qtdExecutada,
+                        valorMaterial,
+                        valorMaoObra,
+                        qtdAcumulada,
+                        qtdAMedir
+                      });
+                      
+                      // Ajustar previsto para próxima medição
+                      const diferenca = qtdExecutada - qtdPrevista;
+                      qtdPrevista = Math.max(0, qtdAMedir / Math.max(1, mesAtual - numMed));
                     }
                     
-                    mesesData.push({
-                      mes,
-                      qtdPlanejada: planejadoAjustado[mes]?.quantidade || 0,
-                      valorPlanejado: planejadoAjustado[mes]?.valor || 0,
-                      qtdExecutada: mes === mesAtual ? exec.quantidade_periodo : null,
-                      valorExecutado: mes === mesAtual ? exec.valor_periodo : null
+                    servicosData.push({
+                      numero: itemNumber,
+                      codigo: item.codigo,
+                      descricao: item.descricao,
+                      unidade: item.unidade,
+                      valorMaterialUnitario: costs.material,
+                      valorMaoObraUnitario: costs.mao_obra,
+                      medicoes
                     });
-                  }
-                  
-                  return {
-                    ...servico,
-                    mesesData
-                  };
+                  });
                 });
                 
-                // Encontrar etapa para cada serviço
-                const stageNames = {};
-                projectStages.forEach(s => {
-                  stageNames[s.id] = s.nome;
-                });
+                // Calcular totais por medição
+                const totaisPorMedicao = [];
+                for (let numMed = 1; numMed <= mesAtual; numMed++) {
+                  let totalMaterial = 0;
+                  let totalMaoObra = 0;
+                  
+                  servicosData.forEach(s => {
+                    const med = s.medicoes.find(m => m.numero === numMed);
+                    if (med) {
+                      totalMaterial += med.valorMaterial;
+                      totalMaoObra += med.valorMaoObra;
+                    }
+                  });
+                  
+                  const subtotal = totalMaterial + totalMaoObra;
+                  const valorBdi = subtotal * (bdiPercentual / 100);
+                  const totalComBdi = subtotal + valorBdi;
+                  
+                  totaisPorMedicao.push({
+                    numero: numMed,
+                    totalMaterial,
+                    totalMaoObra,
+                    subtotal,
+                    valorBdi,
+                    totalComBdi
+                  });
+                }
 
 
                 return (
-                  <div className="space-y-6">
-                    {servicosData.map((servico, idx) => {
-                      const stageName = stageNames[servico.stage_id] || 'Sem Etapa';
-                      
-                      return (
-                        <Card key={`${servico.servico_id}_${servico.stage_id}`}>
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-sm">
-                              {servico.codigo} - {servico.descricao}
-                              <div className="text-xs font-normal text-slate-500 mt-1">{stageName}</div>
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-xs border-collapse">
-                                <thead className="bg-slate-50">
-                                  <tr>
-                                    <th className="px-2 py-1 text-center border">Mês</th>
-                                    {servico.mesesData.map(m => (
-                                      <th key={m.mes} className={`px-2 py-1 text-center border ${m.mes === mesAtual ? 'bg-blue-100' : ''}`}>
-                                        M{m.mes}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr>
-                                    <td className="px-2 py-1 border font-medium text-slate-600">Qtd Prev.</td>
-                                    {servico.mesesData.map(m => (
-                                      <td key={m.mes} className={`px-2 py-1 text-center border ${m.mes === mesAtual ? 'bg-blue-50' : ''}`}>
-                                        {m.qtdPlanejada > 0 ? m.qtdPlanejada.toFixed(2) : '-'}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                  <tr>
-                                    <td className="px-2 py-1 border font-medium text-slate-600">Valor Prev.</td>
-                                    {servico.mesesData.map(m => (
-                                      <td key={m.mes} className={`px-2 py-1 text-center border ${m.mes === mesAtual ? 'bg-blue-50' : ''}`}>
-                                        {m.valorPlanejado > 0 ? new Intl.NumberFormat('pt-BR', { 
-                                          style: 'currency', 
-                                          currency: 'BRL',
-                                          notation: 'compact',
-                                          maximumFractionDigits: 0
-                                        }).format(m.valorPlanejado) : '-'}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                  <tr className="bg-blue-50">
-                                    <td className="px-2 py-1 border font-medium text-blue-700">Qtd Exec.</td>
-                                    {servico.mesesData.map(m => (
-                                      <td key={m.mes} className={`px-2 py-1 text-center border font-semibold ${
-                                        m.qtdExecutada !== null && m.qtdExecutada < m.qtdPlanejada ? 'text-red-600' :
-                                        m.qtdExecutada !== null && m.qtdExecutada > m.qtdPlanejada ? 'text-green-600' :
-                                        m.qtdExecutada !== null ? 'text-blue-600' : ''
-                                      }`}>
-                                        {m.qtdExecutada !== null ? m.qtdExecutada.toFixed(2) : '-'}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                  <tr className="bg-blue-50">
-                                    <td className="px-2 py-1 border font-medium text-blue-700">Valor Exec.</td>
-                                    {servico.mesesData.map(m => (
-                                      <td key={m.mes} className={`px-2 py-1 text-center border font-semibold ${
-                                        m.valorExecutado !== null && m.valorExecutado < m.valorPlanejado ? 'text-red-600' :
-                                        m.valorExecutado !== null && m.valorExecutado > m.valorPlanejado ? 'text-green-600' :
-                                        m.valorExecutado !== null ? 'text-blue-600' : ''
-                                      }`}>
-                                        {m.valorExecutado !== null ? new Intl.NumberFormat('pt-BR', { 
-                                          style: 'currency', 
-                                          currency: 'BRL',
-                                          notation: 'compact',
-                                          maximumFractionDigits: 0
-                                        }).format(m.valorExecutado) : '-'}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                    
-                    {servicosData.length === 0 && (
-                      <div className="text-center py-8 text-slate-500">
-                        <p>Nenhum serviço encontrado no cronograma</p>
-                      </div>
-                    )}
-                    
-                    <div className="mt-4 bg-slate-50 p-4 rounded-lg">
-                      <h4 className="font-semibold mb-2">Legenda:</h4>
-                      <ul className="text-sm space-y-1 text-slate-600">
-                        <li><span className="font-medium">Qtd/Valor Prev.:</span> Quantidade e valor planejados do cronograma (ajustados com diferenças)</li>
-                        <li><span className="font-medium text-blue-600">Qtd/Valor Exec.:</span> Quantidade e valor executados na medição do mês atual</li>
-                        <li className="mt-2 text-xs">
-                          <span className="font-medium">Redistribuição:</span> Diferenças entre executado e previsto são ajustadas automaticamente nos meses futuros
-                        </li>
-                      </ul>
-                    </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="bg-slate-100 sticky top-0">
+                        <tr>
+                          <th className="px-2 py-2 border text-left" rowSpan="2">Nº</th>
+                          <th className="px-2 py-2 border text-left" rowSpan="2">Código</th>
+                          <th className="px-2 py-2 border text-left" rowSpan="2">Descrição</th>
+                          <th className="px-2 py-2 border text-center" rowSpan="2">Un</th>
+                          <th className="px-2 py-2 border text-right" rowSpan="2">Mat. Unit.</th>
+                          <th className="px-2 py-2 border text-right" rowSpan="2">M.O. Unit.</th>
+                          <th className="px-2 py-2 border text-right" rowSpan="2">Qtd Prev.</th>
+                          {totaisPorMedicao.map(t => (
+                            <th key={t.numero} className="px-2 py-2 border text-center bg-blue-50" colSpan="5">
+                              Medição {t.numero}
+                            </th>
+                          ))}
+                        </tr>
+                        <tr>
+                          {totaisPorMedicao.map(t => (
+                            <React.Fragment key={t.numero}>
+                              <th className="px-2 py-1 border text-right text-xs bg-blue-50">Qtd Exec.</th>
+                              <th className="px-2 py-1 border text-right text-xs bg-blue-50">Vlr Mat.</th>
+                              <th className="px-2 py-1 border text-right text-xs bg-blue-50">Vlr M.O.</th>
+                              <th className="px-2 py-1 border text-right text-xs bg-blue-50">Qtd Acum.</th>
+                              <th className="px-2 py-1 border text-right text-xs bg-blue-50">Qtd a Medir</th>
+                            </React.Fragment>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {servicosData.map((servico, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="px-2 py-1 border text-xs text-slate-500">{servico.numero}</td>
+                            <td className="px-2 py-1 border text-xs">{servico.codigo}</td>
+                            <td className="px-2 py-1 border text-xs">{servico.descricao}</td>
+                            <td className="px-2 py-1 border text-center text-xs">{servico.unidade}</td>
+                            <td className="px-2 py-1 border text-right text-xs">
+                              {servico.valorMaterialUnitario.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-1 border text-right text-xs">
+                              {servico.valorMaoObraUnitario.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-1 border text-right text-xs font-medium">
+                              {servico.medicoes[0]?.qtdPrevista.toFixed(2) || '0.00'}
+                            </td>
+                            {servico.medicoes.map(med => (
+                              <React.Fragment key={med.numero}>
+                                <td className="px-2 py-1 border text-right text-xs bg-blue-50 font-semibold">
+                                  {med.qtdExecutada.toFixed(2)}
+                                </td>
+                                <td className="px-2 py-1 border text-right text-xs bg-blue-50">
+                                  {med.valorMaterial.toFixed(2)}
+                                </td>
+                                <td className="px-2 py-1 border text-right text-xs bg-blue-50">
+                                  {med.valorMaoObra.toFixed(2)}
+                                </td>
+                                <td className="px-2 py-1 border text-right text-xs bg-blue-50 font-medium">
+                                  {med.qtdAcumulada.toFixed(2)}
+                                </td>
+                                <td className="px-2 py-1 border text-right text-xs bg-blue-50">
+                                  {med.qtdAMedir.toFixed(2)}
+                                </td>
+                              </React.Fragment>
+                            ))}
+                          </tr>
+                        ))}
+                        
+                        <tr className="bg-slate-200 font-bold">
+                          <td colSpan="7" className="px-2 py-2 border text-right">SUBTOTAL MATERIAL:</td>
+                          {totaisPorMedicao.map(t => (
+                            <React.Fragment key={`mat-${t.numero}`}>
+                              <td className="px-2 py-2 border"></td>
+                              <td className="px-2 py-2 border text-right" colSpan="2">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.totalMaterial)}
+                              </td>
+                              <td className="px-2 py-2 border" colSpan="2"></td>
+                            </React.Fragment>
+                          ))}
+                        </tr>
+                        
+                        <tr className="bg-slate-200 font-bold">
+                          <td colSpan="7" className="px-2 py-2 border text-right">SUBTOTAL MÃO DE OBRA:</td>
+                          {totaisPorMedicao.map(t => (
+                            <React.Fragment key={`mo-${t.numero}`}>
+                              <td className="px-2 py-2 border"></td>
+                              <td className="px-2 py-2 border text-right" colSpan="2">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.totalMaoObra)}
+                              </td>
+                              <td className="px-2 py-2 border" colSpan="2"></td>
+                            </React.Fragment>
+                          ))}
+                        </tr>
+                        
+                        <tr className="bg-slate-200 font-bold">
+                          <td colSpan="7" className="px-2 py-2 border text-right">BDI ({bdiPercentual}%):</td>
+                          {totaisPorMedicao.map(t => (
+                            <React.Fragment key={`bdi-${t.numero}`}>
+                              <td className="px-2 py-2 border"></td>
+                              <td className="px-2 py-2 border text-right" colSpan="2">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.valorBdi)}
+                              </td>
+                              <td className="px-2 py-2 border" colSpan="2"></td>
+                            </React.Fragment>
+                          ))}
+                        </tr>
+                        
+                        <tr className="bg-slate-300 font-bold text-blue-700">
+                          <td colSpan="7" className="px-2 py-2 border text-right">TOTAL COM BDI:</td>
+                          {totaisPorMedicao.map(t => (
+                            <React.Fragment key={`total-${t.numero}`}>
+                              <td className="px-2 py-2 border"></td>
+                              <td className="px-2 py-2 border text-right" colSpan="2">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.totalComBdi)}
+                              </td>
+                              <td className="px-2 py-2 border" colSpan="2"></td>
+                            </React.Fragment>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 );
               })()}
