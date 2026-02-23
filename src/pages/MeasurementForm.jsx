@@ -1178,10 +1178,12 @@ export default function MeasurementForm() {
                   let totalMaoObra = 0;
                   
                   servicosData.forEach(s => {
-                    const med = s.medicoes.find(m => m.numero === numMed);
-                    if (med) {
-                      totalMaterial += med.valorMaterial;
-                      totalMaoObra += med.valorMaoObra;
+                    if (!s.isStage && s.medicoes) {
+                      const med = s.medicoes.find(m => m.numero === numMed);
+                      if (med) {
+                        totalMaterial += med.valorMaterial;
+                        totalMaoObra += med.valorMaoObra;
+                      }
                     }
                   });
                   
