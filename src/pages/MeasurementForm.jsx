@@ -736,21 +736,6 @@ export default function MeasurementForm() {
             </CardHeader>
             <CardContent>
               {(() => {
-                // Buscar custos do orçamento original (frontend)
-                const [budgetItemsData, setBudgetItemsData] = useState([]);
-                
-                useEffect(() => {
-                  const loadBudgetItemsCosts = async () => {
-                    if (formData.orcamento_id) {
-                      const budgetItems = await base44.entities.BudgetItem.filter({ 
-                        orcamento_id: formData.orcamento_id 
-                      });
-                      setBudgetItemsData(budgetItems);
-                    }
-                  };
-                  loadBudgetItemsCosts();
-                }, [formData.orcamento_id]);
-                
                 // Criar mapa de custos por serviço
                 const costMap = {};
                 budgetItemsData.forEach(bi => {
