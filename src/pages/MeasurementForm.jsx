@@ -148,8 +148,13 @@ export default function MeasurementForm() {
   useEffect(() => {
     const loadHistoricData = async () => {
       const mesAtual = formData.numero_medicao || 1;
-      if (mesAtual <= 1 || previousMeasurements.length === 0) {
+      if (mesAtual <= 1) {
+        setHistoricMeasurementData({});
         setIsLoadingHistoric(false);
+        return;
+      }
+
+      if (!formData.orcamento_id || previousMeasurements.length === 0) {
         return;
       }
 
@@ -158,14 +163,18 @@ export default function MeasurementForm() {
       
       // Buscar items de todas as medições anteriores
       for (const prevMed of previousMeasurements.filter(m => m.numero_medicao < mesAtual)) {
-        const itemsFromMed = await base44.entities.MeasurementItem.filter({ 
-          medicao_id: prevMed.id
-        });
-        
-        itemsFromMed.forEach(item => {
-          const key = `${item.servico_id}_${item.stage_id}_${prevMed.numero_medicao}`;
-          histMap[key] = item.quantidade_executada_periodo || 0;
-        });
+        try {
+          const itemsFromMed = await base44.entities.MeasurementItem.filter({ 
+            medicao_id: prevMed.id
+          });
+          
+          itemsFromMed.forEach(item => {
+            const key = `${item.servico_id}_${item.stage_id}_${prevMed.numero_medicao}`;
+            histMap[key] = item.quantidade_executada_periodo || 0;
+          });
+        } catch (error) {
+          console.error('Erro ao carregar dados históricos:', error);
+        }
       }
       
       setHistoricMeasurementData(histMap);
@@ -173,7 +182,7 @@ export default function MeasurementForm() {
     };
     
     loadHistoricData();
-  }, [formData.numero_medicao, previousMeasurements]);
+  }, [formData.numero_medicao, formData.orcamento_id, previousMeasurements.length]);
 
   // Carregar custos do orçamento para planilha
   useEffect(() => {
