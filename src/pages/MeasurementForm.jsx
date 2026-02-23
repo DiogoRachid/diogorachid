@@ -127,10 +127,20 @@ export default function MeasurementForm() {
     loadStagesWhenEditing();
   }, [isEditing, formData.orcamento_id, projectStages.length]);
 
-  // Carregar medições anteriores para o gráfico de resumo
+  // Carregar medições anteriores e seus items de uma só vez
   useEffect(() => {
-    const loadPreviousMeasurements = async () => {
-      if (formData.obra_id && formData.orcamento_id) {
+    const loadPreviousMeasurementsWithItems = async () => {
+      if (!formData.obra_id || !formData.orcamento_id) {
+        setPreviousMeasurements([]);
+        setHistoricMeasurementData({});
+        setIsLoadingHistoric(false);
+        return;
+      }
+
+      setIsLoadingHistoric(true);
+      
+      try {
+        // Buscar todas as medições
         const allMeasurements = await base44.entities.Measurement.filter({ 
           obra_id: formData.obra_id,
           orcamento_id: formData.orcamento_id
@@ -139,50 +149,36 @@ export default function MeasurementForm() {
         // Ordenar por número de medição
         const sortedMeasurements = allMeasurements.sort((a, b) => a.numero_medicao - b.numero_medicao);
         setPreviousMeasurements(sortedMeasurements);
-      }
-    };
-    loadPreviousMeasurements();
-  }, [formData.obra_id, formData.orcamento_id]);
-
-  // Carregar dados históricos de medições anteriores para o cronograma
-  useEffect(() => {
-    const loadHistoricData = async () => {
-      const mesAtual = formData.numero_medicao || 1;
-      if (mesAtual <= 1) {
-        setHistoricMeasurementData({});
-        setIsLoadingHistoric(false);
-        return;
-      }
-
-      if (!formData.orcamento_id || previousMeasurements.length === 0) {
-        return;
-      }
-
-      setIsLoadingHistoric(true);
-      const histMap = {};
-      
-      // Buscar items de todas as medições anteriores
-      for (const prevMed of previousMeasurements.filter(m => m.numero_medicao < mesAtual)) {
-        try {
-          const itemsFromMed = await base44.entities.MeasurementItem.filter({ 
-            medicao_id: prevMed.id
-          });
+        
+        // Buscar todos os items de todas as medições de uma vez
+        const mesAtual = formData.numero_medicao || 1;
+        const histMap = {};
+        
+        if (mesAtual > 1) {
+          const previousMeds = sortedMeasurements.filter(m => m.numero_medicao < mesAtual);
           
-          itemsFromMed.forEach(item => {
-            const key = `${item.servico_id}_${item.stage_id}_${prevMed.numero_medicao}`;
-            histMap[key] = item.quantidade_executada_periodo || 0;
-          });
-        } catch (error) {
-          console.error('Erro ao carregar dados históricos:', error);
+          for (const prevMed of previousMeds) {
+            const itemsFromMed = await base44.entities.MeasurementItem.filter({ 
+              medicao_id: prevMed.id
+            });
+            
+            itemsFromMed.forEach(item => {
+              const key = `${item.servico_id}_${item.stage_id}_${prevMed.numero_medicao}`;
+              histMap[key] = item.quantidade_executada_periodo || 0;
+            });
+          }
         }
+        
+        setHistoricMeasurementData(histMap);
+      } catch (error) {
+        console.error('Erro ao carregar medições:', error);
+      } finally {
+        setIsLoadingHistoric(false);
       }
-      
-      setHistoricMeasurementData(histMap);
-      setIsLoadingHistoric(false);
     };
     
-    loadHistoricData();
-  }, [formData.numero_medicao, formData.orcamento_id, previousMeasurements.length]);
+    loadPreviousMeasurementsWithItems();
+  }, [formData.obra_id, formData.orcamento_id, formData.numero_medicao]);
 
   // Carregar custos do orçamento para planilha
   useEffect(() => {
