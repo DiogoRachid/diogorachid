@@ -162,17 +162,27 @@ export default function MeasurementForm() {
               medicao_id: prevMed.id
             });
             
-            console.log(`Medição ${prevMed.numero_medicao} - Items carregados:`, itemsFromMed.map(i => ({
-              codigo: i.codigo,
-              servico_id: i.servico_id,
-              stage_id: i.stage_id,
-              qtd_periodo: i.quantidade_executada_periodo,
-              qtd_acum: i.quantidade_executada_acumulada
-            })));
+            // Criar hierarquia para gerar números corretos
+            const prevStageHierarchy = [];
+            const prevMainStages = projectStages.filter(s => !s.parent_stage_id).sort((a, b) => a.ordem - b.ordem);
             
-            itemsFromMed.forEach(item => {
-              const key = `${item.codigo}_${item.servico_id}_${item.stage_id}_${prevMed.numero_medicao}`;
-              histMap[key] = item.quantidade_executada_periodo || 0;
+            prevMainStages.forEach((mainStage, mainIdx) => {
+              const mainStageItems = itemsFromMed.filter(i => i.stage_id === mainStage.id);
+              mainStageItems.forEach((item, itemIdx) => {
+                const itemNumber = `${mainIdx + 1}.${itemIdx + 1}`;
+                const key = `${itemNumber}_${prevMed.numero_medicao}`;
+                histMap[key] = item.quantidade_executada_periodo || 0;
+              });
+              
+              const subStages = projectStages.filter(s => s.parent_stage_id === mainStage.id).sort((a, b) => a.ordem - b.ordem);
+              subStages.forEach((subStage, subIdx) => {
+                const subStageItems = itemsFromMed.filter(i => i.stage_id === subStage.id);
+                subStageItems.forEach((item, itemIdx) => {
+                  const itemNumber = `${mainIdx + 1}.${subIdx + 1}.${itemIdx + 1}`;
+                  const key = `${itemNumber}_${prevMed.numero_medicao}`;
+                  histMap[key] = item.quantidade_executada_periodo || 0;
+                });
+              });
             });
           }
         }
@@ -678,88 +688,79 @@ export default function MeasurementForm() {
               <CardTitle>Lançamento de Quantidades</CardTitle>
             </CardHeader>
             <CardContent>
-              {stageHierarchy.map(stage => {
-                // Para etapas principais (nível 0), mostrar sempre se tiver itens na hierarquia
-                if (stage.level === 0 && !hasItemsInHierarchy(stage.id)) return null;
-                
-                // Para subetapas (nível 1+), só mostrar se tiver itens diretos
-                if (stage.level > 0 && stage.items.length === 0) return null;
-                
-                const indent = stage.level > 0 ? 'ml-8' : '';
-                
-                return (
-                  <div key={stage.id} className={`mb-6 ${indent}`}>
-                    <h3 className={`font-semibold text-slate-700 mb-3 pb-2 border-b ${
-                      stage.level === 0 ? 'text-lg' : 'text-base'
-                    }`}>
-                      {stage.number} {stage.nome}
-                    </h3>
-                    
-                    {stage.items.length > 0 && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-slate-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Código</th>
-                              <th className="px-3 py-2 text-left">Descrição</th>
-                              <th className="px-3 py-2 text-center">Un</th>
-                              <th className="px-3 py-2 text-right">Orçada</th>
-                              <th className="px-3 py-2 text-right">Exec. Período</th>
-                              <th className="px-3 py-2 text-right">Exec. Acum.</th>
-                              <th className="px-3 py-2 text-right">Saldo</th>
-                              <th className="px-3 py-2 text-right">Valor Período</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {stage.items.map((item, itemIdx) => {
-                              const itemId = item.id || items.indexOf(item);
-                              const hasExceeded = item.quantidade_executada_acumulada > item.quantidade_orcada;
-                              const itemNumber = `${stage.number}.${itemIdx + 1}`;
-                              
-                              return (
-                                <tr key={itemId} className={`border-b ${hasExceeded ? 'bg-red-50' : ''}`}>
-                                  <td className="px-3 py-2 text-slate-600">
-                                    <div className="text-xs text-slate-400 mb-1">{itemNumber}</div>
-                                    {item.codigo}
-                                  </td>
-                                  <td className="px-3 py-2">{item.descricao}</td>
-                                  <td className="px-3 py-2 text-center text-slate-600">{item.unidade}</td>
-                                  <td className="px-3 py-2 text-right font-medium">
-                                    {(item.quantidade_orcada || 0).toFixed(2)}
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={editableQuantities[itemId] || 0}
-                                      onChange={(e) => handleQuantityChange(itemId, e.target.value)}
-                                      className="w-24 text-right"
-                                    />
-                                  </td>
-                                  <td className="px-3 py-2 text-right font-semibold text-blue-600">
-                                    {(item.quantidade_executada_acumulada || 0).toFixed(2)}
-                                  </td>
-                                  <td className={`px-3 py-2 text-right font-medium ${
-                                    item.saldo_a_executar < 0 ? 'text-red-600' : 'text-slate-700'
-                                  }`}>
-                                    {(item.saldo_a_executar || 0).toFixed(2)}
-                                  </td>
-                                  <td className="px-3 py-2 text-right font-medium">
-                                    {new Intl.NumberFormat('pt-BR', { 
-                                      style: 'currency', 
-                                      currency: 'BRL' 
-                                    }).format(item.valor_executado_periodo || 0)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="bg-slate-100 sticky top-0">
+                    <tr>
+                      <th className="px-2 py-2 border text-left">Nº</th>
+                      <th className="px-2 py-2 border text-left">Código</th>
+                      <th className="px-2 py-2 border text-left">Descrição</th>
+                      <th className="px-2 py-2 border text-center">Un</th>
+                      <th className="px-2 py-2 border text-right">Qtd. Orçada</th>
+                      <th className="px-2 py-2 border text-right bg-blue-50">Qtd. Exec. Período</th>
+                      <th className="px-2 py-2 border text-right">Qtd. Exec. Acum.</th>
+                      <th className="px-2 py-2 border text-right">Saldo</th>
+                      <th className="px-2 py-2 border text-right">Valor Período</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stageHierarchy.map((stage, stageIdx) => {
+                      if (stage.level === 0 && !hasItemsInHierarchy(stage.id)) return null;
+                      if (stage.level > 0 && stage.items.length === 0) return null;
+                      
+                      return (
+                        <React.Fragment key={stage.id}>
+                          <tr className={`bg-slate-100 font-semibold ${stage.level === 0 ? 'text-base' : 'text-sm'}`}>
+                            <td className="px-2 py-2 border" colSpan="9" style={{ paddingLeft: `${stage.level * 20 + 8}px` }}>
+                              {stage.number} {stage.nome}
+                            </td>
+                          </tr>
+                          {stage.items.map((item, itemIdx) => {
+                            const itemId = item.id || items.indexOf(item);
+                            const hasExceeded = item.quantidade_executada_acumulada > item.quantidade_orcada;
+                            const itemNumber = `${stage.number}.${itemIdx + 1}`;
+                            
+                            return (
+                              <tr key={itemId} className={`hover:bg-slate-50 ${hasExceeded ? 'bg-red-50' : ''}`}>
+                                <td className="px-2 py-1 border text-xs text-slate-500">{itemNumber}</td>
+                                <td className="px-2 py-1 border text-xs">{item.codigo}</td>
+                                <td className="px-2 py-1 border text-xs">{item.descricao}</td>
+                                <td className="px-2 py-1 border text-center text-xs">{item.unidade}</td>
+                                <td className="px-2 py-1 border text-right text-xs font-medium">
+                                  {(item.quantidade_orcada || 0).toFixed(2)}
+                                </td>
+                                <td className="px-2 py-1 border bg-blue-50">
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={editableQuantities[itemId] || 0}
+                                    onChange={(e) => handleQuantityChange(itemId, e.target.value)}
+                                    className="w-24 text-right text-xs"
+                                  />
+                                </td>
+                                <td className="px-2 py-1 border text-right text-xs font-semibold text-blue-600">
+                                  {(item.quantidade_executada_acumulada || 0).toFixed(2)}
+                                </td>
+                                <td className={`px-2 py-1 border text-right text-xs font-medium ${
+                                  item.saldo_a_executar < 0 ? 'text-red-600' : 'text-slate-700'
+                                }`}>
+                                  {(item.saldo_a_executar || 0).toFixed(2)}
+                                </td>
+                                <td className="px-2 py-1 border text-right text-xs font-medium">
+                                  {new Intl.NumberFormat('pt-BR', { 
+                                    style: 'currency', 
+                                    currency: 'BRL' 
+                                  }).format(item.valor_executado_periodo || 0)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
               {items.some(item => item.quantidade_executada_acumulada > item.quantidade_orcada) && (
                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
@@ -1191,7 +1192,7 @@ export default function MeasurementForm() {
                         qtdExecutada = item.quantidade_executada_periodo || 0;
                       } else {
                         // Medições anteriores - buscar do histórico
-                        const key = `${item.codigo}_${item.servico_id}_${item.stage_id}_${numMed}`;
+                        const key = `${itemNumber}_${numMed}`;
                         qtdExecutada = historicMeasurementData[key] || 0;
                       }
                       
