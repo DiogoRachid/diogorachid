@@ -1113,7 +1113,7 @@ export default function MeasurementForm() {
                   // Adicionar itens da etapa
                   stage.items.forEach((item, itemIdx) => {
                     const costs = costMap[item.servico_id] || { material: 0, mao_obra: 0 };
-                    const itemNumber = `${stage.number}${itemIdx + 1}`;
+                    const itemNumber = `${stage.number}.${itemIdx + 1}`;
                     
                     // Calcular para cada medição até a atual
                     const medicoes = [];
