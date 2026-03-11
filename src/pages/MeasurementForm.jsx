@@ -1199,7 +1199,7 @@ export default function MeasurementForm() {
                       qtdAcumulada += qtdExecutada;
                       const valorMaterial = qtdExecutada * costs.material;
                       const valorMaoObra = qtdExecutada * costs.mao_obra;
-                      const qtdAMedir = Math.max(0, (item.quantidade_orcada || 0) - qtdAcumulada);
+                      const qtdAMedir = (item.quantidade_orcada || 0) - qtdAcumulada;
                       
                       // Quantidade prevista ajustada para este mês
                       let qtdPrevistaAjustada = distribuicaoPlanejada[numMed] || 0;
