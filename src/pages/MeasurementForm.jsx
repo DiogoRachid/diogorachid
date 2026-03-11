@@ -156,15 +156,20 @@ export default function MeasurementForm() {
         
         if (mesAtual > 1) {
           const previousMeds = sortedMeasurements.filter(m => m.numero_medicao < mesAtual);
+
+          // Carregar etapas diretamente aqui para garantir que estejam disponíveis
+          const stages = await base44.entities.ProjectStage.filter({ orcamento_id: formData.orcamento_id });
+          if (stages.length > 0) {
+            setProjectStages(stages);
+          }
+          const stagesToUse = stages.length > 0 ? stages : projectStages;
           
           for (const prevMed of previousMeds) {
             const itemsFromMed = await base44.entities.MeasurementItem.filter({ 
               medicao_id: prevMed.id
             });
             
-            // Criar hierarquia para gerar números corretos
-            const prevStageHierarchy = [];
-            const prevMainStages = projectStages.filter(s => !s.parent_stage_id).sort((a, b) => a.ordem - b.ordem);
+            const prevMainStages = stagesToUse.filter(s => !s.parent_stage_id).sort((a, b) => a.ordem - b.ordem);
             
             prevMainStages.forEach((mainStage, mainIdx) => {
               const mainStageItems = itemsFromMed.filter(i => i.stage_id === mainStage.id);
@@ -174,7 +179,7 @@ export default function MeasurementForm() {
                 histMap[key] = item.quantidade_executada_periodo || 0;
               });
               
-              const subStages = projectStages.filter(s => s.parent_stage_id === mainStage.id).sort((a, b) => a.ordem - b.ordem);
+              const subStages = stagesToUse.filter(s => s.parent_stage_id === mainStage.id).sort((a, b) => a.ordem - b.ordem);
               subStages.forEach((subStage, subIdx) => {
                 const subStageItems = itemsFromMed.filter(i => i.stage_id === subStage.id);
                 subStageItems.forEach((item, itemIdx) => {
