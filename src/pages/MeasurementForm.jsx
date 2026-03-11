@@ -1329,7 +1329,7 @@ export default function MeasurementForm() {
                                   {servico.valorMaoObraUnitario.toFixed(2)}
                                 </td>
                                 <td className="px-2 py-1 border text-right text-xs font-medium">
-                                  {servico.medicoes[0]?.qtdPrevista.toFixed(2) || '0.00'}
+                                  {(servico.quantidadeOrcada || 0).toFixed(2)}
                                 </td>
                                 {servico.medicoes.map(med => (
                                   <React.Fragment key={med.numero}>
