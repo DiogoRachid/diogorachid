@@ -577,11 +577,8 @@ export default function MeasurementForm() {
       <Tabs defaultValue="dados" className="space-y-6">
         <TabsList>
           <TabsTrigger value="dados">Dados da Medição</TabsTrigger>
-          <TabsTrigger value="servicos" disabled={!formData.orcamento_id}>
-            Serviços ({items.length})
-          </TabsTrigger>
           <TabsTrigger value="planilha" disabled={!formData.orcamento_id}>
-            Planilha de Medição
+            Planilha de Medição ({items.length})
           </TabsTrigger>
           <TabsTrigger value="curvas" disabled={!formData.orcamento_id}>
             Curva S
