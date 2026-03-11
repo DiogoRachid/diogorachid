@@ -1386,57 +1386,81 @@ export default function MeasurementForm() {
                            }
                         })}
                         
-                        <tr className="bg-slate-200 font-bold">
-                          <td colSpan="7" className="px-2 py-2 border text-right">SUBTOTAL MATERIAL:</td>
-                          {totaisPorMedicao.map(t => (
-                            <React.Fragment key={`mat-${t.numero}`}>
-                              <td className="px-2 py-2 border"></td>
-                              <td className="px-2 py-2 border text-right" colSpan="2">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.totalMaterial)}
-                              </td>
-                              <td className="px-2 py-2 border" colSpan="2"></td>
-                            </React.Fragment>
-                          ))}
-                        </tr>
-                        
-                        <tr className="bg-slate-200 font-bold">
-                          <td colSpan="7" className="px-2 py-2 border text-right">SUBTOTAL MÃO DE OBRA:</td>
-                          {totaisPorMedicao.map(t => (
-                            <React.Fragment key={`mo-${t.numero}`}>
-                              <td className="px-2 py-2 border"></td>
-                              <td className="px-2 py-2 border text-right" colSpan="2">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.totalMaoObra)}
-                              </td>
-                              <td className="px-2 py-2 border" colSpan="2"></td>
-                            </React.Fragment>
-                          ))}
-                        </tr>
-                        
-                        <tr className="bg-slate-200 font-bold">
-                          <td colSpan="7" className="px-2 py-2 border text-right">BDI ({bdiPercentual}%):</td>
-                          {totaisPorMedicao.map(t => (
-                            <React.Fragment key={`bdi-${t.numero}`}>
-                              <td className="px-2 py-2 border"></td>
-                              <td className="px-2 py-2 border text-right" colSpan="2">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.valorBdi)}
-                              </td>
-                              <td className="px-2 py-2 border" colSpan="2"></td>
-                            </React.Fragment>
-                          ))}
-                        </tr>
-                        
-                        <tr className="bg-slate-300 font-bold text-blue-700">
-                          <td colSpan="7" className="px-2 py-2 border text-right">TOTAL COM BDI:</td>
-                          {totaisPorMedicao.map(t => (
-                            <React.Fragment key={`total-${t.numero}`}>
-                              <td className="px-2 py-2 border"></td>
-                              <td className="px-2 py-2 border text-right" colSpan="2">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.totalComBdi)}
-                              </td>
-                              <td className="px-2 py-2 border" colSpan="2"></td>
-                            </React.Fragment>
-                          ))}
-                        </tr>
+                        {(() => {
+                          const totalMatAcum = totaisPorMedicao.reduce((s, t) => s + t.totalMaterial, 0);
+                          const totalMoAcum = totaisPorMedicao.reduce((s, t) => s + t.totalMaoObra, 0);
+                          const subtotalAcum = totalMatAcum + totalMoAcum;
+                          const bdiAcum = subtotalAcum * (bdiPercentual / 100);
+                          const totalBdiAcum = subtotalAcum + bdiAcum;
+                          return (
+                            <>
+                              <tr className="bg-slate-200 font-bold">
+                                <td colSpan="7" className="px-2 py-2 border text-right">SUBTOTAL MATERIAL:</td>
+                                {totaisPorMedicao.map(t => (
+                                  <React.Fragment key={`mat-${t.numero}`}>
+                                    <td className="px-2 py-2 border"></td>
+                                    <td className="px-2 py-2 border text-right" colSpan="2">
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.totalMaterial)}
+                                    </td>
+                                    <td className="px-2 py-2 border" colSpan="2"></td>
+                                  </React.Fragment>
+                                ))}
+                                <td className="px-2 py-2 border bg-green-100" colSpan="2"></td>
+                                <td className="px-2 py-2 border text-right bg-green-200" colSpan="2">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalMatAcum)}
+                                </td>
+                              </tr>
+                              <tr className="bg-slate-200 font-bold">
+                                <td colSpan="7" className="px-2 py-2 border text-right">SUBTOTAL MÃO DE OBRA:</td>
+                                {totaisPorMedicao.map(t => (
+                                  <React.Fragment key={`mo-${t.numero}`}>
+                                    <td className="px-2 py-2 border"></td>
+                                    <td className="px-2 py-2 border text-right" colSpan="2">
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.totalMaoObra)}
+                                    </td>
+                                    <td className="px-2 py-2 border" colSpan="2"></td>
+                                  </React.Fragment>
+                                ))}
+                                <td className="px-2 py-2 border bg-green-100" colSpan="2"></td>
+                                <td className="px-2 py-2 border text-right bg-green-200" colSpan="2">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalMoAcum)}
+                                </td>
+                              </tr>
+                              <tr className="bg-slate-200 font-bold">
+                                <td colSpan="7" className="px-2 py-2 border text-right">BDI ({bdiPercentual}%):</td>
+                                {totaisPorMedicao.map(t => (
+                                  <React.Fragment key={`bdi-${t.numero}`}>
+                                    <td className="px-2 py-2 border"></td>
+                                    <td className="px-2 py-2 border text-right" colSpan="2">
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.valorBdi)}
+                                    </td>
+                                    <td className="px-2 py-2 border" colSpan="2"></td>
+                                  </React.Fragment>
+                                ))}
+                                <td className="px-2 py-2 border bg-green-100" colSpan="2"></td>
+                                <td className="px-2 py-2 border text-right bg-green-200" colSpan="2">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(bdiAcum)}
+                                </td>
+                              </tr>
+                              <tr className="bg-slate-300 font-bold text-blue-700">
+                                <td colSpan="7" className="px-2 py-2 border text-right">TOTAL COM BDI:</td>
+                                {totaisPorMedicao.map(t => (
+                                  <React.Fragment key={`total-${t.numero}`}>
+                                    <td className="px-2 py-2 border"></td>
+                                    <td className="px-2 py-2 border text-right" colSpan="2">
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.totalComBdi)}
+                                    </td>
+                                    <td className="px-2 py-2 border" colSpan="2"></td>
+                                  </React.Fragment>
+                                ))}
+                                <td className="px-2 py-2 border bg-green-100" colSpan="2"></td>
+                                <td className="px-2 py-2 border text-right bg-green-200 text-green-800" colSpan="2">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalBdiAcum)}
+                                </td>
+                              </tr>
+                            </>
+                          );
+                        })()}
                       </tbody>
                     </table>
                   </div>
