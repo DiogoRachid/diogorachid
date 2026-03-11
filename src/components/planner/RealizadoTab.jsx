@@ -164,7 +164,9 @@ export default function RealizadoTab({ budget, stages, items }) {
                 </tr>
 
                 {mainItems.map((item, itemIdx) => {
-                  const rowData = buildItemData(item);
+                  // índice entre irmãos com mesmo servico_id+stage_id
+                  const sameKeyIdx = mainItems.filter((x, i) => i < itemIdx && x.servico_id === item.servico_id && x.stage_id === item.stage_id).length;
+                  const rowData = buildItemData(item, sameKeyIdx);
                   return (
                     <tr key={item.id} className="hover:bg-slate-50">
                       <td className="px-2 py-1 border text-slate-500">{mainIdx + 1}.{itemIdx + 1}</td>
