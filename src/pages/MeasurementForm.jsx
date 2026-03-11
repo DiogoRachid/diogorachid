@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
 import { ArrowLeft, Save, CheckCircle, Loader2, AlertTriangle, TrendingUp, FileSpreadsheet, FileText, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line, ComposedChart } from 'recharts';
-import { exportMeasurementXLSX, exportMeasurementPDF } from '@/components/measurements/MeasurementExporter';
+import { exportMeasurementXLSX, exportMeasurementPDF, exportCronogramaXLSX, exportCronogramaPDF } from '@/components/measurements/MeasurementExporter';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1123,8 +1123,26 @@ export default function MeasurementForm() {
 
         <TabsContent value="cronograma">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Cronograma de Medições</CardTitle>
+              {isEditing && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    const result = await exportCronogramaXLSX(measurementId);
+                    if (result.success) toast.success(result.message); else toast.error(result.message);
+                  }}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Exportar XLSX
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    const result = await exportCronogramaPDF(measurementId);
+                    if (result.success) toast.success(result.message); else toast.error(result.message);
+                  }}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Exportar PDF
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {(() => {
