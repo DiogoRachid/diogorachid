@@ -110,6 +110,9 @@ import Transactions from './pages/Transactions';
 import VersionHistory from './pages/VersionHistory';
 import VersionHistoryForm from './pages/VersionHistoryForm';
 import Backup from './pages/Backup';
+import LandingPage from './pages/LandingPage';
+import PortalSelect from './pages/PortalSelect';
+import ColaboradorPortal from './pages/ColaboradorPortal';
 import __Layout from './Layout.jsx';
 
 
@@ -177,6 +180,9 @@ export const PAGES = {
     "VersionHistory": VersionHistory,
     "VersionHistoryForm": VersionHistoryForm,
     "Backup": Backup,
+    "LandingPage": LandingPage,
+    "PortalSelect": PortalSelect,
+    "ColaboradorPortal": ColaboradorPortal,
 }
 
 export const pagesConfig = {
