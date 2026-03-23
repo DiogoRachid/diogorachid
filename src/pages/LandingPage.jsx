@@ -137,7 +137,7 @@ export default function LandingPage() {
       {/* NAVBAR */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-md py-3' : 'bg-transparent py-5'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-          <img src={logoUrl} alt={nomeEmpresa} className="h-10 object-contain" />
+          <img src={scrolled ? logoClara : logoEscura} alt={nomeEmpresa} className="h-10 object-contain" />
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8 text-sm font-medium">
