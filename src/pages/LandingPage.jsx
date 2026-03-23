@@ -282,7 +282,7 @@ export default function LandingPage() {
           <div className="text-center mb-14">
             <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">O Que Fazemos</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2">Serviços Especializados</h2>
-            <p className="text-slate-500 mt-4 max-w-xl mx-auto">Atuamos em incorporação residencial, obras institucionais e comerciais, sempre com rigor técnico e comprometimento com prazos.</p>
+            <p className="text-slate-500 mt-4 max-w-xl mx-auto">Atuamos exclusivamente em obras públicas — universidades, hospitais, infraestrutura e equipamentos urbanos — com rigor técnico e comprometimento com prazos.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {servicos.map((s, i) => (
@@ -304,7 +304,7 @@ export default function LandingPage() {
           <div className="text-center mb-14">
             <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Portfólio</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2">Obras Realizadas</h2>
-            <p className="text-slate-500 mt-4 max-w-xl mx-auto">Uma seleção de projetos que demonstram nossa capacidade técnica e compromisso com a qualidade em Londrina e região.</p>
+            <p className="text-slate-500 mt-4 max-w-xl mx-auto">Uma seleção de obras públicas que demonstram nossa capacidade técnica e compromisso com a qualidade em Londrina e região Norte do Paraná.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {obras.map((o, i) => (
