@@ -401,6 +401,49 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Alertas de RH */}
+      {(alertasContratoExp.length > 0 || alertasProrrogacao.length > 0 || alertasFerias.length > 0) && (
+        <Card className="border-amber-300 bg-amber-50 mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-amber-800 text-base">
+              <Bell className="h-5 w-5" /> Alertas de RH
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {alertasContratoExp.map(c => (
+              <div key={c.id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border border-amber-200">
+                <FileSignature className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                <div className="flex-1 text-sm">
+                  <span className="font-medium">{c.colaborador_nome}</span>
+                  <span className="text-amber-700 ml-2">— Fim do contrato de experiência em {new Date(c.data_fim_experiencia + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                </div>
+                <Button variant="ghost" size="sm" className="text-amber-700 text-xs" onClick={() => window.location.href = createPageUrl('EmployeeContracts')}>Ver</Button>
+              </div>
+            ))}
+            {alertasProrrogacao.map(c => (
+              <div key={`prorr-${c.id}`} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border border-amber-200">
+                <FileSignature className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                <div className="flex-1 text-sm">
+                  <span className="font-medium">{c.colaborador_nome}</span>
+                  <span className="text-orange-700 ml-2">— Fim da prorrogação de experiência em {new Date(c.prorrogacao_experiencia + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                </div>
+                <Button variant="ghost" size="sm" className="text-orange-700 text-xs" onClick={() => window.location.href = createPageUrl('EmployeeContracts')}>Ver</Button>
+              </div>
+            ))}
+            {alertasFerias.map(c => (
+              <div key={`ferias-${c.id}`} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border border-blue-200">
+                <AlertTriangle className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                <div className="flex-1 text-sm">
+                  <span className="font-medium">{c.colaborador_nome}</span>
+                  <span className="text-blue-700 ml-2">— Férias previstas em {new Date(c.ferias_proximas + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                </div>
+                <Button variant="ghost" size="sm" className="text-blue-700 text-xs" onClick={() => window.location.href = createPageUrl('EmployeeContracts')}>Ver</Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Contas Próximas do Vencimento */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
