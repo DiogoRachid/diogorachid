@@ -300,9 +300,7 @@ export default function Layout({ children, currentPageName }) {
                         onClick={() => toggleSubmenu(item.title)}
                         className={cn(
                           "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all",
-                          darkMode 
-                            ? "text-slate-300 hover:bg-[#2d4a6f] hover:text-white"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                          "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
                         )}
                         title={sidebarCollapsed ? item.title : ''}
                       >
@@ -318,7 +316,7 @@ export default function Layout({ children, currentPageName }) {
                         )}
                       </button>
                       {expandedMenus.includes(item.title) && !sidebarCollapsed && (
-                        <div className={`ml-4 mt-1 space-y-1 border-l-2 pl-4 ${darkMode ? 'border-[#3b5998]' : 'border-slate-100'}`}>
+                        <div className="ml-4 mt-1 space-y-1 border-l-2 pl-4 border-slate-200 dark:border-slate-700">
                           {item.submenu.map((subitem) => (
                             <Link
                               key={subitem.page}
@@ -327,12 +325,8 @@ export default function Layout({ children, currentPageName }) {
                               className={cn(
                                 "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all",
                                 currentPageName === subitem.page
-                                  ? darkMode
-                                    ? "bg-blue-900/50 text-blue-400 font-medium"
-                                    : "bg-blue-50 text-blue-600 font-medium"
-                                  : darkMode
-                                    ? "text-slate-300 hover:bg-[#2d4a6f] hover:text-white"
-                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                                  ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-medium"
+                                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-white"
                               )}
                             >
                               <subitem.icon className="h-4 w-4" />
@@ -351,9 +345,7 @@ export default function Layout({ children, currentPageName }) {
                         "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
                         currentPageName === item.page
                           ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25"
-                          : darkMode
-                            ? "text-slate-300 hover:bg-[#2d4a6f] hover:text-white"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
                       )}
                     >
                       <item.icon className="h-5 w-5" />
