@@ -134,11 +134,6 @@ const menuItems = [
     page: 'Reports'
   },
   {
-    title: 'Versões',
-    icon: History,
-    page: 'VersionHistory'
-  },
-  {
     title: 'Backup',
     icon: DatabaseBackup,
     page: 'Backup'
