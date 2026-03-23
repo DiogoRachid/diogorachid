@@ -15,7 +15,10 @@ import {
   Building2,
   Users,
   HardHat,
-  Receipt
+  Receipt,
+  Bell,
+  FileSignature,
+  Palmtree
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,6 +93,31 @@ export default function Dashboard() {
   const { data: costCenters = [] } = useQuery({
     queryKey: ['costCenters'],
     queryFn: () => base44.entities.CostCenter.list()
+  });
+
+  const { data: contracts = [] } = useQuery({
+    queryKey: ['contracts'],
+    queryFn: () => base44.entities.EmployeeContract.list()
+  });
+
+  // Alertas de RH
+  const today = new Date();
+  const in30 = new Date(today); in30.setDate(in30.getDate() + 30);
+  const alertasContratoExp = contracts.filter(c => {
+    if (!c.data_fim_experiencia) return false;
+    const fim = new Date(c.data_fim_experiencia + 'T00:00:00');
+    return fim >= today && fim <= in30 && c.status === 'vigente';
+  });
+  const alertasProrrogacao = contracts.filter(c => {
+    if (!c.prorrogacao_experiencia) return false;
+    const fim = new Date(c.prorrogacao_experiencia + 'T00:00:00');
+    return fim >= today && fim <= in30 && c.status === 'vigente';
+  });
+  const alertasFerias = contracts.filter(c => {
+    if (!c.ferias_proximas) return false;
+    const ferias = new Date(c.ferias_proximas + 'T00:00:00');
+    const in60 = new Date(today); in60.setDate(in60.getDate() + 60);
+    return ferias >= today && ferias <= in60 && c.status === 'vigente';
   });
 
   // Cálculos
