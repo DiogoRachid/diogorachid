@@ -410,7 +410,7 @@ export default function Layout({ children, currentPageName }) {
       </aside>
 
       {/* Main Content */}
-      <main className={`pt-16 lg:pt-0 min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'} ${darkMode ? 'text-slate-100' : ''}`}>
+      <main className={`pt-16 lg:pt-0 min-h-screen transition-all duration-300 text-slate-900 dark:text-slate-100 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'}`}>
         <div className="p-4 sm:p-6 lg:p-8">
           {children}
         </div>
