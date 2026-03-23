@@ -46,6 +46,9 @@ export default function AccountsPayable() {
   const [paymentBankAccountId, setPaymentBankAccountId] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [batchPaymentDialog, setBatchPaymentDialog] = useState(false);
+  const [editPaymentDialog, setEditPaymentDialog] = useState(null);
+  const [editPaymentDate, setEditPaymentDate] = useState('');
+  const [editPaymentBankAccountId, setEditPaymentBankAccountId] = useState('');
   const queryClient = useQueryClient();
 
   const { data: accounts = [], isLoading } = useQuery({

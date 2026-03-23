@@ -45,6 +45,9 @@ export default function AccountsReceivable() {
   const [receiveDate, setReceiveDate] = useState('');
   const [receiveBankAccountId, setReceiveBankAccountId] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
+  const [editReceiveDialog, setEditReceiveDialog] = useState(null);
+  const [editReceiveDate, setEditReceiveDate] = useState('');
+  const [editReceiveBankAccountId, setEditReceiveBankAccountId] = useState('');
   const queryClient = useQueryClient();
 
   const { data: accounts = [], isLoading } = useQuery({
