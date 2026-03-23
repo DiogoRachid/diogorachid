@@ -358,12 +358,12 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           {/* Collapse Button */}
-          <div className={`hidden lg:block px-4 py-2 border-t ${darkMode ? 'border-[#2d4a6f]' : 'border-slate-100'}`}>
+          <div className="hidden lg:block px-4 py-2 border-t border-slate-100 dark:border-slate-700">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className={`w-full ${darkMode ? 'hover:bg-[#2d4a6f]' : ''}`}
+              className="w-full dark:hover:bg-slate-800 dark:text-slate-300"
             >
               {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4 mr-2" />}
               {!sidebarCollapsed && 'Recolher'}
@@ -372,20 +372,20 @@ export default function Layout({ children, currentPageName }) {
 
           {/* User Section */}
           {user && (
-            <div className={`p-4 border-t ${darkMode ? 'border-[#2d4a6f]' : 'border-slate-100'}`}>
+            <div className="p-4 border-t border-slate-100 dark:border-slate-700">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${darkMode ? 'hover:bg-[#2d4a6f]' : 'hover:bg-slate-50'}`}>
+                  <button className="w-full flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
                       {user.full_name?.[0]?.toUpperCase() || 'U'}
                     </div>
                     {!sidebarCollapsed && (
                       <>
                         <div className="flex-1 text-left">
-                          <p className={`text-sm font-medium truncate ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>{user.full_name}</p>
-                          <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{getPermissionLabel(user.permissao_financeiro)}</p>
+                          <p className="text-sm font-medium truncate text-slate-900 dark:text-slate-100">{user.full_name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{getPermissionLabel(user.permissao_financeiro)}</p>
                         </div>
-                        <ChevronDown className={`h-4 w-4 ${darkMode ? 'text-slate-400' : 'text-slate-400'}`} />
+                        <ChevronDown className="h-4 w-4 text-slate-400" />
                       </>
                     )}
                   </button>
