@@ -228,11 +228,8 @@ export default function Layout({ children, currentPageName }) {
           <Menu className="h-6 w-6" />
         </Button>
         <img 
-          src={darkMode 
-            ? "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6926eb0b6c1242bf806695a4/4053fb920_logofundoescuro.png"
-            : "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_690c7efb29582ad524a0ff3e/fb3eac426_logofundoclaro.jpg"
-          } 
-          alt="Virtual Construções" 
+          src={darkMode ? logoEscura : logoClara} 
+          alt={nomeEmpresa} 
           className="h-7 object-contain"
         />
         <Button
