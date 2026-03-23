@@ -156,3 +156,31 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
+
+/* Dark mode: garantir que elementos com bg-white/slate se adaptem */
+@layer utilities {
+  .dark .bg-white { background-color: hsl(var(--card)); }
+  .dark .bg-slate-50 { background-color: hsl(222 47% 13%); }
+  .dark .bg-slate-100 { background-color: hsl(222 47% 16%); }
+  .dark .bg-slate-200 { background-color: hsl(222 47% 18%); }
+  .dark .text-slate-900 { color: hsl(213 31% 91%); }
+  .dark .text-slate-800 { color: hsl(213 31% 85%); }
+  .dark .text-slate-700 { color: hsl(213 20% 75%); }
+  .dark .text-slate-600 { color: hsl(215 20% 65%); }
+  .dark .text-slate-500 { color: hsl(215 20% 55%); }
+  .dark .border-slate-200 { border-color: hsl(222 47% 18%); }
+  .dark .border-slate-100 { border-color: hsl(222 47% 16%); }
+  .dark .divide-slate-200 > * + * { border-color: hsl(222 47% 18%); }
+
+  /* Tabelas */
+  .dark table thead tr { background-color: hsl(222 47% 16%); }
+  .dark table tbody tr:hover { background-color: hsl(222 47% 15%); }
+  .dark table td, .dark table th { border-color: hsl(222 47% 18%); color: hsl(213 31% 85%); }
+  .dark table th { color: hsl(213 31% 75%); }
+
+  /* Mobile touch targets */
+  @media (max-width: 768px) {
+    button, [role="button"] { min-height: 40px; }
+    input, select, textarea { font-size: 16px !important; } /* evita zoom no iOS */
+  }
+}
