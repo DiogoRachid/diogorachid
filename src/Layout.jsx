@@ -210,78 +210,7 @@ export default function Layout({ children, currentPageName }) {
   };
 
   return (
-      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#0f172a] dark-mode-active' : 'bg-slate-50'}`}>
-        <style>{`
-          /* Melhorias Mobile */
-          @media (max-width: 1024px) {
-            .responsive-card {
-              padding: 1rem !important;
-            }
-            .responsive-text-lg {
-              font-size: 1rem !important;
-            }
-            .responsive-text-2xl {
-              font-size: 1.25rem !important;
-            }
-            .hide-mobile {
-              display: none !important;
-            }
-          }
-
-        :root {
-          --primary: 221.2 83.2% 53.3%;
-          --primary-foreground: 210 40% 98%;
-        }
-        ${darkMode ? `
-        .dark-mode-active [class*="Card"]:not([class*="gradient"]) {
-          background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%) !important;
-          border-color: #2d4a6f !important;
-        }
-        .dark-mode-active [class*="Card"] * {
-          color: #e2e8f0;
-        }
-        .dark-mode-active [class*="Card"] .text-slate-500,
-        .dark-mode-active [class*="Card"] .text-slate-600 {
-          color: #94a3b8 !important;
-        }
-        .dark-mode-active [class*="Card"] .text-slate-900 {
-          color: #f1f5f9 !important;
-        }
-        .dark-mode-active input, 
-        .dark-mode-active select, 
-        .dark-mode-active textarea,
-        .dark-mode-active [class*="SelectTrigger"],
-        .dark-mode-active [class*="Input"] {
-          background-color: #1e3a5f !important;
-          border-color: #3b5998 !important;
-          color: #e2e8f0 !important;
-        }
-        .dark-mode-active table {
-          background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%) !important;
-        }
-        .dark-mode-active th {
-          background-color: #2d4a6f !important;
-          color: #e2e8f0 !important;
-        }
-        .dark-mode-active td {
-          border-color: #2d4a6f !important;
-          color: #cbd5e1 !important;
-        }
-        .dark-mode-active tr:hover {
-          background-color: #2d4a6f !important;
-        }
-        .dark-mode-active [class*="TabsList"] {
-          background-color: #1e3a5f !important;
-        }
-        .dark-mode-active [class*="TabsTrigger"] {
-          color: #94a3b8 !important;
-        }
-        .dark-mode-active [class*="TabsTrigger"][data-state="active"] {
-          background-color: #2d4a6f !important;
-          color: #fff !important;
-        }
-        ` : ''}
-      `}</style>
+      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
       
       {/* Mobile Header */}
       <header className={`lg:hidden fixed top-0 left-0 right-0 h-16 border-b z-50 flex items-center justify-between px-4 transition-colors ${darkMode ? 'bg-[#1e3a5f] border-[#2d4a6f]' : 'bg-white border-slate-200'}`}>
