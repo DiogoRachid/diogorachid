@@ -9,6 +9,9 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import LandingPage from './pages/LandingPage';
+import PortalSelect from './pages/PortalSelect';
+import ColaboradorPortal from './pages/ColaboradorPortal';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -44,6 +47,11 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
+      {/* Páginas públicas sem layout/sidebar */}
+      <Route path="/LandingPage" element={<LandingPage />} />
+      <Route path="/PortalSelect" element={<PortalSelect />} />
+      <Route path="/ColaboradorPortal" element={<ColaboradorPortal />} />
+
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
           <MainPage />
