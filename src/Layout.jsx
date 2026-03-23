@@ -258,7 +258,7 @@ export default function Layout({ children, currentPageName }) {
       )}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className={`h-20 flex items-center justify-between px-6 border-b ${darkMode ? 'border-[#2d4a6f]' : 'border-slate-100'}`}>
+          <div className="h-20 flex items-center justify-between px-6 border-b border-slate-100 dark:border-slate-700">
             {!sidebarCollapsed && (
               <img 
                 src={darkMode 
@@ -274,14 +274,14 @@ export default function Layout({ children, currentPageName }) {
                 variant="ghost"
                 size="icon"
                 onClick={() => setDarkMode(!darkMode)}
-                className={`hidden lg:flex ${darkMode ? 'text-slate-200 hover:bg-[#2d4a6f]' : ''}`}
+                className="hidden lg:flex text-slate-600 dark:text-slate-200"
               >
                 {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </Button>
               <Button 
                 variant="ghost" 
                 size="icon"
-                className={`lg:hidden ${darkMode ? 'text-slate-200' : ''}`}
+                className="lg:hidden text-slate-600 dark:text-slate-200"
                 onClick={() => setSidebarOpen(false)}
               >
                 <X className="h-5 w-5" />
