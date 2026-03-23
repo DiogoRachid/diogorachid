@@ -251,8 +251,8 @@ export default function Layout({ children, currentPageName }) {
       {/* Sidebar */}
       <aside className={cn(
         "fixed top-0 left-0 h-full border-r z-50 transition-all duration-300",
-        sidebarCollapsed ? "w-20" : "w-80 sm:w-72",
-        darkMode ? "bg-gradient-to-b from-[#1e3a5f] to-[#0f172a] border-[#2d4a6f]" : "bg-white border-slate-200",
+        sidebarCollapsed ? "w-20" : "w-72",
+        "bg-white dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 border-slate-200 dark:border-slate-700",
         "lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
