@@ -118,12 +118,14 @@ export default function LandingPage() {
     base44.entities.CompanySettings.list().then(r => { if (r.length > 0) setCompanySettings(r[0]); });
   }, []);
 
-  const logoUrl = companySettings?.logo_url_clara || LOGO_CLARA;
+  const logoClara = companySettings?.logo_url_clara || LOGO_CLARA;
+  const logoEscura = companySettings?.logo_url_escura || LOGO_ESCURA;
   const nomeEmpresa = companySettings?.nome_empresa || 'Virtual Construções Civis';
   const emailEmpresa = companySettings?.email || 'contato@virtual.eng.br';
-  const telefone = companySettings?.telefone || '(43) 3000-0000';
-  const endereco = companySettings?.endereco || 'Londrina – PR';
+  const telefone = companySettings?.telefone || '(43) 3344-5387';
+  const endereco = companySettings?.endereco || 'Rua Maria Lúcia da Paz, 550 sl503 - Gleba Palhano - Londrina-PR';
   const site = companySettings?.site || 'www.virtual.eng.br';
+  const whatsappNum = telefone.replace(/\D/g, '');
 
   const scrollTo = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
