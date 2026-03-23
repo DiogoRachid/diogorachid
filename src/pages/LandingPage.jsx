@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import {
   HardHat, Building2, Award, Users, Phone, Mail, MapPin, Globe,
   ChevronDown, Menu, X, ArrowRight, CheckCircle2, Shield, BarChart3,
-  Wrench, TreePine, Landmark, FileText
+  Wrench, Home, Landmark, FileText
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
@@ -13,93 +13,93 @@ const LOGO_CLARA = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/p
 
 const servicos = [
   {
-    icon: Building2,
-    titulo: "Edificações Públicas",
-    desc: "Construção de escolas, hospitais, creches, fóruns, delegacias e demais equipamentos públicos com alto padrão técnico.",
+    icon: Home,
+    titulo: "Incorporação Residencial",
+    desc: "Desenvolvimento e construção de condomínios residenciais modernos em Londrina e região, com alto padrão de acabamento.",
     color: "bg-blue-50 text-blue-600"
   },
   {
-    icon: TreePine,
-    titulo: "Obras de Urbanização",
-    desc: "Praças, calçadões, parques urbanos e projetos de requalificação do espaço público com qualidade e durabilidade.",
+    icon: Building2,
+    titulo: "Edificações Comerciais",
+    desc: "Construção de edifícios comerciais, salas e escritórios, atendendo às necessidades do mercado corporativo londrinense.",
     color: "bg-emerald-50 text-emerald-600"
   },
   {
+    icon: Landmark,
+    titulo: "Obras Institucionais",
+    desc: "Execução de blocos e edificações para universidades, hospitais universitários e entidades públicas e privadas.",
+    color: "bg-violet-50 text-violet-600"
+  },
+  {
     icon: Wrench,
-    titulo: "Infraestrutura Viária",
-    desc: "Pavimentação, drenagem, obras de arte especiais e melhorias no sistema viário municipal e estadual.",
+    titulo: "Reforma e Requalificação",
+    desc: "Reformas e modernização de edificações existentes com qualidade técnica e conformidade com as normas vigentes.",
     color: "bg-orange-50 text-orange-600"
   },
   {
-    icon: Landmark,
-    titulo: "Obras de Saneamento",
-    desc: "Construção e ampliação de sistemas de abastecimento de água, esgotamento sanitário e resíduos sólidos.",
-    color: "bg-cyan-50 text-cyan-600"
-  },
-  {
     icon: HardHat,
-    titulo: "Reforma e Requalificação",
-    desc: "Restauração e modernização de edificações públicas, garantindo conformidade com normas técnicas vigentes.",
-    color: "bg-violet-50 text-violet-600"
+    titulo: "Gerenciamento de Obras",
+    desc: "Gestão técnica e administrativa de obras, desde a concepção do projeto até a entrega das chaves ao cliente.",
+    color: "bg-cyan-50 text-cyan-600"
   },
   {
     icon: FileText,
     titulo: "Projetos e Consultoria",
-    desc: "Elaboração de projetos executivos, laudos técnicos, ART e suporte em todas as fases de licitação e execução.",
+    desc: "Elaboração de projetos executivos, laudos técnicos, ART e suporte em todas as fases da construção.",
     color: "bg-rose-50 text-rose-600"
   }
 ];
 
 const obras = [
   {
-    nome: "UBS Bairro Nova Esperança",
-    local: "Mongaguá – SP",
-    tipo: "Unidade Básica de Saúde",
-    status: "Concluída",
-    img: "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=600&q=80"
+    nome: "Residencial Villaggio Arvoredo",
+    local: "Londrina – PR",
+    tipo: "Lançamento Residencial",
+    status: "Lançamento",
+    img: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&q=80"
   },
   {
-    nome: "Escola Municipal Integrada",
-    local: "Itanhaém – SP",
-    tipo: "Educação",
-    status: "Concluída",
+    nome: "Bloco de Salas de Aula CCS/UEL",
+    local: "Londrina – PR",
+    tipo: "Obra Institucional",
+    status: "Em Andamento",
     img: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&q=80"
   },
   {
-    nome: "Pavimentação Av. Principal",
-    local: "Praia Grande – SP",
-    tipo: "Infraestrutura Viária",
-    status: "Em Execução",
-    img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=80"
+    nome: "Hospital Universitário / HU",
+    local: "Londrina – PR",
+    tipo: "Obra Institucional",
+    status: "Entregue",
+    img: "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=600&q=80"
   },
   {
-    nome: "Praça de Convivência Central",
-    local: "Peruíbe – SP",
-    tipo: "Urbanização",
-    status: "Concluída",
-    img: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80"
+    nome: "Assoc. Odontológica do Norte PR",
+    local: "Londrina – PR",
+    tipo: "Obra Comercial / Institucional",
+    status: "Entregue",
+    img: "https://images.unsplash.com/photo-1524230572899-a752b3835840?w=600&q=80"
   },
   {
-    nome: "Ampliação Rede de Esgoto",
-    local: "São Vicente – SP",
-    tipo: "Saneamento",
-    status: "Em Licitação",
-    img: "https://images.unsplash.com/photo-1581094651181-35942459ef62?w=600&q=80"
+    nome: "Edifício Residencial Alto Padrão",
+    local: "Londrina – PR",
+    tipo: "Residencial",
+    status: "Entregue",
+    img: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80"
   },
   {
-    nome: "CRAS Comunidade Litoral",
-    local: "Cubatão – SP",
-    tipo: "Assistência Social",
-    status: "Concluída",
-    img: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&q=80"
+    nome: "Conjunto Comercial Centro",
+    local: "Londrina – PR",
+    tipo: "Comercial",
+    status: "Entregue",
+    img: "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=600&q=80"
   }
 ];
 
 const numeros = [
-  { valor: "15+", label: "Anos de Experiência" },
-  { valor: "80+", label: "Obras Entregues" },
-  { valor: "R$ 50M+", label: "Em Contratos" },
-  { valor: "100%", label: "Obras Públicas" }
+  { valor: "25+", label: "Anos de Experiência" },
+  { valor: "60+", label: "Obras Entregues" },
+  { valor: "Londrina", label: "Sede – PR" },
+  { valor: "100%", label: "Compromisso com Qualidade" }
 ];
 
 export default function LandingPage() {
@@ -120,8 +120,8 @@ export default function LandingPage() {
   const logoUrl = companySettings?.logo_url_clara || LOGO_CLARA;
   const nomeEmpresa = companySettings?.nome_empresa || 'Virtual Construções Civis';
   const emailEmpresa = companySettings?.email || 'contato@virtual.eng.br';
-  const telefone = companySettings?.telefone || '(13) 3421-1379';
-  const endereco = companySettings?.endereco || 'Mongaguá – SP';
+  const telefone = companySettings?.telefone || '(43) 3000-0000';
+  const endereco = companySettings?.endereco || 'Londrina – PR';
   const site = companySettings?.site || 'www.virtual.eng.br';
 
   const scrollTo = (id) => {
@@ -190,14 +190,14 @@ export default function LandingPage() {
         </div>
         <div className="relative text-center text-white px-4 max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-blue-600/30 border border-blue-400/40 rounded-full px-4 py-2 text-sm mb-6 backdrop-blur">
-            <Shield className="h-4 w-4" /> Especialistas em Obras Públicas
+            <HardHat className="h-4 w-4" /> Construção Civil em Londrina/PR
           </div>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6">
-            Construindo o Brasil<br />
-            <span className="text-blue-400">com Qualidade</span> e Transparência
+            Construindo Sonhos<br />
+            <span className="text-blue-400">com Qualidade</span> e Solidez
           </h1>
           <p className="text-lg sm:text-xl text-white/80 max-w-2xl mx-auto mb-10">
-            Mais de 15 anos executando obras públicas com excelência técnica, cumprimento de prazos e total conformidade com a legislação vigente.
+            Há mais de duas décadas, a Virtual Construções Civis desenvolve empreendimentos residenciais e institucionais em Londrina e região com excelência técnica e compromisso com o cliente.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={() => scrollTo('obras')}
@@ -236,23 +236,23 @@ export default function LandingPage() {
             <div>
               <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Sobre a Empresa</span>
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2 mb-6">
-                Tradição e Competência em Obras Públicas
+                Tradição e Competência em Construção Civil
               </h2>
               <p className="text-slate-600 leading-relaxed mb-4">
-                A <strong>Virtual Construções Civis Ltda</strong> é uma empresa especializada na execução de obras públicas, atuando há mais de 15 anos no mercado de construção civil. Sediada em Mongaguá/SP, atende municípios e órgãos estaduais na Baixada Santista e região.
+                A <strong>Virtual Construções Civis Ltda</strong> é uma construtora e incorporadora sediada em <strong>Londrina/PR</strong>, com vasta experiência em empreendimentos residenciais, comerciais e obras institucionais.
               </p>
               <p className="text-slate-600 leading-relaxed mb-4">
-                Nossa trajetória foi construída com base na seriedade, qualidade técnica e respeito às normas legais. Participamos ativamente de licitações públicas, garantindo a entrega de obras dentro do prazo e do orçamento contratado.
+                Ao longo de nossa trajetória, construímos condomínios residenciais de alto padrão, blocos acadêmicos para a UEL, instalações hospitalares e edifícios para entidades profissionais do Norte do Paraná.
               </p>
               <p className="text-slate-600 leading-relaxed mb-6">
-                Contamos com equipe técnica qualificada, maquinário próprio e processos de gestão modernos — incluindo sistema ERP proprietário para controle total das obras, orçamentos, planejamento e pessoal.
+                Contamos com equipe técnica qualificada, maquinário próprio e processos de gestão modernos — incluindo sistema ERP proprietário para controle total das obras, orçamentos, planejamento e equipes.
               </p>
               <div className="space-y-3">
                 {[
                   "CNPJ regularizado e certidões em dia",
-                  "Registro no CREA e demais conselhos competentes",
+                  "Registro no CREA/PR e demais conselhos competentes",
                   "Capacidade técnica e financeira comprovada",
-                  "Equipe multidisciplinar de engenheiros e técnicos"
+                  "Equipe de engenheiros e técnicos especializados"
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-blue-600 flex-shrink-0" />
@@ -268,8 +268,8 @@ export default function LandingPage() {
                 className="rounded-2xl shadow-2xl w-full object-cover h-96"
               />
               <div className="absolute -bottom-6 -left-6 bg-blue-600 text-white rounded-2xl p-6 shadow-xl">
-                <div className="text-3xl font-bold">2008</div>
-                <div className="text-blue-200 text-sm">Fundação da empresa</div>
+                <div className="text-3xl font-bold">Londrina</div>
+                <div className="text-blue-200 text-sm">Sede – Paraná</div>
               </div>
             </div>
           </div>
@@ -282,7 +282,7 @@ export default function LandingPage() {
           <div className="text-center mb-14">
             <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">O Que Fazemos</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2">Serviços Especializados</h2>
-            <p className="text-slate-500 mt-4 max-w-xl mx-auto">Atuamos exclusivamente em obras públicas, garantindo conformidade técnica, legal e orçamentária em cada projeto.</p>
+            <p className="text-slate-500 mt-4 max-w-xl mx-auto">Atuamos em incorporação residencial, obras institucionais e comerciais, sempre com rigor técnico e comprometimento com prazos.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {servicos.map((s, i) => (
@@ -304,14 +304,18 @@ export default function LandingPage() {
           <div className="text-center mb-14">
             <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Portfólio</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2">Obras Realizadas</h2>
-            <p className="text-slate-500 mt-4 max-w-xl mx-auto">Uma seleção de projetos que demonstram nossa capacidade técnica e compromisso com a qualidade.</p>
+            <p className="text-slate-500 mt-4 max-w-xl mx-auto">Uma seleção de projetos que demonstram nossa capacidade técnica e compromisso com a qualidade em Londrina e região.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {obras.map((o, i) => (
               <div key={i} className="rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow border border-slate-100 group">
                 <div className="relative overflow-hidden h-48">
                   <img src={o.img} alt={o.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  <div className={`absolute top-3 right-3 text-xs font-semibold px-3 py-1 rounded-full ${o.status === 'Concluída' ? 'bg-emerald-500 text-white' : o.status === 'Em Execução' ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white'}`}>
+                  <div className={`absolute top-3 right-3 text-xs font-semibold px-3 py-1 rounded-full ${
+                    o.status === 'Entregue' ? 'bg-emerald-500 text-white'
+                    : o.status === 'Em Andamento' ? 'bg-amber-500 text-white'
+                    : 'bg-blue-500 text-white'
+                  }`}>
                     {o.status}
                   </div>
                 </div>
