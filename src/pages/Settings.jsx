@@ -414,6 +414,7 @@ export default function Settings() {
                         <TableHead>Email</TableHead>
                         <TableHead>Permissão Atual</TableHead>
                         <TableHead>Alterar Para</TableHead>
+                      <TableHead>Portal / Módulos</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -441,6 +442,15 @@ export default function Settings() {
                                 <SelectItem value="director">Diretoria</SelectItem>
                               </SelectContent>
                             </Select>
+                          </TableCell>
+                          <TableCell>
+                            <button
+                              onClick={() => setModulesDialogUser(user)}
+                              className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              <HardHat className="h-4 w-4" />
+                              {user.tipo_portal === 'colaborador' ? `Colaborador (${(user.modulos_habilitados || []).length} módulos)` : 'Administrador'}
+                            </button>
                           </TableCell>
                         </TableRow>
                       ))}
