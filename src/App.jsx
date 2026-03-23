@@ -12,6 +12,8 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import LandingPage from './pages/LandingPage';
 import PortalSelect from './pages/PortalSelect';
 import ColaboradorPortal from './pages/ColaboradorPortal';
+import AdminLogin from './pages/AdminLogin';
+import ColaboradorLogin from './pages/ColaboradorLogin';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -50,6 +52,8 @@ const AuthenticatedApp = () => {
       {/* Páginas públicas sem layout/sidebar */}
       <Route path="/LandingPage" element={<LandingPage />} />
       <Route path="/PortalSelect" element={<PortalSelect />} />
+      <Route path="/AdminLogin" element={<AdminLogin />} />
+      <Route path="/ColaboradorLogin" element={<ColaboradorLogin />} />
       <Route path="/ColaboradorPortal" element={<ColaboradorPortal />} />
 
       <Route path="/" element={<LandingPage />} />
