@@ -272,12 +272,18 @@ export default function TimeSheet() {
                   <tbody>
                     {days.map(day => {
                       const falta = isFalta(day);
+                      const atestado = isAtestado(day);
+                      const ocorrencia = getTipoOcorrencia(day);
                       const entrada = getFieldValue(day, 'entrada');
                       const saida = getFieldValue(day, 'saida');
                       const sa = getFieldValue(day, 'saida_almoco');
                       const ra = getFieldValue(day, 'retorno_almoco');
-                      const horas = calcHoras(entrada, saida, sa, ra);
-                      const rowClass = day.isWeekend ? 'bg-slate-100 text-slate-400' : falta ? 'bg-red-50' : '';
+                      const horas = ocorrencia ? 0 : calcHoras(entrada, saida, sa, ra);
+                      const rowClass = day.isWeekend
+                        ? 'bg-slate-100 text-slate-400'
+                        : atestado ? 'bg-yellow-50'
+                        : falta ? 'bg-red-50'
+                        : '';
 
                       return (
                         <tr key={day.date} className={rowClass}>
@@ -291,23 +297,38 @@ export default function TimeSheet() {
                                 <td key={field} className="px-1 py-1 border">
                                   <Input
                                     type="time"
-                                    value={getFieldValue(day, field)}
+                                    value={ocorrencia ? '' : getFieldValue(day, field)}
                                     onChange={e => setField(day.date, field, e.target.value)}
-                                    className="h-6 text-xs px-1 w-full border-0 bg-transparent focus:bg-white focus:border focus:rounded"
+                                    disabled={!!ocorrencia}
+                                    className="h-6 text-xs px-1 w-full border-0 bg-transparent focus:bg-white focus:border focus:rounded disabled:opacity-30"
                                   />
                                 </td>
                               ))}
-                              <td className={`px-2 py-1 border text-center font-medium ${falta ? 'text-red-600 font-bold' : ''}`}>
-                                {falta ? 'FALTA' : horas > 0 ? `${horas.toFixed(1)}h` : '-'}
+                              <td className={`px-2 py-1 border text-center font-medium text-xs ${falta ? 'text-red-600 font-bold' : atestado ? 'text-yellow-700 font-bold' : ''}`}>
+                                {atestado ? 'ATESTADO' : falta ? 'FALTA' : horas > 0 ? `${horas.toFixed(1)}h` : '-'}
                               </td>
                             </>
                           )}
+                          {/* Ocorrência */}
+                          <td className="px-1 py-1 border text-center">
+                            {!day.isWeekend && (
+                              <select
+                                value={ocorrencia}
+                                onChange={e => setField(day.date, 'ocorrencia', e.target.value)}
+                                className="text-xs w-full border-0 bg-transparent focus:bg-white rounded h-6 cursor-pointer"
+                              >
+                                <option value="">—</option>
+                                <option value="falta">Falta</option>
+                                <option value="atestado">Atestado</option>
+                              </select>
+                            )}
+                          </td>
                           <td className="px-1 py-1 border">
                             <Input
                               value={getFieldValue(day, 'observacoes')}
                               onChange={e => setField(day.date, 'observacoes', e.target.value)}
                               className="h-6 text-xs px-1 w-full border-0 bg-transparent focus:bg-white focus:border focus:rounded"
-                              placeholder={falta && !day.isWeekend ? 'Motivo...' : ''}
+                              placeholder={falta && !day.isWeekend ? 'Motivo...' : atestado ? 'CID/médico...' : ''}
                             />
                           </td>
                         </tr>
