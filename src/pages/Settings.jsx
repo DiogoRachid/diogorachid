@@ -329,7 +329,11 @@ export default function Settings() {
                     </div>
                     <div>
                       <Label>Telefone</Label>
-                      <Input value={companyData.telefone} onChange={(e) => setCompanyData(prev => ({ ...prev, telefone: e.target.value }))} placeholder="(00) 00000-0000" className="mt-1.5" />
+                      <Input value={companyData.telefone} onChange={(e) => setCompanyData(prev => ({ ...prev, telefone: e.target.value }))} placeholder="(43) 99999-9999" className="mt-1.5" />
+                    </div>
+                    <div>
+                      <Label>WhatsApp</Label>
+                      <Input value={companyData.whatsapp} onChange={(e) => setCompanyData(prev => ({ ...prev, whatsapp: e.target.value }))} placeholder="(43) 99999-9999" className="mt-1.5" />
                     </div>
                     <div>
                       <Label>E-mail</Label>
