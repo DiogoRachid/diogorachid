@@ -375,6 +375,123 @@ export default function Settings() {
           </TabsContent>
         )}
 
+        {/* ABA SITE */}
+        {isAdmin && (
+          <TabsContent value="site">
+            <div className="space-y-6">
+
+              {/* Hero */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2"><Globe className="h-5 w-5" /> Seção Hero (Topo do Site)</CardTitle>
+                  <CardDescription>Imagem de fundo, título e subtítulo principais</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Título Principal</Label>
+                    <Input value={companyData.site_hero_titulo} onChange={e => setCompanyData(p => ({ ...p, site_hero_titulo: e.target.value }))} placeholder="Construindo o Brasil com Qualidade e Transparência" className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label>Subtítulo / Descrição</Label>
+                    <Textarea value={companyData.site_hero_subtitulo} onChange={e => setCompanyData(p => ({ ...p, site_hero_subtitulo: e.target.value }))} placeholder="Há mais de duas décadas..." className="mt-1.5 min-h-[80px]" />
+                  </div>
+                  <div>
+                    <Label>URL da Imagem de Fundo</Label>
+                    <Input value={companyData.site_hero_imagem} onChange={e => setCompanyData(p => ({ ...p, site_hero_imagem: e.target.value }))} placeholder="https://..." className="mt-1.5" />
+                    {companyData.site_hero_imagem && (
+                      <img src={companyData.site_hero_imagem} alt="Hero preview" className="mt-2 h-32 w-full object-cover rounded-lg" />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Números */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2"><Hash className="h-5 w-5" /> Números em Destaque</CardTitle>
+                  <CardDescription>Faixa azul com os números da empresa</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label>Anos de Experiência</Label>
+                      <Input value={companyData.site_numeros_anos} onChange={e => setCompanyData(p => ({ ...p, site_numeros_anos: e.target.value }))} placeholder="25+" className="mt-1.5" />
+                    </div>
+                    <div>
+                      <Label>Obras Entregues</Label>
+                      <Input value={companyData.site_numeros_obras} onChange={e => setCompanyData(p => ({ ...p, site_numeros_obras: e.target.value }))} placeholder="60+" className="mt-1.5" />
+                    </div>
+                    <div>
+                      <Label>Sede / Localização</Label>
+                      <Input value={companyData.site_numeros_sede} onChange={e => setCompanyData(p => ({ ...p, site_numeros_sede: e.target.value }))} placeholder="Londrina/PR" className="mt-1.5" />
+                    </div>
+                    <div>
+                      <Label>Tipo de Obra</Label>
+                      <Input value={companyData.site_numeros_tipo} onChange={e => setCompanyData(p => ({ ...p, site_numeros_tipo: e.target.value }))} placeholder="100% Obras Públicas" className="mt-1.5" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Sobre */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2"><Building2 className="h-5 w-5" /> Seção Sobre</CardTitle>
+                  <CardDescription>Texto e imagem da seção "Sobre a Empresa"</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Título da Seção</Label>
+                    <Input value={companyData.site_sobre_titulo} onChange={e => setCompanyData(p => ({ ...p, site_sobre_titulo: e.target.value }))} placeholder="Tradição e Competência em Obras Públicas" className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label>Parágrafo 1</Label>
+                    <Textarea value={companyData.site_sobre_texto1} onChange={e => setCompanyData(p => ({ ...p, site_sobre_texto1: e.target.value }))} className="mt-1.5 min-h-[80px]" />
+                  </div>
+                  <div>
+                    <Label>Parágrafo 2</Label>
+                    <Textarea value={companyData.site_sobre_texto2} onChange={e => setCompanyData(p => ({ ...p, site_sobre_texto2: e.target.value }))} className="mt-1.5 min-h-[80px]" />
+                  </div>
+                  <div>
+                    <Label>Parágrafo 3</Label>
+                    <Textarea value={companyData.site_sobre_texto3} onChange={e => setCompanyData(p => ({ ...p, site_sobre_texto3: e.target.value }))} className="mt-1.5 min-h-[80px]" />
+                  </div>
+                  <div>
+                    <Label>URL da Imagem da Seção</Label>
+                    <Input value={companyData.site_sobre_imagem} onChange={e => setCompanyData(p => ({ ...p, site_sobre_imagem: e.target.value }))} placeholder="https://..." className="mt-1.5" />
+                    {companyData.site_sobre_imagem && (
+                      <img src={companyData.site_sobre_imagem} alt="Sobre preview" className="mt-2 h-32 w-full object-cover rounded-lg" />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* CTA Sistema */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2"><Shield className="h-5 w-5" /> Bloco CTA — Sistema ERP</CardTitle>
+                  <CardDescription>Seção azul que convida a acessar o sistema</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Título</Label>
+                    <Input value={companyData.site_cta_titulo} onChange={e => setCompanyData(p => ({ ...p, site_cta_titulo: e.target.value }))} placeholder="Sistema de Gestão de Obras" className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label>Texto</Label>
+                    <Textarea value={companyData.site_cta_texto} onChange={e => setCompanyData(p => ({ ...p, site_cta_texto: e.target.value }))} className="mt-1.5 min-h-[80px]" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Button onClick={() => saveCompanyMutation.mutate(companyData)} disabled={saveCompanyMutation.isPending} className="bg-blue-600 hover:bg-blue-700">
+                {saveCompanyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                Salvar Configurações do Site
+              </Button>
+            </div>
+          </TabsContent>
+        )}
+
         {/* ABA PERFIL */}
         <TabsContent value="profile">
           <Card>
