@@ -179,7 +179,7 @@ export default function DiarioObraPage() {
   const handleExportSingle = async (e, diario) => {
     e.stopPropagation();
     setExporting(`single-${diario.id}`);
-    await exportDiarioPDF(diario, cs, currentUser, logoBase64);
+    await exportDiarioPDF(diario, cs, currentUser, cs?.logo_url_clara);
     setExporting(null);
   };
 
@@ -188,7 +188,7 @@ export default function DiarioObraPage() {
     if (!selecionados.length) return;
     setExporting('lote');
     selecionados.sort((a, b) => a.data.localeCompare(b.data));
-    await exportDiariosLotePDF(selecionados, cs, currentUser, logoBase64);
+    await exportDiariosLotePDF(selecionados, cs, currentUser, cs?.logo_url_clara);
     setExporting(null);
   };
 
