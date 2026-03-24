@@ -155,6 +155,7 @@ export default function ImportInvoiceMappingPage() {
               <CardContent>
                 <InvoiceItemMapper 
                   invoiceItemId={item.id}
+                  inputsList={inputs}
                   onLinked={() => {
                     // Recarregar items após vincular
                     base44.entities.InvoiceItem.filter({ nota_fiscal_id: invoiceId }).then(items => {
