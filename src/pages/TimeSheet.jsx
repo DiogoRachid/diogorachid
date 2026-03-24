@@ -221,7 +221,7 @@ export default function TimeSheet() {
           {selectedEmployee && (
             <>
               <Button variant="outline" onClick={handlePrint}><Printer className="h-4 w-4 mr-2" />Imprimir</Button>
-              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || Object.keys(editedRecords).length === 0}>
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                 <Save className="h-4 w-4 mr-2" />{saveMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
             </>
