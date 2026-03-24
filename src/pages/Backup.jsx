@@ -13,6 +13,7 @@ const MODULES = [
   { key: 'TimeRecord',          label: 'Frequência',              group: 'RH' },
   { key: 'Team',                label: 'Equipes',                 group: 'RH' },
   { key: 'Benefit',             label: 'Benefícios',              group: 'RH' },
+  { key: 'EmployeeBenefit',     label: 'Benefícios por Colaborador', group: 'RH' },
 
   { key: 'Project',             label: 'Obras',                   group: 'Obras' },
   { key: 'Budget',              label: 'Orçamentos',              group: 'Obras' },
@@ -21,6 +22,7 @@ const MODULES = [
   { key: 'ProjectStage',        label: 'Etapas do Projeto',       group: 'Obras' },
   { key: 'Measurement',         label: 'Medições',                group: 'Obras' },
   { key: 'MeasurementItem',     label: 'Itens de Medição',        group: 'Obras' },
+  { key: 'DiarioObra',          label: 'Diário de Obra',          group: 'Obras' },
 
   { key: 'Supplier',            label: 'Fornecedores',            group: 'Cadastros' },
   { key: 'Client',              label: 'Clientes',                group: 'Cadastros' },
@@ -34,13 +36,20 @@ const MODULES = [
   { key: 'Transaction',         label: 'Transações',              group: 'Financeiro' },
   { key: 'BankAccount',         label: 'Contas Bancárias',        group: 'Financeiro' },
   { key: 'Invoice',             label: 'Notas Fiscais',           group: 'Financeiro' },
+  { key: 'InvoiceItem',         label: 'Itens de Nota Fiscal',    group: 'Financeiro' },
 
   { key: 'Investment',          label: 'Investimentos',           group: 'Investimentos' },
   { key: 'InvestmentTransaction', label: 'Transações de Investimento', group: 'Investimentos' },
+  { key: 'InvestmentHistory',   label: 'Histórico de Investimentos', group: 'Investimentos' },
+  { key: 'EconomicIndicators',  label: 'Indicadores Econômicos',  group: 'Investimentos' },
 
   { key: 'MaterialRequisition', label: 'Pedidos de Material',     group: 'Compras' },
   { key: 'MaterialRequisitionItem', label: 'Itens de Pedido',     group: 'Compras' },
   { key: 'InputPurchaseHistory', label: 'Histórico de Compras',   group: 'Compras' },
+
+  { key: 'CompanySettings',     label: 'Configurações da Empresa', group: 'Sistema' },
+  { key: 'VersionHistory',      label: 'Histórico de Versões',    group: 'Sistema' },
+  { key: 'ServiceMonthlyDistribution', label: 'Distribuição Mensal de Serviços', group: 'Sistema' },
 ];
 
 const GROUPS = [...new Set(MODULES.map(m => m.group))];
