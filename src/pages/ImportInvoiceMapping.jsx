@@ -26,7 +26,9 @@ export default function ImportInvoiceMappingPage() {
       try {
         setLoading(true);
         setError(null);
-        const inv = await base44.entities.Invoice.read(invoiceId);
+        const invoices = await base44.entities.Invoice.filter({ id: invoiceId });
+        const inv = invoices[0];
+        if (!inv) throw new Error('Nota fiscal não encontrada');
         const items = await base44.entities.InvoiceItem.filter({ nota_fiscal_id: invoiceId });
         setInvoice(inv);
         setInvoiceItems(items);
