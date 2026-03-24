@@ -65,6 +65,7 @@ const AuthenticatedApp = () => {
       <Route path="/Settings" element={<ProtectedAdminRoute><LayoutWrapper currentPageName="Settings"><Settings /></LayoutWrapper></ProtectedAdminRoute>} />
       <Route path="/DiarioObra" element={<ProtectedAdminRoute><LayoutWrapper currentPageName="DiarioObra"><DiarioObra /></LayoutWrapper></ProtectedAdminRoute>} />
       <Route path="/InvoicePayableConfig" element={<ProtectedAdminRoute><LayoutWrapper currentPageName="InvoicePayableConfig"><InvoicePayableConfig /></LayoutWrapper></ProtectedAdminRoute>} />
+      <Route path="/InputPriceVariationReport" element={<ProtectedAdminRoute><LayoutWrapper currentPageName="InputPriceVariationReport"><InputPriceVariationReport /></LayoutWrapper></ProtectedAdminRoute>} />
 
       <Route path="/" element={<LandingPage />} />
       {Object.entries(Pages).map(([path, Page]) => (
