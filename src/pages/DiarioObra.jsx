@@ -157,7 +157,7 @@ export default function DiarioObraPage() {
   const handleExportSingle = async (e, diario) => {
     e.stopPropagation();
     setExporting(`single-${diario.id}`);
-    await exportDiarioPDF(diario, cs, currentUser, cs?.logo_url_clara);
+    await exportDiarioPDF(diario, cs, currentUser);
     setExporting(null);
   };
 
