@@ -260,6 +260,7 @@ export default function PortalUsersConfig() {
         title="Cadastro de Colaboradores"
         description="Usuários com acesso restrito ao Portal Colaborador"
         showCargo={true}
+        showModulos={true}
         emptyData={EMPTY_COLAB}
       />
     </div>
