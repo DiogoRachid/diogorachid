@@ -225,13 +225,27 @@ export default function Benefits() {
               </Select>
             </div>
             <div>
-              <Label>Valor</Label>
+              <Label>Valor Mensal</Label>
               <Input
                 type="number"
                 step="0.01"
                 value={formData.valor}
                 onChange={(e) => setFormData(prev => ({ ...prev, valor: e.target.value }))}
               />
+            </div>
+            <div>
+              <Label>Regra de Cálculo</Label>
+              <Select value={formData.regra_calculo || 'fixo'} onValueChange={(v) => setFormData(prev => ({ ...prev, regra_calculo: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixo">Fixo — valor cheio sempre</SelectItem>
+                  <SelectItem value="proporcional_faltas">Proporcional — desconta faltas (base 30 dias)</SelectItem>
+                  <SelectItem value="por_dias_uteis">Por presença — dias com registro no mês</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-400 mt-1">
+                Vale Compras → Proporcional. Café da Manhã → Por presença.
+              </p>
             </div>
             <div>
               <Label>Status</Label>
