@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Zap, Loader2 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 import InvoiceItemMapper from '@/components/invoice/InvoiceItemMapper';
 import { Button } from "@/components/ui/button";
@@ -12,20 +12,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function ImportInvoiceMappingPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [processStep, setProcessStep] = useState(0);
+  
+  const [invoice, setInvoice] = useState(null);
+  const [invoiceItems, setInvoiceItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const params = new URLSearchParams(window.location.search);
   const invoiceId = params.get('id');
 
-  const { data: invoice } = useQuery({
-    queryKey: ['invoice', invoiceId],
-    queryFn: () => base44.entities.Invoice.read(invoiceId)
-  });
-
-  const { data: invoiceItems = [] } = useQuery({
-    queryKey: ['invoiceItems', invoiceId],
-    queryFn: () => base44.entities.InvoiceItem.filter({ nota_fiscal_id: invoiceId })
-  });
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const inv = await base44.entities.Invoice.read(invoiceId);
+        const items = await base44.entities.InvoiceItem.filter({ nota_fiscal_id: invoiceId });
+        setInvoice(inv);
+        setInvoiceItems(items);
+      } catch (err) {
+        setError(err.message || 'Erro ao carregar dados');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (invoiceId) loadData();
+  }, [invoiceId]);
 
   const unmappedItems = invoiceItems.filter(item => item.status_mapeamento !== 'mapeado');
 
