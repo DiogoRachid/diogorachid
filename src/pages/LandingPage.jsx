@@ -279,7 +279,7 @@ export default function LandingPage() {
             </div>
             <div className="relative">
               <img
-                src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=700&q=80"
+                src={sobreImagem}
                 alt="Obras"
                 className="rounded-2xl shadow-2xl w-full object-cover h-96" />
               
