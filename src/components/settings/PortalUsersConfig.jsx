@@ -66,7 +66,7 @@ function ModulosSelector({ modulos, onChange }) {
 }
 
 const EMPTY_ADMIN = { nome_completo: '', email: '', cpf: '', senha: '', status: 'ativo' };
-const EMPTY_COLAB = { nome_completo: '', email: '', cpf: '', cargo: '', senha: '', status: 'ativo' };
+const EMPTY_COLAB = { nome_completo: '', email: '', cpf: '', cargo: '', senha: '', status: 'ativo', modulos_habilitados: [] };
 
 function UserForm({ data, onChange, showCargo }) {
   const [showSenha, setShowSenha] = useState(false);
