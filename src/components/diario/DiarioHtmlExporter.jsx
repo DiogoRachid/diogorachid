@@ -50,18 +50,18 @@ function generateDiarioHtml(diario, companySettings, preenchidoPor, logoUrl) {
   <title>Diário de Obra - ${diario.obra_nome} - ${formatDate(diario.data)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; background: #f5f5f5; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; background: #f5f5f5; zoom: 120%; }
     .page { 
       width: 210mm; 
       height: 297mm; 
-      margin: 20px auto; 
-      padding: 20mm; 
+      margin: 10px auto; 
+      padding: 10mm; 
       background: white; 
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     @media print {
-      body { background: none; }
-      .page { width: 100%; height: 100%; margin: 0; padding: 20mm; box-shadow: none; page-break-after: always; }
+      body { background: none; zoom: 100%; }
+      .page { width: 210mm; height: 297mm; margin: 0; padding: 10mm; box-shadow: none; page-break-after: always; }
     }
 
     /* Header */
