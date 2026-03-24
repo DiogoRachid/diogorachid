@@ -45,7 +45,7 @@ const servicosDefault = [
 }];
 
 
-const obras = [
+const obrasDefault = [
 {
   nome: "Hospital Universitário (HU/UEL)",
   local: "Londrina – PR",
