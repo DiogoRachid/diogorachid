@@ -396,7 +396,7 @@ export default function LandingPage() {
                 <MessageCircle className="h-6 w-6 text-green-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-1">WhatsApp</h3>
-              <p className="text-green-600 text-sm">{telefone}</p>
+              <p className="text-green-600 text-sm">{whatsappRaw}</p>
             </a>
             <div className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center border border-slate-100">
               <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
