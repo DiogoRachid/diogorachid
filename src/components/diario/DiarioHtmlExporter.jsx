@@ -283,8 +283,8 @@ function generateDiarioHtml(diario, companySettings, preenchidoPor) {
   `;
 }
 
-export async function exportDiarioPDF(diario, companySettings, preenchidoPor, logoUrl) {
-  const html = generateDiarioHtml(diario, companySettings, preenchidoPor, logoUrl);
+export async function exportDiarioPDF(diario, companySettings, preenchidoPor) {
+  const html = generateDiarioHtml(diario, companySettings, preenchidoPor);
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const win = window.open(url, '_blank');
