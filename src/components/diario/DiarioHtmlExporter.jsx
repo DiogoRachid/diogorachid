@@ -75,7 +75,7 @@ function generateDiarioHtml(diario, companySettings, preenchidoPor) {
       border-bottom: 2px solid #1450a0;
       padding-bottom: 8px;
     }
-    .logo { height: 30px; object-fit: contain; max-width: 80px; }
+    .logo { height: 60px; object-fit: contain; max-width: 160px; }
     .header-text h1 { font-size: 18px; color: #1450a0; font-weight: bold; }
     .header-text p { font-size: 11px; color: #666; margin-top: 2px; }
 
