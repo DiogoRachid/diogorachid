@@ -58,7 +58,38 @@ export default function ImportInvoiceMappingPage() {
     }
   });
 
-  if (!invoice) return <div>Carregando...</div>;
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-slate-600">Carregando dados da nota fiscal...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !invoice) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
+          <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-red-900">
+            <p className="font-medium">Erro ao carregar</p>
+            <p>{error || 'Nota fiscal não encontrada'}</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate(createPageUrl('ImportInvoice'))}
+              className="mt-3"
+            >
+              Voltar à Importação
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
