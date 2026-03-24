@@ -221,6 +221,15 @@ function UserTable({ entity, title, description, showCargo, emptyData, showModul
           {dialog && (
             <div className="space-y-4">
               <UserForm data={dialog.data} onChange={handleChange} showCargo={showCargo} />
+              {showModulos && (
+                <div>
+                  <Label className="mb-2 block">Módulos com Acesso <span className="text-slate-400 font-normal">({(dialog.data.modulos_habilitados || []).length} selecionados)</span></Label>
+                  <ModulosSelector
+                    modulos={dialog.data.modulos_habilitados || []}
+                    onChange={val => handleChange('modulos_habilitados', val)}
+                  />
+                </div>
+              )}
               <div className="flex gap-2 justify-end pt-2">
                 <Button variant="outline" onClick={() => setDialog(null)}>Cancelar</Button>
                 <Button onClick={handleSave} disabled={saveMutation.isPending} className="bg-blue-600 hover:bg-blue-700">
