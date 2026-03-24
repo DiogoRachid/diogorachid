@@ -181,7 +181,7 @@ function generateDiarioHtml(diario, companySettings, preenchidoPor, logoUrl) {
   <div class="page">
     <!-- Header -->
     <div class="header">
-      ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" crossOrigin="anonymous">` : ''}
+      ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo">` : ''}
       <div class="header-text">
         <h1>${nomEmpresa}</h1>
         <p>DIÁRIO DE OBRA</p>
