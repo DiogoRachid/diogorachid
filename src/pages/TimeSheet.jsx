@@ -119,7 +119,7 @@ export default function TimeSheet() {
         const obs = getFieldValue(day, 'observacoes');
 
         // Só salva se tiver alguma edição neste dia
-        const hasEdits = ['entrada','saida','saida_almoco','retorno_almoco','observacoes'].some(
+        const hasEdits = ['entrada','saida','saida_almoco','retorno_almoco','observacoes','ocorrencia'].some(
           f => editedRecords[`${day.date}_${f}`] !== undefined
         );
         if (!hasEdits) continue;
