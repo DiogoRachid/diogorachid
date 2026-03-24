@@ -410,7 +410,6 @@ export default function DiarioObraPage() {
   // ── FORMULÁRIO ──
   return (
     <div className="max-w-4xl mx-auto">
-      {logoUrl && <img ref={logoRef} src={logoUrl} alt="" crossOrigin="anonymous" style={{ display: 'none' }} />}
       <div className="flex items-center gap-3 mb-6">
         <Button variant="ghost" size="icon" onClick={() => { setView('list'); setEditingId(null); setForm(EMPTY_DIARIO); }}>
           <ChevronLeft className="h-5 w-5" />
