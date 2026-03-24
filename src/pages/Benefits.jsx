@@ -61,6 +61,7 @@ export default function Benefits() {
     nome: '',
     tipo: 'outro',
     valor: '',
+    regra_calculo: 'fixo',
     descricao: '',
     status: 'ativo'
   });
