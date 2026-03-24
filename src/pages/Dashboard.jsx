@@ -18,7 +18,8 @@ import {
   Receipt,
   Bell,
   FileSignature,
-  Palmtree
+  Palmtree,
+  Clock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
