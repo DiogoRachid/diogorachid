@@ -96,7 +96,7 @@ const obras = [
 }];
 
 
-const numeros = [
+const numerosDefault = [
 { valor: "25+", label: "Anos de Experiência" },
 { valor: "60+", label: "Obras Entregues" },
 { valor: "Londrina/PR", label: "Sede" },
