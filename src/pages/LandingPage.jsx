@@ -352,10 +352,8 @@ export default function LandingPage() {
       <section className="py-20 px-4 bg-gradient-to-br from-blue-700 to-blue-900 text-white">
         <div className="max-w-4xl mx-auto text-center">
           <BarChart3 className="h-12 w-12 mx-auto mb-4 text-blue-300" />
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">Sistema de Gestão de Obras</h2>
-          <p className="text-blue-200 text-lg mb-8 max-w-2xl mx-auto">
-            Acesse nosso ERP interno para gerenciar orçamentos, planejamento, medições, financeiro, RH e muito mais — tudo em um só lugar.
-          </p>
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">{ctaTitulo}</h2>
+          <p className="text-blue-200 text-lg mb-8 max-w-2xl mx-auto">{ctaTexto}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to={createPageUrl('PortalSelect')}>
               <Button className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-8 py-3 h-auto rounded-full text-base">
