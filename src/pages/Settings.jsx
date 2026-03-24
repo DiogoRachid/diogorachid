@@ -71,20 +71,24 @@ export default function Settings() {
   const [modulesDialogUser, setModulesDialogUser] = useState(null);
   const queryClient = useQueryClient();
 
+  // Detecta se está logado pelo portal admin
+  const portalAdminSession = (() => {
+    try { return JSON.parse(sessionStorage.getItem('portal_admin_auth')); } catch { return null; }
+  })();
+  const isPortalAdmin = !!portalAdminSession;
+
   useEffect(() => {
     const loadUser = async () => {
-      // Tenta pegar o usuário da plataforma Base44
+      // Se veio pelo portal admin, usa a sessão do sessionStorage
+      if (isPortalAdmin) {
+        setCurrentUser({ ...portalAdminSession, full_name: portalAdminSession.nome, permissao_financeiro: 'admin', role: 'admin' });
+        return;
+      }
+      // Senão, usa o usuário da plataforma Base44
       try {
         const user = await base44.auth.me();
-        if (user) { setCurrentUser(user); return; }
+        if (user) setCurrentUser(user);
       } catch (_) {}
-      // Fallback: usuário do portal admin (sessionStorage)
-      const session = sessionStorage.getItem('portal_admin_auth');
-      if (session) {
-        const adminData = JSON.parse(session);
-        // Trata como admin completo
-        setCurrentUser({ ...adminData, full_name: adminData.nome, permissao_financeiro: 'admin', role: 'admin' });
-      }
     };
     loadUser();
   }, []);
