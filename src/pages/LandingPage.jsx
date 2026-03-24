@@ -123,9 +123,29 @@ export default function LandingPage() {
   const nomeEmpresa = companySettings?.nome_empresa || 'Virtual Construções Civis';
   const emailEmpresa = companySettings?.email || 'contato@virtual.eng.br';
   const telefone = companySettings?.telefone || '(43) 3344-5387';
+  const whatsappRaw = companySettings?.whatsapp || telefone;
+  const whatsappNum = whatsappRaw.replace(/\D/g, '');
   const endereco = companySettings?.endereco || 'Rua Maria Lúcia da Paz, 550 sl503 - Gleba Palhano - Londrina-PR';
-  const site = companySettings?.site || 'www.virtual.eng.br';
-  const whatsappNum = telefone.replace(/\D/g, '');
+
+  const heroTitulo = companySettings?.site_hero_titulo || 'Construindo o Brasil\ncom Qualidade e Transparência';
+  const heroSubtitulo = companySettings?.site_hero_subtitulo || 'Há mais de duas décadas, a Virtual Construções Civis executa obras públicas em Londrina e região — universidades, hospitais, infraestrutura e equipamentos urbanos — com excelência técnica e total conformidade legal.';
+  const heroImagem = companySettings?.site_hero_imagem || 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1600&q=85';
+
+  const sobreTitulo = companySettings?.site_sobre_titulo || 'Tradição e Competência em Obras Públicas';
+  const sobreTexto1 = companySettings?.site_sobre_texto1 || `A <strong>Virtual Construções Civis Ltda</strong> é uma empresa especializada na execução de <strong>obras públicas</strong>, sediada em <strong>Londrina/PR</strong>, com mais de 25 anos de atuação no mercado de construção civil.`;
+  const sobreTexto2 = companySettings?.site_sobre_texto2 || `Nossa trajetória foi construída atendendo órgãos públicos — como a <strong>Universidade Estadual de Londrina (UEL)</strong> e o <strong>Hospital Universitário (HU)</strong> — além de prefeituras e autarquias do Norte do Paraná e região.`;
+  const sobreTexto3 = companySettings?.site_sobre_texto3 || `Participamos ativamente de licitações públicas, com regularidade fiscal e técnica plena, garantindo a entrega de obras dentro do prazo, do orçamento e com máxima qualidade.`;
+  const sobreImagem = companySettings?.site_sobre_imagem || 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=700&q=80';
+
+  const numeros = [
+    { valor: companySettings?.site_numeros_anos || numerosDefault[0].valor, label: 'Anos de Experiência' },
+    { valor: companySettings?.site_numeros_obras || numerosDefault[1].valor, label: 'Obras Entregues' },
+    { valor: companySettings?.site_numeros_sede || numerosDefault[2].valor, label: 'Sede' },
+    { valor: companySettings?.site_numeros_tipo || numerosDefault[3].valor, label: 'Obras Públicas' },
+  ];
+
+  const ctaTitulo = companySettings?.site_cta_titulo || 'Sistema de Gestão de Obras';
+  const ctaTexto = companySettings?.site_cta_texto || 'Acesse nosso ERP interno para gerenciar orçamentos, planejamento, medições, financeiro, RH e muito mais — tudo em um só lugar.';
 
   const scrollTo = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
