@@ -125,9 +125,35 @@ function buildDiarioHtml(diario, companySettings, autor) {
   `;
 }
 
+// Converte URL de imagem para base64 via fetch (sem CORS)
+async function urlToBase64(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 // Renderiza um diário como imagem e adiciona no jsPDF
 async function renderDiarioToDoc(doc, diario, companySettings, autor, addPageBefore) {
-  const html = buildDiarioHtml(diario, companySettings, autor);
+  // Pré-converte logo para base64 para evitar CORS no html2canvas
+  let logoSrc = companySettings?.logo_url_clara || '';
+  if (logoSrc) {
+    const b64 = await urlToBase64(logoSrc);
+    if (b64) logoSrc = b64;
+  }
+
+  // Passa logoSrc já como base64 para o HTML
+  const htmlCompany = logoSrc ? { ...companySettings, logo_url_clara: logoSrc } : companySettings;
+  const html = buildDiarioHtml(diario, htmlCompany, autor);
 
   // Cria container off-screen
   const container = document.createElement('div');
@@ -135,20 +161,20 @@ async function renderDiarioToDoc(doc, diario, companySettings, autor, addPageBef
   container.innerHTML = html;
   document.body.appendChild(container);
 
-  // Aguarda imagem carregar (se houver logo)
+  // Aguarda imagem carregar
   const img = container.querySelector('img');
   if (img) {
     await new Promise(resolve => {
-      if (img.complete) return resolve();
+      if (img.complete && img.naturalWidth > 0) return resolve();
       img.onload = resolve;
       img.onerror = resolve;
-      setTimeout(resolve, 3000); // timeout de segurança
+      setTimeout(resolve, 3000);
     });
   }
 
   const canvas = await html2canvas(container.firstElementChild, {
     scale: 2,
-    useCORS: true,
+    useCORS: false,
     allowTaint: true,
     backgroundColor: '#ffffff',
     logging: false,
