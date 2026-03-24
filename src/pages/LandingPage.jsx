@@ -5,103 +5,103 @@ import { base44 } from '@/api/base44Client';
 import {
   HardHat, Building2, Award, Users, Phone, Mail, MapPin, Globe,
   ChevronDown, Menu, X, ArrowRight, CheckCircle2, Shield, BarChart3,
-  Wrench, Home, Landmark, FileText, MessageCircle
-} from 'lucide-react';
+  Wrench, Home, Landmark, FileText, MessageCircle } from
+'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const LOGO_CLARA = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_690c7efb29582ad524a0ff3e/fb3eac426_logofundoclaro.jpg";
 const LOGO_ESCURA = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6926eb0b6c1242bf806695a4/4053fb920_logofundoescuro.png";
 
 const servicos = [
-  {
-    icon: Building2,
-    titulo: "Edificações Públicas",
-    desc: "Construção de hospitais universitários, blocos acadêmicos, creches, escolas, delegacias e demais equipamentos públicos.",
-    color: "bg-blue-50 text-blue-600"
-  },
-  {
-    icon: Landmark,
-    titulo: "Obras para Universidades",
-    desc: "Execução de blocos de salas de aula, laboratórios e instalações para universidades públicas como a UEL e demais IES.",
-    color: "bg-violet-50 text-violet-600"
-  },
-  {
-    icon: Wrench,
-    titulo: "Infraestrutura e Saneamento",
-    desc: "Pavimentação, drenagem, redes de água e esgoto e demais obras de infraestrutura para municípios e órgãos estaduais.",
-    color: "bg-orange-50 text-orange-600"
-  },
-  {
-    icon: HardHat,
-    titulo: "Reforma de Edificações Públicas",
-    desc: "Reformas e modernização de prédios públicos com rigor técnico e conformidade com normas e legislação vigentes.",
-    color: "bg-cyan-50 text-cyan-600"
-  },
-  {
-    icon: Home,
-    titulo: "Habitação de Interesse Social",
-    desc: "Desenvolvimento de conjuntos habitacionais e empreendimentos residenciais vinculados a programas governamentais.",
-    color: "bg-emerald-50 text-emerald-600"
-  },
-  {
-    icon: FileText,
-    titulo: "Projetos e Consultoria",
-    desc: "Elaboração de projetos executivos, laudos técnicos, ART e suporte em todas as fases de licitação e execução.",
-    color: "bg-rose-50 text-rose-600"
-  }
-];
+{
+  icon: Building2,
+  titulo: "Edificações Públicas",
+  desc: "Construção de hospitais universitários, blocos acadêmicos, creches, escolas, delegacias e demais equipamentos públicos.",
+  color: "bg-blue-50 text-blue-600"
+},
+{
+  icon: Landmark,
+  titulo: "Obras para Universidades",
+  desc: "Execução de blocos de salas de aula, laboratórios e instalações para universidades públicas como a UEL e demais IES.",
+  color: "bg-violet-50 text-violet-600"
+},
+{
+  icon: Wrench,
+  titulo: "Infraestrutura e Saneamento",
+  desc: "Pavimentação, drenagem, redes de água e esgoto e demais obras de infraestrutura para municípios e órgãos estaduais.",
+  color: "bg-orange-50 text-orange-600"
+},
+{
+  icon: HardHat,
+  titulo: "Reforma de Edificações Públicas",
+  desc: "Reformas e modernização de prédios públicos com rigor técnico e conformidade com normas e legislação vigentes.",
+  color: "bg-cyan-50 text-cyan-600"
+},
+{
+  icon: Home,
+  titulo: "Habitação de Interesse Social",
+  desc: "Desenvolvimento de conjuntos habitacionais e empreendimentos residenciais vinculados a programas governamentais.",
+  color: "bg-emerald-50 text-emerald-600"
+},
+{
+  icon: FileText,
+  titulo: "Projetos e Consultoria",
+  desc: "Elaboração de projetos executivos, laudos técnicos, ART e suporte em todas as fases de licitação e execução.",
+  color: "bg-rose-50 text-rose-600"
+}];
+
 
 const obras = [
-  {
-    nome: "Hospital Universitário (HU/UEL)",
-    local: "Londrina – PR",
-    tipo: "Obra Pública – Saúde",
-    status: "Entregue",
-    img: "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=600&q=80"
-  },
-  {
-    nome: "Bloco de Salas de Aula CCS/UEL",
-    local: "Londrina – PR",
-    tipo: "Obra Pública – Educação",
-    status: "Em Andamento",
-    img: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&q=80"
-  },
-  {
-    nome: "Assoc. Odontológica do Norte PR",
-    local: "Londrina – PR",
-    tipo: "Obra Pública – Saúde",
-    status: "Entregue",
-    img: "https://images.unsplash.com/photo-1524230572899-a752b3835840?w=600&q=80"
-  },
-  {
-    nome: "Residencial Villaggio Arvoredo",
-    local: "Londrina – PR",
-    tipo: "Residencial (Exceção)",
-    status: "Entregue",
-    img: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&q=80"
-  },
-  {
-    nome: "Edificação Pública Municipal",
-    local: "Região Norte – PR",
-    tipo: "Obra Pública",
-    status: "Entregue",
-    img: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=600&q=80"
-  },
-  {
-    nome: "Infraestrutura Urbana",
-    local: "Londrina – PR",
-    tipo: "Obra Pública – Infraestrutura",
-    status: "Entregue",
-    img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=80"
-  }
-];
+{
+  nome: "Hospital Universitário (HU/UEL)",
+  local: "Londrina – PR",
+  tipo: "Obra Pública – Saúde",
+  status: "Entregue",
+  img: "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=600&q=80"
+},
+{
+  nome: "Bloco de Salas de Aula CCS/UEL",
+  local: "Londrina – PR",
+  tipo: "Obra Pública – Educação",
+  status: "Em Andamento",
+  img: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&q=80"
+},
+{
+  nome: "Assoc. Odontológica do Norte PR",
+  local: "Londrina – PR",
+  tipo: "Obra Pública – Saúde",
+  status: "Entregue",
+  img: "https://images.unsplash.com/photo-1524230572899-a752b3835840?w=600&q=80"
+},
+{
+  nome: "Residencial Villaggio Arvoredo",
+  local: "Londrina – PR",
+  tipo: "Residencial (Exceção)",
+  status: "Entregue",
+  img: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&q=80"
+},
+{
+  nome: "Edificação Pública Municipal",
+  local: "Região Norte – PR",
+  tipo: "Obra Pública",
+  status: "Entregue",
+  img: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=600&q=80"
+},
+{
+  nome: "Infraestrutura Urbana",
+  local: "Londrina – PR",
+  tipo: "Obra Pública – Infraestrutura",
+  status: "Entregue",
+  img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=80"
+}];
+
 
 const numeros = [
-  { valor: "25+", label: "Anos de Experiência" },
-  { valor: "60+", label: "Obras Entregues" },
-  { valor: "Londrina/PR", label: "Sede" },
-  { valor: "100%", label: "Obras Públicas" }
-];
+{ valor: "25+", label: "Anos de Experiência" },
+{ valor: "60+", label: "Obras Entregues" },
+{ valor: "Londrina/PR", label: "Sede" },
+{ valor: "100%", label: "Obras Públicas" }];
+
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -115,7 +115,7 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    base44.entities.CompanySettings.list().then(r => { if (r.length > 0) setCompanySettings(r[0]); });
+    base44.entities.CompanySettings.list().then((r) => {if (r.length > 0) setCompanySettings(r[0]);});
   }, []);
 
   const logoClara = companySettings?.logo_url_clara || LOGO_CLARA;
@@ -141,17 +141,17 @@ export default function LandingPage() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8 text-sm font-medium">
-            {['sobre', 'servicos', 'obras', 'contato'].map(s => (
-              <button key={s} onClick={() => scrollTo(s)}
-                className={`capitalize transition-colors hover:text-blue-600 ${scrolled ? 'text-slate-700' : 'text-white'}`}>
+            {['sobre', 'servicos', 'obras', 'contato'].map((s) =>
+            <button key={s} onClick={() => scrollTo(s)}
+            className={`capitalize transition-colors hover:text-blue-600 ${scrolled ? 'text-slate-700' : 'text-white'}`}>
                 {s === 'sobre' ? 'Sobre' : s === 'servicos' ? 'Serviços' : s === 'obras' ? 'Obras' : 'Contato'}
               </button>
-            ))}
+            )}
           </div>
 
           <div className="hidden md:flex items-center gap-3">
             <a href={`mailto:${emailEmpresa}`}
-              className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-slate-600 hover:text-blue-600' : 'text-white/80 hover:text-white'}`}>
+            className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-slate-600 hover:text-blue-600' : 'text-white/80 hover:text-white'}`}>
               <Mail className="h-4 w-4" /> {emailEmpresa}
             </a>
             <Link to={createPageUrl('PortalSelect')}>
@@ -167,18 +167,18 @@ export default function LandingPage() {
           </button>
         </div>
 
-        {menuOpen && (
-          <div className="md:hidden bg-white shadow-lg px-4 py-4 space-y-3">
-            {['sobre', 'servicos', 'obras', 'contato'].map(s => (
-              <button key={s} onClick={() => scrollTo(s)} className="block w-full text-left py-2 text-slate-700 font-medium capitalize border-b border-slate-100">
+        {menuOpen &&
+        <div className="md:hidden bg-white shadow-lg px-4 py-4 space-y-3">
+            {['sobre', 'servicos', 'obras', 'contato'].map((s) =>
+          <button key={s} onClick={() => scrollTo(s)} className="block w-full text-left py-2 text-slate-700 font-medium capitalize border-b border-slate-100">
                 {s === 'sobre' ? 'Sobre' : s === 'servicos' ? 'Serviços' : s === 'obras' ? 'Obras' : 'Contato'}
               </button>
-            ))}
+          )}
             <Link to={createPageUrl('PortalSelect')} onClick={() => setMenuOpen(false)}>
               <Button className="w-full bg-blue-600 hover:bg-blue-700 mt-2">Acessar Sistema ERP</Button>
             </Link>
           </div>
-        )}
+        }
       </nav>
 
       {/* HERO */}
@@ -187,8 +187,8 @@ export default function LandingPage() {
           <img
             src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1600&q=85"
             alt="Obras"
-            className="w-full h-full object-cover"
-          />
+            className="w-full h-full object-cover" />
+          
           <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-blue-900/70 to-slate-900/80" />
         </div>
         <div className="relative text-center text-white px-4 max-w-4xl mx-auto">
@@ -204,11 +204,11 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={() => scrollTo('obras')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-semibold flex items-center justify-center gap-2 transition-all hover:scale-105">
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-semibold flex items-center justify-center gap-2 transition-all hover:scale-105">
               Ver Nossas Obras <ArrowRight className="h-5 w-5" />
             </button>
             <button onClick={() => scrollTo('contato')}
-              className="border border-white/40 text-white px-8 py-4 rounded-full font-semibold hover:bg-white/10 transition-all">
+            className="border border-white/40 text-white px-8 py-4 rounded-full font-semibold hover:bg-white/10 transition-all">
               Fale Conosco
             </button>
           </div>
@@ -223,12 +223,12 @@ export default function LandingPage() {
       {/* NÚMEROS */}
       <section className="bg-blue-700 py-12">
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
-          {numeros.map((n, i) => (
-            <div key={i}>
+          {numeros.map((n, i) =>
+          <div key={i}>
               <div className="text-3xl sm:text-4xl font-bold">{n.valor}</div>
               <div className="text-blue-200 text-sm mt-1">{n.label}</div>
             </div>
-          ))}
+          )}
         </div>
       </section>
 
@@ -252,24 +252,24 @@ export default function LandingPage() {
               </p>
               <div className="space-y-3">
                 {[
-                  "CNPJ regularizado e certidões em dia",
-                  "Registro no CREA/PR e demais conselhos competentes",
-                  "Capacidade técnica e financeira comprovada",
-                  "Equipe de engenheiros e técnicos especializados"
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
+                "CNPJ regularizado e certidões em dia",
+                "Registro no CREA/PR e demais conselhos competentes",
+                "Capacidade técnica e financeira comprovada",
+                "Equipe de engenheiros e técnicos especializados"].
+                map((item, i) =>
+                <div key={i} className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-blue-600 flex-shrink-0" />
                     <span className="text-slate-700">{item}</span>
                   </div>
-                ))}
+                )}
               </div>
             </div>
             <div className="relative">
               <img
                 src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=700&q=80"
                 alt="Obras"
-                className="rounded-2xl shadow-2xl w-full object-cover h-96"
-              />
+                className="rounded-2xl shadow-2xl w-full object-cover h-96" />
+              
               <div className="absolute -bottom-6 -left-6 bg-blue-600 text-white rounded-2xl p-6 shadow-xl">
                 <div className="text-3xl font-bold">Londrina</div>
                 <div className="text-blue-200 text-sm">Sede – Paraná</div>
@@ -288,15 +288,15 @@ export default function LandingPage() {
             <p className="text-slate-500 mt-4 max-w-xl mx-auto">Atuamos exclusivamente em obras públicas — universidades, hospitais, infraestrutura e equipamentos urbanos — com rigor técnico e comprometimento com prazos.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {servicos.map((s, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow border border-slate-100">
+            {servicos.map((s, i) =>
+            <div key={i} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow border border-slate-100">
                 <div className={`h-12 w-12 rounded-xl flex items-center justify-center mb-4 ${s.color.split(' ')[0]}`}>
                   <s.icon className={`h-6 w-6 ${s.color.split(' ')[1]}`} />
                 </div>
                 <h3 className="font-bold text-slate-900 text-lg mb-2">{s.titulo}</h3>
                 <p className="text-slate-500 text-sm leading-relaxed">{s.desc}</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </section>
@@ -310,15 +310,15 @@ export default function LandingPage() {
             <p className="text-slate-500 mt-4 max-w-xl mx-auto">Uma seleção de obras públicas que demonstram nossa capacidade técnica e compromisso com a qualidade em Londrina e região Norte do Paraná.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {obras.map((o, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow border border-slate-100 group">
+            {obras.map((o, i) =>
+            <div key={i} className="rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow border border-slate-100 group">
                 <div className="relative overflow-hidden h-48">
                   <img src={o.img} alt={o.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   <div className={`absolute top-3 right-3 text-xs font-semibold px-3 py-1 rounded-full ${
-                    o.status === 'Entregue' ? 'bg-emerald-500 text-white'
-                    : o.status === 'Em Andamento' ? 'bg-amber-500 text-white'
-                    : 'bg-blue-500 text-white'
-                  }`}>
+                o.status === 'Entregue' ? 'bg-emerald-500 text-white' :
+                o.status === 'Em Andamento' ? 'bg-amber-500 text-white' :
+                'bg-blue-500 text-white'}`
+                }>
                     {o.status}
                   </div>
                 </div>
@@ -330,7 +330,7 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </section>
@@ -350,7 +350,7 @@ export default function LandingPage() {
               </Button>
             </Link>
             <a href={`mailto:${emailEmpresa}`}>
-              <Button variant="outline" className="border-white/40 text-white hover:bg-white/10 px-8 py-3 h-auto rounded-full text-base">
+              <Button variant="outline" className="bg-transparent text-white px-8 py-3 text-base font-medium rounded-full inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border shadow-sm hover:text-accent-foreground border-white/40 hover:bg-white/10 h-auto">
                 <Mail className="h-5 w-5 mr-2" /> Enviar E-mail
               </Button>
             </a>
@@ -411,6 +411,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>);
+
 }
