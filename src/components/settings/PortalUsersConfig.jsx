@@ -123,7 +123,7 @@ function UserForm({ data, onChange, showCargo }) {
   );
 }
 
-function UserTable({ entity, title, description, showCargo, emptyData }) {
+function UserTable({ entity, title, description, showCargo, emptyData, showModulos }) {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState(null); // null | { mode: 'create'|'edit', data: {} }
 
