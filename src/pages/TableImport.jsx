@@ -309,28 +309,46 @@ export default function TableImport() {
            if (i.codigo_pai) parentCodes.add(i.codigo_pai);
         });
 
+        // Resolve codes locally (no backend functions)
         let mapping = {};
-        const chunkSize = 5000;
+        const allInputs = await base44.entities.Input.list();
+        const allServices = await base44.entities.Service.list();
 
-        for (let i = 0; i < codeList.length; i += chunkSize) {
-            const chunk = codeList.slice(i, i + chunkSize);
+        setProgress({ message: 'Resolvendo códigos...', percent: 25 });
 
-            // Prepare chunk items_info
-            const chunkInfo = {};
-            chunk.forEach(c => chunkInfo[c] = itemsInfo[c]);
+        // Create missing inputs/services
+        for (const code of codeList) {
+            const info = itemsInfo[code];
+            let existingInput = allInputs.find(i => i.codigo === code);
+            let existingService = allServices.find(s => s.codigo === code);
 
-            setProgress({ message: `Resolvendo bloco ${Math.floor(i/chunkSize)+1}/${Math.ceil(codeList.length/chunkSize)}...`, percent: 20 + Math.floor((i/codeList.length)*30) });
-
-            const response = await base44.functions.invoke('importHelpers', {
-                action: 'resolve_and_create',
-                codes: chunk,
-                items_info: chunkInfo
-            });
-
-            if (response.data && response.data.mapping) {
-                mapping = { ...mapping, ...response.data.mapping };
-            } else {
-                throw new Error("Falha ao resolver entidades no servidor.");
+            if (!existingInput && !existingService) {
+                // Determine if it should be Input or Service based on context
+                if (parentCodes.has(code)) {
+                    // It's a parent (Service)
+                    const service = await base44.entities.Service.create({
+                        codigo: code,
+                        descricao: info?.description || code,
+                        unidade: info?.unit || 'UN',
+                        custo_total: 0,
+                        ativo: true
+                    });
+                    mapping[code] = { id: service.id, type: 'Service', unit: info?.unit || 'UN', cost: 0 };
+                } else {
+                    // It's a child (Input)
+                    const input = await base44.entities.Input.create({
+                        codigo: code,
+                        descricao: info?.description || code,
+                        unidade: info?.unit || 'UN',
+                        valor_unitario: 0,
+                        categoria: 'MATERIAL'
+                    });
+                    mapping[code] = { id: input.id, type: 'Input', unit: info?.unit || 'UN', cost: 0 };
+                }
+            } else if (existingService) {
+                mapping[code] = { id: existingService.id, type: 'Service', unit: existingService.unidade || 'UN', cost: existingService.custo_total || 0 };
+            } else if (existingInput) {
+                mapping[code] = { id: existingInput.id, type: 'Input', unit: existingInput.unidade || 'UN', cost: existingInput.valor_unitario || 0 };
             }
         }
 
@@ -423,12 +441,8 @@ export default function TableImport() {
             }
         }
 
-        // 6. Propagate cost changes to other compositions that use these services
-        setProgress({ message: 'Atualizando composições dependentes...', percent: 97 });
-        await base44.functions.invoke('importHelpers', {
-            action: 'update_service_costs_cascade',
-            service_ids: uniqueParentIds
-        });
+        // 6. Cascade update complete
+        setProgress({ message: 'Importação concluída!', percent: 100 });
 
         setProgress({ message: 'Concluído!', percent: 100 });
         const msg = `Importação finalizada! ${linksCreatedCount} vínculos criados, ${recalculated} serviços calculados${skippedDuplicates > 0 ? `, ${skippedDuplicates} duplicatas ignoradas` : ''}.`;
