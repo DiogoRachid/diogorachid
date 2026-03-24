@@ -77,13 +77,28 @@ export default function Settings() {
     logo_url_escura: '',
     cnpj: '',
     telefone: '',
+    whatsapp: '',
     email: '',
     endereco: '',
     cidade: '',
     estado: '',
     cep: '',
     site: '',
-    ramo_atividade: ''
+    ramo_atividade: '',
+    site_hero_titulo: '',
+    site_hero_subtitulo: '',
+    site_hero_imagem: '',
+    site_sobre_titulo: '',
+    site_sobre_texto1: '',
+    site_sobre_texto2: '',
+    site_sobre_texto3: '',
+    site_sobre_imagem: '',
+    site_numeros_anos: '',
+    site_numeros_obras: '',
+    site_numeros_sede: '',
+    site_numeros_tipo: '',
+    site_cta_titulo: '',
+    site_cta_texto: ''
   });
 
   const [uploadingClara, setUploadingClara] = useState(false);
