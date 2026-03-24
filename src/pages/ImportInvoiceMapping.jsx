@@ -190,7 +190,7 @@ export default function ImportInvoiceMappingPage() {
       <div className="flex gap-3 mt-8">
         <Button
           onClick={() => finalizeMutation.mutate()}
-          disabled={unmappedItems.length > 0 || finalizeMutation.isPending}
+          disabled={finalizeMutation.isPending}
           className="flex-1 bg-blue-600 hover:bg-blue-700"
         >
           {finalizeMutation.isPending ? 'Processando...' : 'Próximo: Registrar Contas a Pagar'}
@@ -201,11 +201,11 @@ export default function ImportInvoiceMappingPage() {
       </div>
 
       {unmappedItems.length > 0 && (
-        <div className="p-4 mt-6 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 text-amber-900">
+        <div className="p-4 mt-6 bg-blue-50 border border-blue-200 rounded-lg flex gap-3 text-blue-900">
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium">Ação requerida</p>
-            <p>Vincule todos os {unmappedItems.length} itens antes de finalizar a importação</p>
+            <p className="font-medium">Aviso</p>
+            <p>{unmappedItems.length} {unmappedItems.length === 1 ? 'item não foi' : 'itens não foram'} vinculado(s). Você pode continuar e vincular depois se desejar.</p>
           </div>
         </div>
       )}
