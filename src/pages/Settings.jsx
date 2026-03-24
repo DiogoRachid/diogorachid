@@ -100,7 +100,9 @@ export default function Settings() {
     site_numeros_sede: '',
     site_numeros_tipo: '',
     site_cta_titulo: '',
-    site_cta_texto: ''
+    site_cta_texto: '',
+    site_servicos: [],
+    site_obras: []
   });
 
   const [uploadingClara, setUploadingClara] = useState(false);
