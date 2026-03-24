@@ -392,7 +392,11 @@ export default function LandingPage() {
                 <MapPin className="h-6 w-6 text-blue-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-1">Endereço</h3>
-              <p className="text-slate-600 text-sm whitespace-pre-line">{endereco.replace('Gleba Palhano', '\nGleba Palhano').replace('Londrina-PR', '\nLondrina-PR')}</p>
+              <div className="text-slate-600 text-xs leading-relaxed">
+                <p>R. Maria Lúcia da Paz, 550 sl503</p>
+                <p>Gleba Palhano</p>
+                <p>Londrina-PR</p>
+              </div>
             </div>
           </div>
         </div>
