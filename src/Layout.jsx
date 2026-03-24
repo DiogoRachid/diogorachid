@@ -140,6 +140,11 @@ const menuItems = [
     page: 'Backup'
   },
   {
+    title: 'Configurações',
+    icon: Settings,
+    page: 'Settings'
+  },
+  {
     title: 'Site da Empresa',
     icon: Globe,
     page: 'LandingPage'
