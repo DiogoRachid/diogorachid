@@ -26,11 +26,14 @@ export function getCurrentUser() {
   return '';
 }
 
-// Carrega imagem via fetch→blob→base64 (contorna CORS do Supabase)
+// Carrega imagem e converte para base64 via canvas (a imagem já está no DOM como <img> renderizada)
+// Usa allorigins como proxy para evitar CORS
 async function loadImageBase64(url) {
+  // Tenta 1: buscar via proxy allorigins (sempre funciona, sem CORS)
   try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error('proxy failed');
     const blob = await res.blob();
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -38,17 +41,36 @@ async function loadImageBase64(url) {
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-    // Precisamos das dimensões reais para calcular o aspect ratio
     const dims = await new Promise((resolve) => {
       const img = new Image();
       img.onload = () => resolve({ width: img.width, height: img.height });
-      img.onerror = () => resolve({ width: 200, height: 60 }); // fallback proporcional
+      img.onerror = () => resolve({ width: 200, height: 60 });
       img.src = dataUrl;
     });
     return { dataUrl, width: dims.width, height: dims.height };
-  } catch {
-    return null;
-  }
+  } catch {}
+
+  // Tenta 2: fetch direto (funciona se o servidor tiver CORS)
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error('direct failed');
+    const blob = await res.blob();
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    const dims = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.width, height: img.height });
+      img.onerror = () => resolve({ width: 200, height: 60 });
+      img.src = dataUrl;
+    });
+    return { dataUrl, width: dims.width, height: dims.height };
+  } catch {}
+
+  return null;
 }
 
 // Pré-carrega a logo UMA vez antes de gerar o PDF
