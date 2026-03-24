@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Plus, Pencil, Trash2, Loader2, Check, X, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Check, X, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,60 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { MODULOS_COLABORADOR } from '@/pages/ColaboradorPortal';
+
+const GRUPOS = [...new Set(MODULOS_COLABORADOR.map(m => m.group))];
+
+function ModulosSelector({ modulos, onChange }) {
+  const [expanded, setExpanded] = useState(GRUPOS);
+
+  const toggle = (key) => onChange(modulos.includes(key) ? modulos.filter(k => k !== key) : [...modulos, key]);
+
+  const toggleGroup = (group) => {
+    const keys = MODULOS_COLABORADOR.filter(m => m.group === group).map(m => m.key);
+    const allSelected = keys.every(k => modulos.includes(k));
+    onChange(allSelected ? modulos.filter(k => !keys.includes(k)) : [...new Set([...modulos, ...keys])]);
+  };
+
+  return (
+    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+      {GRUPOS.map(group => {
+        const mods = MODULOS_COLABORADOR.filter(m => m.group === group);
+        const allSel = mods.every(m => modulos.includes(m.key));
+        const someSel = mods.some(m => modulos.includes(m.key));
+        const isExpanded = expanded.includes(group);
+        return (
+          <div key={group} className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 bg-slate-50">
+              <button type="button" onClick={() => toggleGroup(group)} className={`flex items-center gap-2 text-sm font-semibold ${allSel ? 'text-blue-600' : someSel ? 'text-amber-600' : 'text-slate-600'}`}>
+                <div className={`h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 ${allSel ? 'bg-blue-600 border-blue-600' : someSel ? 'bg-amber-400 border-amber-400' : 'border-slate-300'}`}>
+                  {(allSel || someSel) && <Check className="h-3 w-3 text-white" />}
+                </div>
+                {group}
+              </button>
+              <button type="button" onClick={() => setExpanded(prev => prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group])} className="text-slate-400">
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            </div>
+            {isExpanded && (
+              <div className="divide-y divide-slate-100">
+                {mods.map(m => (
+                  <button key={m.key} type="button" onClick={() => toggle(m.key)} className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 text-left">
+                    <div className={`h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 ${modulos.includes(m.key) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}`}>
+                      {modulos.includes(m.key) && <Check className="h-3 w-3 text-white" />}
+                    </div>
+                    <m.icon className="h-4 w-4 text-slate-400" />
+                    <span className="text-sm text-slate-700">{m.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 const EMPTY_ADMIN = { nome_completo: '', email: '', cpf: '', senha: '', status: 'ativo' };
 const EMPTY_COLAB = { nome_completo: '', email: '', cpf: '', cargo: '', senha: '', status: 'ativo' };
