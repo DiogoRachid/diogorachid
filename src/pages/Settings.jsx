@@ -112,13 +112,28 @@ export default function Settings() {
         logo_url_escura: companySettings.logo_url_escura || '',
         cnpj: companySettings.cnpj || '',
         telefone: companySettings.telefone || '',
+        whatsapp: companySettings.whatsapp || '',
         email: companySettings.email || '',
         endereco: companySettings.endereco || '',
         cidade: companySettings.cidade || '',
         estado: companySettings.estado || '',
         cep: companySettings.cep || '',
         site: companySettings.site || '',
-        ramo_atividade: companySettings.ramo_atividade || ''
+        ramo_atividade: companySettings.ramo_atividade || '',
+        site_hero_titulo: companySettings.site_hero_titulo || '',
+        site_hero_subtitulo: companySettings.site_hero_subtitulo || '',
+        site_hero_imagem: companySettings.site_hero_imagem || '',
+        site_sobre_titulo: companySettings.site_sobre_titulo || '',
+        site_sobre_texto1: companySettings.site_sobre_texto1 || '',
+        site_sobre_texto2: companySettings.site_sobre_texto2 || '',
+        site_sobre_texto3: companySettings.site_sobre_texto3 || '',
+        site_sobre_imagem: companySettings.site_sobre_imagem || '',
+        site_numeros_anos: companySettings.site_numeros_anos || '',
+        site_numeros_obras: companySettings.site_numeros_obras || '',
+        site_numeros_sede: companySettings.site_numeros_sede || '',
+        site_numeros_tipo: companySettings.site_numeros_tipo || '',
+        site_cta_titulo: companySettings.site_cta_titulo || '',
+        site_cta_texto: companySettings.site_cta_texto || ''
       });
     }
   }, [companySettings.id]);
