@@ -46,12 +46,56 @@ export default function ImportInvoicePage() {
         reader.onload = async (e) => {
           try {
             const xmlContent = e.target.result;
-            const response = await base44.functions.invoke('processInvoiceXml', {
-              xmlContent,
-              supplierId: selectedSupplier,
-              workId: selectedWork
+            
+            // Parse XML no frontend
+            const parsedData = parseInvoiceXml(xmlContent);
+            
+            // Criar a nota fiscal com os dados extraídos
+            const invoiceData = {
+              numero_documento: parsedData.invoiceNumber,
+              serie_nf: parsedData.invoiceSeries,
+              data_compra: new Date(parsedData.emissionDate).toISOString().split('T')[0],
+              fornecedor_nome: parsedData.supplier.name || parsedData.supplier.fantasyName,
+              fornecedor_cnpj: parsedData.supplier.cnpj,
+              obra_id: selectedWork,
+              obra_nome: works.find(w => w.id === selectedWork)?.nome || '',
+              valor: parsedData.totals.amount,
+              observacoes: `Importado do XML. ${parsedData.additionalInfo.notes.substring(0, 200)}...`,
+              status: 'em_aberto',
+              tipo: parsedData.invoiceType === 'saída' ? 'entrada' : 'entrada',
+            };
+
+            // Se houver fornecedor selecionado, usar esse ID
+            if (selectedSupplier) {
+              invoiceData.fornecedor_id = selectedSupplier;
+            }
+
+            // Criar registro de nota fiscal
+            const invoice = await base44.entities.Invoice.create(invoiceData);
+
+            // Criar itens da nota fiscal
+            for (const item of parsedData.items) {
+              await base44.entities.InvoiceItem.create({
+                invoice_id: invoice.id,
+                codigo_produto: item.productCode,
+                descricao: item.productName,
+                ncm: item.ncm,
+                unidade: item.unit,
+                quantidade: item.quantity,
+                valor_unitario: item.unitPrice,
+                valor_total: item.totalValue,
+                icms: item.icmsValue,
+                ipi: item.ipiValue,
+                pis: item.pisValue,
+                cofins: item.cofinsValue,
+              });
+            }
+
+            resolve({
+              invoice: invoice.id,
+              items: parsedData.items,
+              data: parsedData
             });
-            resolve(response.data);
           } catch (error) {
             reject(error);
           }
