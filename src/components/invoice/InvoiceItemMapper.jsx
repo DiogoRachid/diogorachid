@@ -79,7 +79,7 @@ export default function InvoiceItemMapper({ invoiceItemId, inputsList = [], onLi
     }
   });
 
-  if (!invoiceItem) return <div>Carregando...</div>;
+  if (!invoiceItem) return null;
 
   const unitMismatch = selectedInput && selectedInput.unidade !== invoiceItem.unidade_xml;
 
