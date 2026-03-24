@@ -256,7 +256,8 @@ export default function Settings() {
         <TabsList>
           {isAdmin && <TabsTrigger value="empresa">Empresa</TabsTrigger>}
           {isAdmin && <TabsTrigger value="site">Site</TabsTrigger>}
-          <TabsTrigger value="profile">Meu Perfil</TabsTrigger>
+          {isPortalAdmin && <TabsTrigger value="minha-conta">Minha Conta</TabsTrigger>}
+          {!isPortalAdmin && <TabsTrigger value="profile">Meu Perfil</TabsTrigger>}
           {isAdmin && <TabsTrigger value="permissions">Permissões</TabsTrigger>}
           {isAdmin && <TabsTrigger value="portais">Usuários dos Portais</TabsTrigger>}
         </TabsList>
