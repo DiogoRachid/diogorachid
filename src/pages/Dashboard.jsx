@@ -467,6 +467,42 @@ export default function Dashboard() {
         </Card>
       )}
 
+      {/* Vencimentos de Contratos de Experiência */}
+      {vencimentosExp.length > 0 && (
+        <Card className="border-purple-200 mb-6">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2 text-purple-800 text-base">
+              <Clock className="h-5 w-5 text-purple-600" /> Próximos Vencimentos — Contratos de Experiência
+            </CardTitle>
+            <Button variant="ghost" size="sm" className="text-purple-700 text-xs" onClick={() => window.location.href = createPageUrl('EmployeeContracts')}>
+              Ver contratos
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {vencimentosExp.slice(0, 6).map((item, i) => {
+                const dias = diffDias(item.data);
+                const urgente = dias <= 7;
+                const proximo = dias <= 15;
+                return (
+                  <div key={i} className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${urgente ? 'bg-red-50 border-red-200' : proximo ? 'bg-amber-50 border-amber-200' : 'bg-purple-50 border-purple-100'}`}>
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${urgente ? 'bg-red-100 text-red-700' : proximo ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'}`}>
+                      {dias}d
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-900 text-sm truncate">{item.contrato.colaborador_nome}</p>
+                      <p className={`text-xs ${urgente ? 'text-red-600' : proximo ? 'text-amber-600' : 'text-purple-600'}`}>
+                        {item.tipo} — {item.data.toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Contas Próximas do Vencimento */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
