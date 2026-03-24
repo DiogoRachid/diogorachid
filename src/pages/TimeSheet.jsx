@@ -165,7 +165,8 @@ export default function TimeSheet() {
     return sum + calcHoras(entrada, saida, sa, ra);
   }, 0);
 
-  const totalFaltas = days.filter(d => !d.isWeekend && isFalta(d)).length;
+  const totalFaltas = days.filter(d => !d.isWeekend && isFalta(d) && !isAtestado(d)).length;
+  const totalAtestados = days.filter(d => !d.isWeekend && isAtestado(d)).length;
   const diasTrabalhados = days.filter(d => {
     const e = getFieldValue(d, 'entrada'); const s = getFieldValue(d, 'saida');
     return e && s;
