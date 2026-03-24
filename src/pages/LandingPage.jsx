@@ -301,15 +301,20 @@ export default function LandingPage() {
             <p className="text-slate-500 mt-4 max-w-xl mx-auto">Atuamos exclusivamente em obras públicas — universidades, hospitais, infraestrutura e equipamentos urbanos — com rigor técnico e comprometimento com prazos.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {servicos.map((s, i) =>
-            <div key={i} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow border border-slate-100">
-                <div className={`h-12 w-12 rounded-xl flex items-center justify-center mb-4 ${s.color.split(' ')[0]}`}>
-                  <s.icon className={`h-6 w-6 ${s.color.split(' ')[1]}`} />
+            {servicos.map((s, i) => {
+              const colorParts = (s.color || 'bg-blue-50 text-blue-600').split(' ');
+              const bgColor = colorParts[0] || 'bg-blue-50';
+              const textColor = colorParts[1] || 'text-blue-600';
+              return (
+                <div key={i} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow border border-slate-100">
+                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center mb-4 ${bgColor}`}>
+                    <HardHat className={`h-6 w-6 ${textColor}`} />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-lg mb-2">{s.titulo}</h3>
+                  <p className="text-slate-500 text-sm leading-relaxed">{s.desc || s.descricao}</p>
                 </div>
-                <h3 className="font-bold text-slate-900 text-lg mb-2">{s.titulo}</h3>
-                <p className="text-slate-500 text-sm leading-relaxed">{s.desc}</p>
-              </div>
-            )}
+              );
+            })}
           </div>
         </div>
       </section>
