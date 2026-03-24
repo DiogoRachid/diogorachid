@@ -149,7 +149,10 @@ export default function ImportInvoiceMappingPage() {
                 <InvoiceItemMapper 
                   invoiceItemId={item.id}
                   onLinked={() => {
-                    queryClient.invalidateQueries({ queryKey: ['invoiceItems', invoiceId] });
+                    // Recarregar items após vincular
+                    base44.entities.InvoiceItem.filter({ nota_fiscal_id: invoiceId }).then(items => {
+                      setInvoiceItems(items);
+                    });
                   }}
                 />
               </CardContent>
