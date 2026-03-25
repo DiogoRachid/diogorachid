@@ -230,23 +230,47 @@ export default function Services() {
               </Select>
             </div>
           )}
-            {selectedIds.size > 0 && (
-              <>
-                <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-                  <Trash2 className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Excluir ({selectedIds.size})</span>
-                </Button>
-                <Button 
-                  size="sm" 
-                  onClick={handleRecalculateSelected}
-                  disabled={recalculating}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <RefreshCw className={`h-4 w-4 sm:mr-2 ${recalculating ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">Recalcular ({selectedIds.size})</span>
-                </Button>
-              </>
-            )}
+          {selectedIds.size > 0 ? (
+            <>
+              <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                <Trash2 className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Excluir ({selectedIds.size})</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleRecalculateSelected}
+                disabled={recalculating}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <RefreshCw className={`h-4 w-4 sm:mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Recalcular ({selectedIds.size})</span>
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                setRecalculating(true);
+                try {
+                  const ids = services.map(s => s.id);
+                  await Engine.recalculateMultipleServices(ids, (current, total) => {
+                    toast.loading(`Recalculando ${current}/${total}...`, { id: 'recalc-all' });
+                  });
+                  toast.success(`${ids.length} serviços recalculados!`, { id: 'recalc-all' });
+                  refetch();
+                } catch (e) {
+                  toast.error('Erro ao recalcular', { id: 'recalc-all' });
+                } finally {
+                  setRecalculating(false);
+                }
+              }}
+              disabled={recalculating}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+              Recalcular Todos
+            </Button>
+          )}
         </div>
       </div>
 
