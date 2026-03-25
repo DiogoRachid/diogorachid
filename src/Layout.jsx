@@ -136,7 +136,8 @@ const menuItems = [
     icon: FileText,
     submenu: [
       { title: 'Relatórios Gerais', page: 'Reports', icon: FileText },
-      { title: 'Variação de Preços', page: 'InputPriceVariationReport', icon: TrendingUp }
+      { title: 'Variação de Insumos', page: 'InputPriceVariationReport', icon: TrendingUp },
+      { title: 'Variação de Serviços', page: 'ServicePriceVariationReport', icon: TrendingUp }
     ]
   },
   {

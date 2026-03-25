@@ -3,7 +3,6 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, Minus, Filter, ArrowUpDown } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,85 +22,68 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export default function InputPriceVariationReport() {
+export default function ServicePriceVariationReport() {
   const [dataBaseX, setDataBaseX] = useState('');
   const [dataBaseY, setDataBaseY] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
-  // Buscar histórico de preços (datas antigas) e insumos atuais
-  const { data: priceHistory = [] } = useQuery({
-    queryKey: ['input-price-history'],
-    queryFn: () => base44.entities.InputPriceHistory.list('created_date', 999999)
+  const { data: allServices = [] } = useQuery({
+    queryKey: ['all-services-variation'],
+    queryFn: () => base44.entities.Service.list('created_date', 999999)
   });
 
-  const { data: allInputs = [] } = useQuery({
-    queryKey: ['all-inputs-variation'],
-    queryFn: () => base44.entities.Input.list('created_date', 999999)
-  });
-
-  // Datas base disponíveis: histórico + data_base atual dos insumos
+  // Datas base únicas dos serviços
   const datasBaseUnicas = useMemo(() => {
-    const fromHistory = priceHistory.map(h => h.data_base).filter(Boolean);
-    const fromCurrent = allInputs.map(i => i.data_base).filter(Boolean);
-    const datas = [...new Set([...fromHistory, ...fromCurrent])];
+    const datas = [...new Set(allServices.map(s => s.data_base).filter(Boolean))];
     return datas.sort((a, b) => {
       const [mesA, anoA] = a.split('/');
       const [mesB, anoB] = b.split('/');
       return parseInt(anoA) - parseInt(anoB) || parseInt(mesA) - parseInt(mesB);
     });
-  }, [priceHistory, allInputs]);
+  }, [allServices]);
 
-  // Calcular variação de preços combinando histórico + atual
+  // Para variação de serviços usamos o custo_total registrado em cada serviço por data_base
   const variacoes = useMemo(() => {
     if (!dataBaseX || !dataBaseY) return [];
 
-    // Para cada data_base: priorizar histórico, fallback para valor atual do insumo
-    const buildMap = (dataBase) => {
-      const map = new Map();
-      // Primeiro: registros do histórico para esta data_base
-      priceHistory.filter(h => h.data_base === dataBase).forEach(h => {
-        map.set(h.codigo, { codigo: h.codigo, descricao: h.descricao, unidade: h.unidade, valor_unitario: h.valor_unitario, categoria: h.categoria });
-      });
-      // Depois: insumos atuais com esta data_base (sobrescreve se já existir no histórico)
-      allInputs.filter(i => i.data_base === dataBase).forEach(i => {
-        map.set(i.codigo, { codigo: i.codigo, descricao: i.descricao, unidade: i.unidade, valor_unitario: i.valor_unitario, categoria: i.categoria });
-      });
-      return map;
-    };
+    const mapX = new Map();
+    const mapY = new Map();
 
-    const mapX = buildMap(dataBaseX);
-    const mapY = buildMap(dataBaseY);
+    allServices.filter(s => s.data_base === dataBaseX).forEach(s => {
+      mapX.set(s.codigo, s);
+    });
+    allServices.filter(s => s.data_base === dataBaseY).forEach(s => {
+      mapY.set(s.codigo, s);
+    });
 
     const resultados = [];
-    mapX.forEach((inputX, codigo) => {
-      const inputY = mapY.get(codigo);
-      if (inputY && inputX.valor_unitario > 0) {
-        const variacaoPercentual = ((inputY.valor_unitario - inputX.valor_unitario) / inputX.valor_unitario) * 100;
+    mapX.forEach((svcX, codigo) => {
+      const svcY = mapY.get(codigo);
+      if (svcY && svcX.custo_total > 0) {
+        const variacao = ((svcY.custo_total - svcX.custo_total) / svcX.custo_total) * 100;
         resultados.push({
           codigo,
-          descricao: inputX.descricao,
-          unidade: inputX.unidade,
-          valorX: inputX.valor_unitario,
-          valorY: inputY.valor_unitario,
-          variacao: variacaoPercentual,
-          categoria: inputX.categoria
+          descricao: svcX.descricao,
+          unidade: svcX.unidade,
+          valorX: svcX.custo_total,
+          valorY: svcY.custo_total,
+          variacao,
         });
       }
     });
 
     return resultados;
-  }, [dataBaseX, dataBaseY, priceHistory, allInputs]);
+  }, [dataBaseX, dataBaseY, allServices]);
 
-  // Filtrar e ordenar
   const filteredVariacoes = useMemo(() => {
     let filtered = variacoes;
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(v =>
-        v.codigo.toLowerCase().includes(query) ||
-        v.descricao.toLowerCase().includes(query)
+        v.codigo?.toLowerCase().includes(query) ||
+        v.descricao?.toLowerCase().includes(query)
       );
     }
 
@@ -109,12 +91,7 @@ export default function InputPriceVariationReport() {
       filtered = [...filtered].sort((a, b) => {
         let aVal = a[sortConfig.key];
         let bVal = b[sortConfig.key];
-
-        if (typeof aVal === 'string') {
-          aVal = aVal.toLowerCase();
-          bVal = bVal.toLowerCase();
-        }
-
+        if (typeof aVal === 'string') { aVal = aVal.toLowerCase(); bVal = bVal.toLowerCase(); }
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -131,19 +108,16 @@ export default function InputPriceVariationReport() {
     }));
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-  const formatPercent = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'percent',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value / 100);
+  const formatPercent = (value) =>
+    new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value / 100);
+
+  const variacaoClass = (value) => {
+    if (value > 0) return 'text-green-600 font-medium';
+    if (value < 0) return 'text-red-600 font-medium';
+    return 'text-slate-600';
   };
 
   const VariacaoIcon = ({ value }) => {
@@ -152,17 +126,11 @@ export default function InputPriceVariationReport() {
     return <Minus className="h-4 w-4 text-slate-400" />;
   };
 
-  const variacaoClass = (value) => {
-    if (value > 0) return 'text-green-600 font-medium';
-    if (value < 0) return 'text-red-600 font-medium';
-    return 'text-slate-600';
-  };
-
   return (
     <div className="max-w-6xl mx-auto">
       <PageHeader
-        title="Relatório de Variação de Preços de Insumos"
-        subtitle="Compare preços de insumos entre diferentes datas base"
+        title="Relatório de Variação de Preços de Serviços"
+        subtitle="Compare o custo total de serviços entre diferentes datas base"
         icon={TrendingUp}
       />
 
@@ -177,41 +145,34 @@ export default function InputPriceVariationReport() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="dataBaseX">Data Base X (Inicial)</Label>
+              <Label>Data Base X (Inicial)</Label>
               <Select value={dataBaseX} onValueChange={setDataBaseX}>
-                <SelectTrigger id="dataBaseX">
+                <SelectTrigger>
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
                   {datasBaseUnicas.map(data => (
-                    <SelectItem key={data} value={data}>
-                      {data}
-                    </SelectItem>
+                    <SelectItem key={data} value={data}>{data}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
             <div>
-              <Label htmlFor="dataBaseY">Data Base Y (Final)</Label>
+              <Label>Data Base Y (Final)</Label>
               <Select value={dataBaseY} onValueChange={setDataBaseY}>
-                <SelectTrigger id="dataBaseY">
+                <SelectTrigger>
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
                   {datasBaseUnicas.map(data => (
-                    <SelectItem key={data} value={data}>
-                      {data}
-                    </SelectItem>
+                    <SelectItem key={data} value={data}>{data}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="md:col-span-2">
-              <Label htmlFor="search">Buscar Insumo</Label>
+              <Label>Buscar Serviço</Label>
               <Input
-                id="search"
                 placeholder="Código ou descrição..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -226,37 +187,23 @@ export default function InputPriceVariationReport() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="pt-6">
-              <div className="text-sm text-slate-600">Insumos Comparados</div>
+              <div className="text-sm text-slate-600">Serviços Comparados</div>
               <div className="text-2xl font-bold">{variacoes.length}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="text-sm text-slate-600">Variação Média</div>
-              <div className={`text-2xl font-bold ${
-                variacoes.length > 0
-                  ? variacaoClass(variacoes.reduce((sum, v) => sum + v.variacao, 0) / variacoes.length)
-                  : ''
-              }`}>
-                {variacoes.length > 0
-                  ? formatPercent(variacoes.reduce((sum, v) => sum + v.variacao, 0) / variacoes.length)
-                  : '-'
-                }
+              <div className={`text-2xl font-bold ${variacoes.length > 0 ? variacaoClass(variacoes.reduce((s, v) => s + v.variacao, 0) / variacoes.length) : ''}`}>
+                {variacoes.length > 0 ? formatPercent(variacoes.reduce((s, v) => s + v.variacao, 0) / variacoes.length) : '-'}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="text-sm text-slate-600">Maior Variação</div>
-              <div className={`text-2xl font-bold ${
-                variacoes.length > 0
-                  ? variacaoClass(Math.max(...variacoes.map(v => v.variacao)))
-                  : ''
-              }`}>
-                {variacoes.length > 0
-                  ? formatPercent(Math.max(...variacoes.map(v => v.variacao)))
-                  : '-'
-                }
+              <div className={`text-2xl font-bold ${variacoes.length > 0 ? variacaoClass(Math.max(...variacoes.map(v => v.variacao))) : ''}`}>
+                {variacoes.length > 0 ? formatPercent(Math.max(...variacoes.map(v => v.variacao))) : '-'}
               </div>
             </CardContent>
           </Card>
@@ -267,7 +214,7 @@ export default function InputPriceVariationReport() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Lista de Insumos - Comparação {dataBaseX || '...'} vs {dataBaseY || '...'}
+            Lista de Serviços — Comparação {dataBaseX || '...'} vs {dataBaseY || '...'}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -277,7 +224,7 @@ export default function InputPriceVariationReport() {
             </div>
           ) : filteredVariacoes.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
-              Nenhum insumo encontrado com os filtros aplicados
+              Nenhum serviço encontrado com os filtros aplicados
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -285,48 +232,38 @@ export default function InputPriceVariationReport() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-32 cursor-pointer" onClick={() => handleSort('codigo')}>
-                      <div className="flex items-center gap-1">
-                        Código <ArrowUpDown className="h-3 w-3" />
-                      </div>
+                      <div className="flex items-center gap-1">Código <ArrowUpDown className="h-3 w-3" /></div>
                     </TableHead>
                     <TableHead className="cursor-pointer" onClick={() => handleSort('descricao')}>
-                      <div className="flex items-center gap-1">
-                        Descrição <ArrowUpDown className="h-3 w-3" />
-                      </div>
+                      <div className="flex items-center gap-1">Descrição <ArrowUpDown className="h-3 w-3" /></div>
                     </TableHead>
-                    <TableHead className="w-24 text-center cursor-pointer" onClick={() => handleSort('unidade')}>
-                      <div className="flex items-center gap-1 justify-center">
-                        Un. <ArrowUpDown className="h-3 w-3" />
-                      </div>
+                    <TableHead className="w-20 text-center cursor-pointer" onClick={() => handleSort('unidade')}>
+                      <div className="flex items-center gap-1 justify-center">Un. <ArrowUpDown className="h-3 w-3" /></div>
                     </TableHead>
-                    <TableHead className="w-32 text-right cursor-pointer" onClick={() => handleSort('valorX')}>
-                      <div className="flex items-center gap-1 justify-end">
-                        Valor ({dataBaseX}) <ArrowUpDown className="h-3 w-3" />
-                      </div>
+                    <TableHead className="w-36 text-right cursor-pointer" onClick={() => handleSort('valorX')}>
+                      <div className="flex items-center gap-1 justify-end">Custo ({dataBaseX}) <ArrowUpDown className="h-3 w-3" /></div>
                     </TableHead>
-                    <TableHead className="w-32 text-right cursor-pointer" onClick={() => handleSort('valorY')}>
-                      <div className="flex items-center gap-1 justify-end">
-                        Valor ({dataBaseY}) <ArrowUpDown className="h-3 w-3" />
-                      </div>
+                    <TableHead className="w-36 text-right cursor-pointer" onClick={() => handleSort('valorY')}>
+                      <div className="flex items-center gap-1 justify-end">Custo ({dataBaseY}) <ArrowUpDown className="h-3 w-3" /></div>
                     </TableHead>
                     <TableHead className="w-32 text-right cursor-pointer" onClick={() => handleSort('variacao')}>
-                      <div className="flex items-center gap-1 justify-end">
-                        Variação <ArrowUpDown className="h-3 w-3" />
-                      </div>
+                      <div className="flex items-center gap-1 justify-end">Variação <ArrowUpDown className="h-3 w-3" /></div>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredVariacoes.map((v) => (
                     <TableRow key={v.codigo}>
-                      <TableCell className="font-medium">{v.codigo}</TableCell>
+                      <TableCell className="font-medium font-mono text-xs">{v.codigo}</TableCell>
                       <TableCell>{v.descricao}</TableCell>
                       <TableCell className="text-center">{v.unidade}</TableCell>
                       <TableCell className="text-right">{formatCurrency(v.valorX)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(v.valorY)}</TableCell>
-                      <TableCell className={`text-right flex items-center justify-end gap-1 ${variacaoClass(v.variacao)}`}>
-                        <VariacaoIcon value={v.variacao} />
-                        {formatPercent(v.variacao)}
+                      <TableCell className={`text-right ${variacaoClass(v.variacao)}`}>
+                        <div className="flex items-center justify-end gap-1">
+                          <VariacaoIcon value={v.variacao} />
+                          {formatPercent(v.variacao)}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
