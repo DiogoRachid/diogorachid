@@ -81,6 +81,56 @@ export default function ServiceEditor() {
     return hist?.valor_unitario ?? insumoAtual?.valor_unitario ?? 0;
   };
 
+  // Recalcula recursivamente o custo de um serviço para uma data_base filtrada
+  // allServiceItems = todos os ServiceItems carregados
+  const calcularCustoServicoPorDataBase = (serviceIdCalc, allServiceItems, visited = new Set()) => {
+    if (visited.has(serviceIdCalc)) return { total: 0, mat: 0, mo: 0 };
+    visited.add(serviceIdCalc);
+
+    const itensDoServico = allServiceItems.filter(i => i.servico_id === serviceIdCalc);
+    let mat = 0, mo = 0;
+
+    for (const it of itensDoServico) {
+      if (it.tipo_item === 'INSUMO') {
+        const insumo = inputs.find(i => i.id === it.item_id);
+        const val = getValorInsumoParaDataBase(it.item_id);
+        const total = (it.quantidade || 0) * val;
+        if (insumo?.categoria === 'MAO_OBRA') mo += total;
+        else mat += total;
+      } else {
+        // Sub-serviço: recalcular recursivamente
+        const sub = calcularCustoServicoPorDataBase(it.item_id, allServiceItems, new Set(visited));
+        const total = (it.quantidade || 0) * sub.total;
+        if (sub.total > 0) {
+          mat += total * (sub.mat / sub.total);
+          mo += total * (sub.mo / sub.total);
+        }
+      }
+    }
+    return { total: mat + mo, mat, mo };
+  };
+
+  // Mapa de custo simulado por serviceId (para sub-serviços dentro da composição)
+  const [allServiceItems, setAllServiceItems] = useState([]);
+
+  useEffect(() => {
+    if (!dataBaseFiltro) return;
+    // Carregar todos os ServiceItems para recálculo recursivo
+    base44.entities.ServiceItem.list('', 100000).then(all => setAllServiceItems(all));
+  }, [dataBaseFiltro]);
+
+  // Para cada item do tipo SERVICO, calcula o custo simulado na data_base filtrada
+  const custoSimuladoPorItem = useMemo(() => {
+    if (!dataBaseFiltro || allServiceItems.length === 0) return {};
+    const map = {};
+    items.forEach(item => {
+      if (item.tipo_item === 'SERVICO') {
+        map[item.item_id] = calcularCustoServicoPorDataBase(item.item_id, allServiceItems);
+      }
+    });
+    return map;
+  }, [dataBaseFiltro, allServiceItems, items, inputs, priceHistory]);
+
   // Totais simulados para a data_base filtrada
   const totaisSimulados = useMemo(() => {
     if (!dataBaseFiltro) return null;
@@ -93,18 +143,16 @@ export default function ServiceEditor() {
         if (insumo?.categoria === 'MAO_OBRA') mo += total;
         else mat += total;
       } else {
-        // Para sub-serviços usa o snapshot salvo (não recalcula recursivo em tempo real)
-        const subService = services.find(s => s.id === item.item_id);
-        const unitCost = subService?.custo_total || item.custo_unitario_snapshot || 0;
-        const total = (item.quantidade || 0) * unitCost;
-        if (subService?.custo_total > 0) {
-          mat += total * ((subService.custo_material || 0) / subService.custo_total);
-          mo += total * ((subService.custo_mao_obra || 0) / subService.custo_total);
+        const sim = custoSimuladoPorItem[item.item_id];
+        if (sim) {
+          const total = (item.quantidade || 0) * sim.total;
+          mat += (item.quantidade || 0) * sim.mat;
+          mo += (item.quantidade || 0) * sim.mo;
         }
       }
     });
     return { mat, mo, total: mat + mo };
-  }, [dataBaseFiltro, items, inputs, priceHistory, services]);
+  }, [dataBaseFiltro, items, inputs, priceHistory, custoSimuladoPorItem]);
 
   const handleSaveHeader = async () => {
     if (!service.codigo || !service.descricao) return toast.error("Preencha código e descrição");
@@ -394,29 +442,37 @@ export default function ServiceEditor() {
                       const insumo = item.tipo_item === 'INSUMO' ? inputs.find(i => i.id === item.item_id) : null;
                       const subService = item.tipo_item === 'SERVICO' ? services.find(s => s.id === item.item_id) : null;
 
-                      // Valor unitário: se filtro de data_base ativo, usa histórico
-                      const unitCost = item.tipo_item === 'INSUMO'
-                        ? (dataBaseFiltro ? getValorInsumoParaDataBase(item.item_id) : item.custo_unitario_snapshot || 0)
-                        : (item.custo_unitario_snapshot || 0);
-
-                      const totalItem = (item.quantidade || 0) * unitCost;
+                      // Valor unitário: se filtro ativo, recalcula para insumos e sub-serviços
+                      let unitCost, totalItem, custoMat = 0, custoMO = 0;
+                      if (item.tipo_item === 'INSUMO') {
+                        unitCost = dataBaseFiltro ? getValorInsumoParaDataBase(item.item_id) : (item.custo_unitario_snapshot || 0);
+                        totalItem = (item.quantidade || 0) * unitCost;
+                      } else {
+                        // Sub-serviço: usa custo simulado se filtro ativo
+                        const sim = dataBaseFiltro ? custoSimuladoPorItem[item.item_id] : null;
+                        unitCost = sim ? sim.total : (item.custo_unitario_snapshot || 0);
+                        totalItem = (item.quantidade || 0) * unitCost;
+                      }
 
                       let displayCategoria = 'MAT';
-                      let custoMat = 0, custoMO = 0;
                       if (item.tipo_item === 'INSUMO') {
                         displayCategoria = insumo?.categoria === 'MAO_OBRA' ? 'MO' : 'MAT';
                         if (insumo?.categoria === 'MAO_OBRA') custoMO = totalItem;
                         else custoMat = totalItem;
                       } else {
                         displayCategoria = 'MISTO';
-                        if (subService?.custo_total > 0) {
+                        const sim = dataBaseFiltro ? custoSimuladoPorItem[item.item_id] : null;
+                        if (sim && sim.total > 0) {
+                          custoMat = (item.quantidade || 0) * sim.mat;
+                          custoMO = (item.quantidade || 0) * sim.mo;
+                        } else if (subService?.custo_total > 0) {
                           custoMat = totalItem * ((subService.custo_material || 0) / subService.custo_total);
                           custoMO = totalItem * ((subService.custo_mao_obra || 0) / subService.custo_total);
                         }
                       }
 
-                      // Indicar se o valor é do histórico
-                      const isHistorico = dataBaseFiltro && item.tipo_item === 'INSUMO' && insumo?.data_base !== dataBaseFiltro;
+                      // Indicar se o valor é simulado/histórico
+                      const isHistorico = !!dataBaseFiltro;
 
                       return (
                         <TableRow key={item.id} className={isHistorico ? 'bg-amber-50/50' : ''}>
