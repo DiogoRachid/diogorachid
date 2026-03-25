@@ -85,81 +85,98 @@ export default function TableImport() {
   };
 
   const processInputsDirectly = async (lines, separator) => {
-      setProgress({ message: 'Lendo insumos existentes...', percent: 10 });
-      const allInputs = await base44.entities.Input.list('', 100000);
-      const inputMap = new Map(allInputs.map(i => [i.codigo?.trim(), i.id]));
-      const updates = [];
+      setProgress({ message: 'Lendo insumos existentes...', percent: 5 });
+
+      // Carregar TODOS os insumos (sem limite de 50)
+      const allInputs = await base44.entities.Input.list('created_date', 100000);
+      
+      // Mapa: "codigo|data_base" → id (para checar duplicatas exatas)
+      const inputMapExact = new Map(allInputs.map(i => [`${i.codigo?.trim()}|${i.data_base?.trim() || ''}`, i.id]));
+
       const creates = [];
+      const updates = [];
       let skipped = 0;
-    
+
+      // --- Parse das linhas ---
+      setProgress({ message: 'Analisando linhas...', percent: 15 });
+
       for (const line of lines) {
         if (!line.trim()) continue;
         const cols = line.split(separator).map(c => c?.trim().replace(/^"|"$/g, ''));
         if (cols.length < 3) continue;
-    
+
         const codigo = cols[0]?.trim();
         const descricao = cols[1]?.trim();
         const unidade = cols[2]?.trim();
         const valorStr = cols[3];
-    
+
         // Ignorar linhas sem código ou que parecem cabeçalho
-        if (!codigo || codigo.toLowerCase() === 'codigo' || codigo.toLowerCase() === 'código') {
-          skipped++;
-          continue;
-        }
-    
+        if (!codigo || /^c[oó]d/i.test(codigo)) { skipped++; continue; }
+
         let categoria = detectCategory(unidade);
         let dataBase = '';
-    
+
         if (hasCategoryColumn) {
-           const catRaw = (cols[4] || '').toUpperCase().trim();
-           if (catRaw.startsWith('MAO') || catRaw.startsWith('MÃO') || catRaw === 'MO') categoria = 'MAO_OBRA';
-           else if (catRaw.startsWith('MAT') || catRaw === 'M') categoria = 'MATERIAL';
-           dataBase = cols[5]?.trim() || '';
+          const catRaw = (cols[4] || '').toUpperCase().trim();
+          if (catRaw.startsWith('MAO') || catRaw.startsWith('MÃO') || catRaw === 'MO') categoria = 'MAO_OBRA';
+          else if (catRaw.startsWith('MAT') || catRaw === 'M') categoria = 'MATERIAL';
+          dataBase = cols[5]?.trim() || '';
         } else {
-           dataBase = cols[4]?.trim() || '';
+          dataBase = cols[4]?.trim() || '';
         }
-    
+
         const valor = parseCurrency(valorStr);
-    
-        const data = { 
-           codigo, 
-           descricao: (descricao || codigo).slice(0, 500), 
-           unidade: unidade || 'UN', 
-           valor_unitario: valor, 
-           categoria,
-           ...(dataBase && { data_base: dataBase }),
-           fonte: 'SINAPI' 
+
+        const data = {
+          codigo,
+          descricao: (descricao || codigo).slice(0, 500),
+          unidade: unidade || 'UN',
+          valor_unitario: valor,
+          categoria,
+          data_base: dataBase,
+          fonte: 'SINAPI'
         };
-    
-        if (inputMap.has(codigo)) {
-          updates.push({ id: inputMap.get(codigo), data });
+
+        // Chave: codigo + data_base → mesmo registro (atualiza valor)
+        // Chave: codigo + data_base diferente → novo registro (preserva histórico)
+        const keyExact = `${codigo}|${dataBase}`;
+        if (inputMapExact.has(keyExact)) {
+          // Mesma data_base: atualizar valor
+          updates.push({ id: inputMapExact.get(keyExact), data });
         } else {
+          // Nova data_base ou novo código: criar registro novo
           creates.push(data);
         }
       }
 
       const total = creates.length + updates.length;
       if (total === 0) {
-        toast.error('Nenhum insumo válido encontrado. Verifique o formato dos dados.');
+        toast.error('Nenhum insumo válido encontrado. Verifique o formato (separador, colunas).');
         return;
       }
-    
+
+      // --- Criar novos ---
       if (creates.length > 0) {
-         setProgress({ message: `Criando ${creates.length} novos insumos...`, percent: 50 });
-         for (let i = 0; i < creates.length; i += 100) {
-           await base44.entities.Input.bulkCreate(creates.slice(i, i + 100));
-           setProgress({ message: `Criando insumos... ${Math.min(i + 100, creates.length)}/${creates.length}`, percent: 50 + Math.floor((i / creates.length) * 25) });
-         }
+        const CHUNK = 100;
+        for (let i = 0; i < creates.length; i += CHUNK) {
+          await base44.entities.Input.bulkCreate(creates.slice(i, i + CHUNK));
+          const pct = 30 + Math.floor(((i + CHUNK) / creates.length) * 40);
+          setProgress({ message: `Criando novos insumos... ${Math.min(i + CHUNK, creates.length)}/${creates.length}`, percent: Math.min(pct, 70) });
+        }
       }
+
+      // --- Atualizar existentes ---
       if (updates.length > 0) {
-         setProgress({ message: `Atualizando ${updates.length} insumos...`, percent: 75 });
-         for (let i = 0; i < updates.length; i += 50) {
-            await Promise.all(updates.slice(i, i + 50).map(u => base44.entities.Input.update(u.id, u.data)));
-            setProgress({ message: `Atualizando insumos... ${Math.min(i + 50, updates.length)}/${updates.length}`, percent: 75 + Math.floor((i / updates.length) * 20) });
-         }
+        const CHUNK = 50;
+        for (let i = 0; i < updates.length; i += CHUNK) {
+          await Promise.all(updates.slice(i, i + CHUNK).map(u => base44.entities.Input.update(u.id, u.data)));
+          const pct = 70 + Math.floor(((i + CHUNK) / updates.length) * 25);
+          setProgress({ message: `Atualizando insumos... ${Math.min(i + CHUNK, updates.length)}/${updates.length}`, percent: Math.min(pct, 95) });
+        }
       }
-      toast.success(`Concluído! ${creates.length} criados, ${updates.length} atualizados${skipped > 0 ? `, ${skipped} ignorados` : ''}.`);
+
+      setProgress({ message: 'Concluído!', percent: 100 });
+      toast.success(`Concluído! ${creates.length} criados (nova data base), ${updates.length} atualizados${skipped > 0 ? `, ${skipped} ignorados` : ''}.`);
   };
 
   const processCompositionsDirectly = async (lines, separator) => {
