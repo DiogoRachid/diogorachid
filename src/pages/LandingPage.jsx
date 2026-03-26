@@ -402,17 +402,13 @@ export default function LandingPage() {
               <h3 className="font-semibold text-slate-900 mb-1">WhatsApp</h3>
               <p className="text-green-600 text-sm">{whatsappRaw}</p>
             </a>
-            <div className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center border border-slate-100">
-              <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`} target="_blank" rel="noopener noreferrer" className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow border border-slate-100 group">
+              <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
                 <MapPin className="h-6 w-6 text-blue-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-1">Endereço</h3>
-              <div className="text-slate-600 text-xs leading-relaxed">
-                <p>R. Maria Lúcia da Paz, 550 sl503</p>
-                <p>Gleba Palhano</p>
-                <p>Londrina-PR</p>
-              </div>
-            </div>
+              <p className="text-blue-600 text-xs leading-relaxed">{endereco}</p>
+            </a>
           </div>
         </div>
       </section>
