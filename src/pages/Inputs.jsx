@@ -219,23 +219,35 @@ export default function Inputs() {
 
        // 1. Salvar histórico dos valores atuais antes de atualizar
        const inputsComDataBase = allInputs.filter(i => i.data_base && i.data_base !== bulkDate && i.valor_unitario > 0);
-       for (let i = 0; i < inputsComDataBase.length; i += 50) {
-         const chunk = inputsComDataBase.slice(i, i + 50);
-         await Promise.all(chunk.map(async input => {
-           const existing = await base44.entities.InputPriceHistory.filter({ insumo_id: input.id, data_base: input.data_base });
-           if (existing.length === 0) {
-             await base44.entities.InputPriceHistory.create({
-               insumo_id: input.id,
-               codigo: input.codigo,
-               descricao: input.descricao,
-               unidade: input.unidade,
-               valor_unitario: input.valor_unitario,
-               data_base: input.data_base,
-               categoria: input.categoria,
-               fonte: input.fonte
-             }).catch(() => {});
-           }
+
+       // Carregar histórico existente de uma vez para evitar queries individuais
+       const existingHistoryAll = await (async () => {
+         const limit = 1000; let all = []; let skip = 0;
+         while (true) {
+           const batch = await base44.entities.InputPriceHistory.list('created_date', limit, skip);
+           all = all.concat(batch);
+           if (batch.length < limit) break;
+           skip += limit;
+         }
+         return all;
+       })();
+       const existingHistorySet = new Set(existingHistoryAll.map(h => `${h.insumo_id}|${h.data_base}`));
+
+       const historicosParaCriar = inputsComDataBase
+         .filter(input => !existingHistorySet.has(`${input.id}|${input.data_base}`))
+         .map(input => ({
+           insumo_id: input.id,
+           codigo: input.codigo,
+           descricao: input.descricao,
+           unidade: input.unidade,
+           valor_unitario: input.valor_unitario,
+           data_base: input.data_base,
+           categoria: input.categoria,
+           fonte: input.fonte
          }));
+
+       for (let i = 0; i < historicosParaCriar.length; i += 100) {
+         await base44.entities.InputPriceHistory.bulkCreate(historicosParaCriar.slice(i, i + 100));
        }
 
        // 2. Atualizar data_base de todos os insumos

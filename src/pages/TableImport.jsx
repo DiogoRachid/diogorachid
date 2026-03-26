@@ -179,9 +179,14 @@ export default function TableImport() {
 
       // --- Atualizar com nova data_base: salvar histórico + atualizar insumo ---
       if (updates.length > 0) {
-        // 1. Salvar valores ANTERIORES no histórico
+        // 1. Carregar histórico existente de uma vez (sem limite) para evitar queries individuais
+        setProgress({ message: 'Verificando histórico existente...', percent: 38 });
+        const existingHistory = await fetchAllRecords(base44.entities.InputPriceHistory);
+        const existingHistorySet = new Set(existingHistory.map(h => `${h.insumo_id}|${h.data_base}`));
+
+        // 2. Salvar valores ANTERIORES no histórico (apenas os que ainda não existem)
         const historicos = updates
-          .filter(u => u.oldDataBase && u.oldValue != null)
+          .filter(u => u.oldDataBase && u.oldValue != null && !existingHistorySet.has(`${u.insumoId}|${u.oldDataBase}`))
           .map(u => ({
             insumo_id: u.insumoId,
             codigo: u.data.codigo,
@@ -196,7 +201,7 @@ export default function TableImport() {
         const CHUNK_H = 100;
         for (let i = 0; i < historicos.length; i += CHUNK_H) {
           await base44.entities.InputPriceHistory.bulkCreate(historicos.slice(i, i + CHUNK_H));
-          setProgress({ message: `Salvando histórico de preços... ${Math.min(i + CHUNK_H, historicos.length)}/${historicos.length}`, percent: 40 + Math.floor(((i + CHUNK_H) / historicos.length) * 15) });
+          setProgress({ message: `Salvando histórico de preços... ${Math.min(i + CHUNK_H, historicos.length)}/${historicos.length}`, percent: 40 + Math.floor(((i + CHUNK_H) / Math.max(historicos.length, 1)) * 15) });
         }
 
         // 2. Atualizar insumos com novo valor/data_base
