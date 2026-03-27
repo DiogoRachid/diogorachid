@@ -50,6 +50,7 @@ export default function TableImport() {
   const [inputType, setInputType] = useState('PASTE');
   const [loading, setLoading] = useState(false);
   const [hasCategoryColumn, setHasCategoryColumn] = useState(false);
+  const [fonteDefault, setFonteDefault] = useState('SINAPI');
   const [progress, setProgress] = useState({ message: '', percent: 0 });
   const [pasteData, setPasteData] = useState('');
   const fileInputRef = useRef(null);
@@ -126,17 +127,17 @@ export default function TableImport() {
 
       let categoria = detectCategory(unidade);
       let dataBase = '';
-      let fonte = 'PROPRIA';
+      let fonte = fonteDefault;
 
       if (hasCategoryColumn) {
         const catRaw = (cols[4] || '').toUpperCase().trim();
         if (catRaw.startsWith('MAO') || catRaw.startsWith('MÃO') || catRaw === 'MO') categoria = 'MAO_OBRA';
         else if (catRaw.startsWith('MAT') || catRaw === 'M') categoria = 'MATERIAL';
         dataBase = cols[5]?.trim() || '';
-        fonte = cols[6]?.trim() || 'PROPRIA';
+        fonte = cols[6]?.trim() || fonteDefault;
       } else {
         dataBase = cols[4]?.trim() || '';
-        fonte = cols[5]?.trim() || 'PROPRIA';
+        fonte = cols[5]?.trim() || fonteDefault;
       }
 
       const valor = parseCurrency(valorStr);
@@ -432,12 +433,28 @@ export default function TableImport() {
             </div>
 
             {mode === 'INSUMO' && (
-              <div className="flex items-center space-x-2 pt-8">
-                <Checkbox id="catCol" checked={hasCategoryColumn} onCheckedChange={setHasCategoryColumn} />
-                <label htmlFor="catCol" className="text-sm font-medium leading-none">
-                  Incluir coluna de Categoria? (Posição 5)
-                </label>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label>Fonte Padrão</Label>
+                  <Select value={fonteDefault} onValueChange={setFonteDefault} disabled={loading}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SINAPI">SINAPI</SelectItem>
+                      <SelectItem value="ORSE">ORSE</SelectItem>
+                      <SelectItem value="SETOP">SETOP</SelectItem>
+                      <SelectItem value="SICRO">SICRO</SelectItem>
+                      <SelectItem value="PROPRIA">Própria</SelectItem>
+                      <SelectItem value="OUTRO">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center space-x-2 pt-8">
+                  <Checkbox id="catCol" checked={hasCategoryColumn} onCheckedChange={setHasCategoryColumn} />
+                  <label htmlFor="catCol" className="text-sm font-medium leading-none">
+                    Incluir coluna de Categoria? (Posição 5)
+                  </label>
+                </div>
+              </>
             )}
 
             <div className="space-y-2">
