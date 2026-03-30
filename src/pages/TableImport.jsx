@@ -304,12 +304,27 @@ export default function TableImport() {
 
   const processCompositionsDirectly = async (lines, separator) => {
     const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
-    const withRetry = async (fn, retries = 5, delayMs = 400) => {
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // Detecta erros de rate limit ou rede independente do formato
+    const isRetryable = (err) => {
+      if (!err) return false;
+      if (err?.status === 429) return true;
+      const msg = (err?.message || err?.toString() || '').toLowerCase();
+      return msg.includes('rate limit') || msg.includes('too many') || msg.includes('network') || msg.includes('timeout') || msg.includes('503') || msg.includes('502');
+    };
+
+    // Retry com backoff exponencial — espera mais a cada tentativa
+    const withRetry = async (fn, retries = 6, baseDelay = 2000) => {
       for (let attempt = 0; attempt <= retries; attempt++) {
         try { return await fn(); }
         catch (err) {
-          if (err?.status === 429 && attempt < retries) await new Promise(r => setTimeout(r, delayMs * (attempt + 1)));
-          else throw err;
+          if (isRetryable(err) && attempt < retries) {
+            const wait = baseDelay * Math.pow(2, attempt); // 2s, 4s, 8s, 16s...
+            await sleep(Math.min(wait, 30000)); // máx 30s
+          } else {
+            throw err;
+          }
         }
       }
     };
@@ -577,16 +592,18 @@ export default function TableImport() {
         totalRetries++;
       }
 
-      // Tentativa 2: sub-lotes de 100
+      // Tentativa 2: sub-lotes de 100 (com pausa entre eles)
       const failedFrom100 = [];
       for (let j = 0; j < batch.length; j += 100) {
         const sub = batch.slice(j, j + 100);
         try {
           await withRetry(() => base44.entities.ServiceItem.bulkCreate(sub));
           linksCreated += sub.length;
-        } catch {
+        } catch (e) {
           failedFrom100.push(...sub);
+          log(`    ✗ Sub-lote 100 falhou: ${e.message}`, 'warn');
         }
+        await sleep(600);
         await yieldToMain();
       }
 
@@ -594,16 +611,17 @@ export default function TableImport() {
       log(`  ↺ ${failedFrom100.length} itens ainda falharam — tentando sub-lotes de 10`, 'retry');
       totalRetries++;
 
-      // Tentativa 3: sub-lotes de 10
+      // Tentativa 3: sub-lotes de 10 (com pausa)
       const failedFrom10 = [];
       for (let j = 0; j < failedFrom100.length; j += 10) {
         const sub = failedFrom100.slice(j, j + 10);
         try {
           await withRetry(() => base44.entities.ServiceItem.bulkCreate(sub));
           linksCreated += sub.length;
-        } catch {
+        } catch (e) {
           failedFrom10.push(...sub);
         }
+        await sleep(400);
         await yieldToMain();
       }
 
@@ -611,16 +629,16 @@ export default function TableImport() {
       log(`  ↺ ${failedFrom10.length} itens ainda falharam — tentando um por um`, 'retry');
       totalRetries++;
 
-      // Tentativa 4: um por um
+      // Tentativa 4: um por um (com pausa de 1s entre cada)
       for (const item of failedFrom10) {
         try {
-          await withRetry(() => base44.entities.ServiceItem.create(item), 3, 600);
+          await withRetry(() => base44.entities.ServiceItem.create(item), 5, 3000);
           linksCreated++;
         } catch (err) {
           linkErrors++;
           log(`    ✗ Falha definitiva: servico=${item.servico_codigo} item=${item.item_codigo} — ${err.message}`, 'error');
         }
-        await new Promise(r => setTimeout(r, 80));
+        await sleep(1000);
       }
     };
 
@@ -630,15 +648,16 @@ export default function TableImport() {
 
       await saveBatchWithFallback(chunk, `${batchNum}/${totalBatches}`);
 
-      if (linksCreated % LINK_BULK === 0 || i + LINK_BULK >= linksToCreate.length) {
-        log(`  ✔ ${linksCreated.toLocaleString('pt-BR')}/${linksToCreate.length.toLocaleString('pt-BR')} vínculos salvos`, 'success');
-      }
+      log(`  ✔ ${linksCreated.toLocaleString('pt-BR')}/${linksToCreate.length.toLocaleString('pt-BR')} vínculos salvos`, 'success');
 
       setTotals({ links: linksCreated, errors: linkErrors, retries: totalRetries });
       setCompProgress({
         message: `Salvando vínculos ${linksCreated.toLocaleString('pt-BR')}/${linksToCreate.length.toLocaleString('pt-BR')}...`,
         percent: 32 + Math.floor((linksCreated / Math.max(linksToCreate.length, 1)) * 50),
       });
+
+      // Pausa entre lotes para não estourar o rate limit
+      await sleep(800);
       await yieldToMain();
     }
 
