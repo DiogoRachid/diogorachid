@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import * as Engine from '@/components/logic/CompositionEngine';
 import InputImportProgressPanel from '@/components/imports/InputImportProgressPanel';
+import CompositionImportProgressPanel from '@/components/imports/CompositionImportProgressPanel';
 
 const fetchAllRecords = async (entity) => {
   const limit = 1000;
@@ -38,6 +39,17 @@ export default function TableImport() {
   const [importStartTime, setImportStartTime] = useState(null);
   const [importTotals, setImportTotals] = useState(null);
   const importRowsRef = useRef([]);
+
+  // Estado do painel de progresso de composições
+  const [compPhase, setCompPhase] = useState('');
+  const [compProgress, setCompProgress] = useState({ message: '', percent: 0 });
+  const [compTotals, setCompTotals] = useState({});
+  const [compLog, setCompLog] = useState([]);
+  const [compStartTime, setCompStartTime] = useState(null);
+
+  const addLog = (msg, type = 'info') => {
+    setCompLog(prev => [...prev, { msg, type, ts: Date.now() }]);
+  };
 
   const detectCategory = (unit) => {
     if (!unit) return 'MATERIAL';
@@ -291,15 +303,35 @@ export default function TableImport() {
   };
 
   const processCompositionsDirectly = async (lines, separator) => {
-    toast.info("Iniciando processamento...");
     const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
+    const withRetry = async (fn, retries = 5, delayMs = 400) => {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try { return await fn(); }
+        catch (err) {
+          if (err?.status === 429 && attempt < retries) await new Promise(r => setTimeout(r, delayMs * (attempt + 1)));
+          else throw err;
+        }
+      }
+    };
 
-    setProgress({ message: 'Analisando linhas...', percent: 5 });
+    // Reset painel de composições
+    setCompStartTime(Date.now());
+    setCompLog([]);
+    setCompTotals({});
+    setCompPhase('parsing');
+
+    const log = (msg, type = 'info') => {
+      setCompLog(prev => [...prev.slice(-200), { msg, type }]); // manter últimas 200 linhas
+    };
+    const setTotals = (patch) => setCompTotals(prev => ({ ...prev, ...patch }));
+
+    // ─── FASE 1: PARSE ───────────────────────────────────────────────────────
+    setCompProgress({ message: 'Analisando linhas...', percent: 3 });
+    log('▶ FASE 1: Parse de linhas', 'phase');
+
     const items = [];
     let skippedCount = 0;
-
-    const looksLikeCode = (str) => str && str.length < 20 && !str.includes(' ');
-    const looksLikeUnit = (str) => str && str.length <= 5;
+    const looksLikeCode = (str) => str && str.length < 25 && !/\s{2,}/.test(str);
 
     for (const line of lines) {
       const cleanLine = line.trim();
@@ -311,15 +343,14 @@ export default function TableImport() {
       if (cleanLine.includes('\t')) {
         const parts = cleanLine.split('\t').map(c => c.trim());
         if (parts.length >= 5) {
-          let p0 = parts[0], p1 = parts[1], p2 = parts[2], p3 = parts[3], p4 = parts[4];
+          const [p0, p1, p2, p3, p4] = parts;
           if (looksLikeCode(p0) && looksLikeCode(p3) && /[\d.,]+/.test(p4)) {
             cols = [p0, p1, p2, p3, p4]; parsed = true;
           } else {
-            const qty = parts[parts.length - 1], child = parts[parts.length - 2];
-            const parent = parts[0];
+            const qty = parts[parts.length - 1], child = parts[parts.length - 2], parent = parts[0];
             if (looksLikeCode(parent) && looksLikeCode(child)) {
-              const desc = parts.slice(1, parts.length - 3).join(' ');
-              cols = [parent, desc, parts[parts.length - 3], child, qty]; parsed = true;
+              cols = [parent, parts.slice(1, parts.length - 3).join(' '), parts[parts.length - 3], child, qty];
+              parsed = true;
             }
           }
         }
@@ -330,8 +361,10 @@ export default function TableImport() {
         if (parts.length >= 5) {
           const qty = parts[parts.length - 1], child = parts[parts.length - 2];
           const unit = parts[parts.length - 3], parent = parts[0];
-          const desc = parts.slice(1, parts.length - 3).join(' ');
-          if (looksLikeCode(parent)) { cols = [parent, desc, unit, child, qty]; parsed = true; }
+          if (looksLikeCode(parent)) {
+            cols = [parent, parts.slice(1, parts.length - 3).join(' '), unit, child, qty];
+            parsed = true;
+          }
         }
       }
 
@@ -342,111 +375,271 @@ export default function TableImport() {
           const qty = tokens[tokens.length - 1], child = tokens[tokens.length - 2];
           const unit = tokens[tokens.length - 3], parent = tokens[0];
           if (looksLikeCode(parent) && looksLikeCode(child) && /[\d.,]+/.test(qty)) {
-            const desc = tokens.slice(1, tokens.length - 3).join(' ');
-            cols = [parent, desc, unit, child, qty]; parsed = true;
+            cols = [parent, tokens.slice(1, tokens.length - 3).join(' '), unit, child, qty];
+            parsed = true;
           }
         }
       }
 
       if (parsed) {
-        const qty = parseBrlNumber(cols[4]);
-        if (!cols[0] || cols[0].length > 15 || !/^[A-Z0-9.-]+$/.test(cols[0])) { skippedCount++; continue; }
+        const codigoPai = cols[0]?.trim();
+        if (!codigoPai || codigoPai.length > 20 || !/^[A-Z0-9.\-_]+$/i.test(codigoPai)) { skippedCount++; continue; }
         items.push({
-          codigo_pai: cols[0]?.trim(),
-          descricao_pai: cols[1]?.trim()?.replace(/^["']|["']$/g, ''),
+          codigo_pai: codigoPai,
+          descricao_pai: cols[1]?.trim()?.replace(/^["']|["']$/g, '') || codigoPai,
           unidade_pai: cols[2]?.trim() || 'UN',
           codigo_item: cols[3]?.trim(),
-          quantidade: qty
+          quantidade: parseBrlNumber(cols[4]),
         });
-      } else { skippedCount++; }
-    }
-
-    if (items.length === 0) {
-      throw new Error("Nenhuma linha válida identificada. Verifique se o formato está correto.");
-    }
-
-    setProgress({ message: 'Resolvendo códigos...', percent: 20 });
-    const allCodes = new Set();
-    const itemsInfo = {};
-    items.forEach(i => {
-      if (i.codigo_pai) { allCodes.add(i.codigo_pai); if (!itemsInfo[i.codigo_pai]) itemsInfo[i.codigo_pai] = { description: i.descricao_pai, unit: i.unidade_pai }; }
-      if (i.codigo_item) { allCodes.add(i.codigo_item); }
-    });
-
-    const parentCodes = new Set(items.map(i => i.codigo_pai));
-    const allInputsDb = await fetchAllRecords(base44.entities.Input);
-    const allServicesDb = await fetchAllRecords(base44.entities.Service);
-
-    let mapping = {};
-    for (const code of allCodes) {
-      const info = itemsInfo[code];
-      const existingInput = allInputsDb.find(i => i.codigo === code);
-      const existingService = allServicesDb.find(s => s.codigo === code);
-
-      if (!existingInput && !existingService) {
-        if (parentCodes.has(code)) {
-          const service = await base44.entities.Service.create({ codigo: code, descricao: info?.description || code, unidade: info?.unit || 'UN', custo_total: 0, ativo: true });
-          mapping[code] = { id: service.id, type: 'Service', unit: info?.unit || 'UN', cost: 0 };
-        } else {
-          const input = await base44.entities.Input.create({ codigo: code, descricao: info?.description || code, unidade: info?.unit || 'UN', valor_unitario: 0, categoria: 'MATERIAL' });
-          mapping[code] = { id: input.id, type: 'Input', unit: info?.unit || 'UN', cost: 0 };
-        }
-      } else if (existingService) {
-        mapping[code] = { id: existingService.id, type: 'Service', unit: existingService.unidade || 'UN', cost: existingService.custo_total || 0 };
-      } else if (existingInput) {
-        mapping[code] = { id: existingInput.id, type: 'Input', unit: existingInput.unidade || 'UN', cost: existingInput.valor_unitario || 0 };
+      } else {
+        skippedCount++;
       }
     }
 
-    setProgress({ message: 'Preparando vínculos...', percent: 60 });
-    const existingItems = await fetchAllRecords(base44.entities.ServiceItem);
-    const existingMap = new Map(existingItems.map(item => [`${item.servico_id}|${item.tipo_item}|${item.item_id}`, item]));
+    if (items.length === 0) throw new Error("Nenhuma linha válida identificada. Verifique o formato.");
+
+    setTotals({ parsed: items.length, skipped: skippedCount });
+    log(`✔ ${items.length.toLocaleString('pt-BR')} linhas válidas, ${skippedCount} ignoradas`, 'success');
+    await yieldToMain();
+
+    // ─── FASE 2: CARGA DO BANCO ──────────────────────────────────────────────
+    setCompPhase('loading');
+    setCompProgress({ message: 'Carregando dados do banco...', percent: 8 });
+    log('▶ FASE 2: Carregando insumos, serviços e vínculos existentes', 'phase');
+
+    const [allInputsDb, allServicesDb, existingServiceItems] = await Promise.all([
+      fetchAllRecords(base44.entities.Input),
+      fetchAllRecords(base44.entities.Service),
+      fetchAllRecords(base44.entities.ServiceItem),
+    ]);
+
+    const inputByCodigo = new Map(allInputsDb.map(i => [i.codigo?.trim(), i]));
+    const serviceByCodigo = new Map(allServicesDb.map(s => [s.codigo?.trim(), s]));
+    // Chave de duplicata: servico_id|tipo|item_codigo (usa código estável)
+    const existingKey = new Set(
+      existingServiceItems
+        .filter(i => i.item_codigo)
+        .map(i => `${i.servico_id}|${i.tipo_item}|${i.item_codigo}`)
+    );
+    // Fallback por item_id para itens sem item_codigo
+    const existingKeyById = new Set(
+      existingServiceItems.map(i => `${i.servico_id}|${i.tipo_item}|${i.item_id}`)
+    );
+
+    log(`✔ ${allInputsDb.length.toLocaleString('pt-BR')} insumos | ${allServicesDb.length.toLocaleString('pt-BR')} serviços | ${existingServiceItems.length.toLocaleString('pt-BR')} vínculos existentes`, 'success');
+    await yieldToMain();
+
+    // ─── FASE 3: RESOLVER CÓDIGOS (bulk) ────────────────────────────────────
+    setCompPhase('resolving');
+    setCompProgress({ message: 'Resolvendo códigos desconhecidos...', percent: 15 });
+    log('▶ FASE 3: Identificando códigos novos para criação em bulk', 'phase');
+
+    const parentCodes = new Map(); // codigo_pai -> { descricao, unidade }
+    const childCodes = new Set();
+
+    for (const item of items) {
+      if (!parentCodes.has(item.codigo_pai))
+        parentCodes.set(item.codigo_pai, { description: item.descricao_pai, unit: item.unidade_pai });
+      if (item.codigo_item) childCodes.add(item.codigo_item);
+    }
+
+    // Códigos que precisam ser criados
+    const missingServices = [];
+    const missingInputs = [];
+
+    for (const [code, info] of parentCodes) {
+      if (!serviceByCodigo.has(code) && !inputByCodigo.has(code)) {
+        missingServices.push({ codigo: code, descricao: info.description || code, unidade: info.unit || 'UN', custo_total: 0, ativo: true });
+      }
+    }
+    for (const code of childCodes) {
+      if (!inputByCodigo.has(code) && !serviceByCodigo.has(code) && !parentCodes.has(code)) {
+        missingInputs.push({ codigo: code, descricao: code, unidade: 'UN', valor_unitario: 0, categoria: 'MATERIAL' });
+      }
+    }
+
+    log(`  ${missingServices.length} serviços novos | ${missingInputs.length} insumos novos a criar`, 'info');
+
+    // Bulk create serviços novos
+    const BULK = 200;
+    if (missingServices.length > 0) {
+      log(`  Criando ${missingServices.length} serviços em bulk...`, 'info');
+      for (let i = 0; i < missingServices.length; i += BULK) {
+        const chunk = missingServices.slice(i, i + BULK);
+        const created = await withRetry(() => base44.entities.Service.bulkCreate(chunk));
+        // bulkCreate retorna array com ids
+        if (Array.isArray(created)) {
+          created.forEach((s, idx) => {
+            const original = chunk[idx];
+            serviceByCodigo.set(original.codigo, { ...original, id: s.id || s });
+          });
+        }
+        setCompProgress({ message: `Criando serviços ${Math.min(i + BULK, missingServices.length)}/${missingServices.length}...`, percent: 15 + Math.floor((i / missingServices.length) * 8) });
+        await yieldToMain();
+      }
+      // Recarregar serviços para ter IDs corretos
+      const freshServices = await fetchAllRecords(base44.entities.Service);
+      freshServices.forEach(s => serviceByCodigo.set(s.codigo?.trim(), s));
+      log(`  ✔ ${missingServices.length} serviços criados`, 'success');
+      setTotals({ newServices: missingServices.length });
+    }
+
+    // Bulk create insumos novos
+    if (missingInputs.length > 0) {
+      log(`  Criando ${missingInputs.length} insumos em bulk...`, 'info');
+      for (let i = 0; i < missingInputs.length; i += BULK) {
+        await withRetry(() => base44.entities.Input.bulkCreate(missingInputs.slice(i, i + BULK)));
+        setCompProgress({ message: `Criando insumos ${Math.min(i + BULK, missingInputs.length)}/${missingInputs.length}...`, percent: 23 + Math.floor((i / missingInputs.length) * 7) });
+        await yieldToMain();
+      }
+      // Recarregar insumos
+      const freshInputs = await fetchAllRecords(base44.entities.Input);
+      freshInputs.forEach(i => inputByCodigo.set(i.codigo?.trim(), i));
+      log(`  ✔ ${missingInputs.length} insumos criados`, 'success');
+      setTotals({ newInputs: missingInputs.length });
+    }
+
+    await yieldToMain();
+
+    // ─── FASE 4: PREPARAR VÍNCULOS ──────────────────────────────────────────
+    setCompPhase('linking');
+    setCompProgress({ message: 'Preparando vínculos...', percent: 32 });
+    log('▶ FASE 4: Montando vínculos (ServiceItems)', 'phase');
 
     const linksToCreate = [];
     let skippedDuplicates = 0;
+    let unmapped = 0;
+    let ordem = 0;
 
     for (const item of items) {
-      const parentData = mapping[item.codigo_pai];
-      const childData = mapping[item.codigo_item];
-      if (!parentData || !childData) continue;
+      const parentData = serviceByCodigo.get(item.codigo_pai) || inputByCodigo.get(item.codigo_pai);
+      const childAsInput = inputByCodigo.get(item.codigo_item);
+      const childAsService = serviceByCodigo.get(item.codigo_item);
+      const childData = childAsInput || childAsService;
 
-      const key = `${parentData.id}|${childData.type}|${childData.id}`;
-      if (existingMap.has(key)) { skippedDuplicates++; continue; }
+      if (!parentData || !childData) { unmapped++; continue; }
 
+      const tipo_item = childAsInput ? 'INSUMO' : 'SERVICO';
+      const itemCodigo = item.codigo_item;
+
+      // Verificar duplicata por código estável primeiro
+      const keyByCodigo = `${parentData.id}|${tipo_item}|${itemCodigo}`;
+      const keyById = `${parentData.id}|${tipo_item}|${childData.id}`;
+      if (existingKey.has(keyByCodigo) || existingKeyById.has(keyById)) {
+        skippedDuplicates++;
+        continue;
+      }
+
+      // Marcar como existente para evitar duplicatas dentro do mesmo lote
+      existingKey.add(keyByCodigo);
+      existingKeyById.add(keyById);
+
+      const unitCost = childAsInput ? (childAsInput.valor_unitario || 0) : (childAsService.custo_total || 0);
       let cat = 'MATERIAL';
-      if (childData.unit) { const u = childData.unit.toUpperCase(); if (u.startsWith('H')) cat = 'MAO_OBRA'; }
-      const unitCost = childData.cost || 0;
+      const unit = (childData.unidade || childData.unit || 'UN').toUpperCase();
+      if (unit.startsWith('H')) cat = 'MAO_OBRA';
+      if (childAsInput?.categoria === 'MAO_OBRA') cat = 'MAO_OBRA';
 
       linksToCreate.push({
-        servico_id: parentData.id, tipo_item: childData.type, item_id: childData.id,
-        quantidade: item.quantidade, categoria: cat, ordem: 0,
-        custo_unitario_snapshot: unitCost, custo_total_item: unitCost * (item.quantidade || 0)
+        servico_id: parentData.id,
+        servico_codigo: item.codigo_pai,
+        tipo_item,
+        item_id: childData.id,
+        item_codigo: itemCodigo,
+        quantidade: item.quantidade,
+        categoria: cat,
+        ordem: ordem++,
+        custo_unitario_snapshot: unitCost,
+        custo_total_item: unitCost * (item.quantidade || 0),
       });
     }
 
-    let linksCreatedCount = 0;
-    for (let i = 0; i < linksToCreate.length; i += 500) {
-      const chunk = linksToCreate.slice(i, i + 500);
-      await base44.entities.ServiceItem.bulkCreate(chunk);
-      linksCreatedCount += chunk.length;
-      setProgress({ message: `Salvando vínculos ${linksCreatedCount}/${linksToCreate.length}...`, percent: 60 + Math.floor((i / linksToCreate.length) * 30) });
+    log(`  ${linksToCreate.length.toLocaleString('pt-BR')} vínculos a criar | ${skippedDuplicates.toLocaleString('pt-BR')} duplicatas | ${unmapped} sem mapeamento`, 'info');
+    setTotals({ duplicates: skippedDuplicates });
+    await yieldToMain();
+
+    // ─── FASE 5: SALVAR VÍNCULOS EM BULK ────────────────────────────────────
+    const LINK_BULK = 500;
+    let linksCreated = 0;
+    let linkErrors = 0;
+
+    for (let i = 0; i < linksToCreate.length; i += LINK_BULK) {
+      const chunk = linksToCreate.slice(i, i + LINK_BULK);
+      try {
+        await withRetry(() => base44.entities.ServiceItem.bulkCreate(chunk));
+        linksCreated += chunk.length;
+        log(`  ✔ Lote ${Math.ceil((i + 1) / LINK_BULK)}/${Math.ceil(linksToCreate.length / LINK_BULK)}: ${linksCreated.toLocaleString('pt-BR')}/${linksToCreate.length.toLocaleString('pt-BR')} vínculos`, 'success');
+      } catch (err) {
+        linkErrors += chunk.length;
+        log(`  ✗ Erro no lote ${Math.ceil((i + 1) / LINK_BULK)}: ${err.message}`, 'error');
+        // Fallback: tentar lotes menores
+        for (let j = 0; j < chunk.length; j += 50) {
+          try {
+            await withRetry(() => base44.entities.ServiceItem.bulkCreate(chunk.slice(j, j + 50)));
+            linksCreated += Math.min(50, chunk.length - j);
+            linkErrors -= Math.min(50, chunk.length - j);
+          } catch (err2) {
+            log(`    ✗ Sub-lote falhou: ${err2.message}`, 'error');
+          }
+          await yieldToMain();
+        }
+      }
+
+      setTotals({ links: linksCreated, errors: linkErrors });
+      setCompProgress({
+        message: `Salvando vínculos ${linksCreated.toLocaleString('pt-BR')}/${linksToCreate.length.toLocaleString('pt-BR')}...`,
+        percent: 32 + Math.floor((linksCreated / Math.max(linksToCreate.length, 1)) * 50),
+      });
       await yieldToMain();
     }
 
-    setProgress({ message: 'Calculando custos dos serviços...', percent: 90 });
-    const uniqueParentIds = [...new Set(items.map(i => mapping[i.codigo_pai]?.id).filter(Boolean))];
+    // ─── FASE 6: RECALCULAR CUSTOS ──────────────────────────────────────────
+    setCompPhase('calculating');
+    setCompProgress({ message: 'Calculando custos dos serviços...', percent: 83 });
+    log('▶ FASE 6: Recalculando custos dos serviços pai', 'phase');
+
+    const uniqueParentIds = [...new Set(
+      items.map(i => (serviceByCodigo.get(i.codigo_pai))?.id).filter(Boolean)
+    )];
+    log(`  ${uniqueParentIds.length} serviços pai para recalcular`, 'info');
+
     let recalculated = 0;
     for (const parentId of uniqueParentIds) {
-      await Engine.recalculateService(parentId);
-      recalculated++;
-      if (recalculated % 10 === 0) {
-        setProgress({ message: `Calculando custos ${recalculated}/${uniqueParentIds.length}...`, percent: 90 + Math.floor((recalculated / uniqueParentIds.length) * 7) });
+      try {
+        await Engine.recalculateService(parentId);
+        recalculated++;
+      } catch (e) {
+        log(`  ✗ Erro ao recalcular ${parentId}: ${e.message}`, 'error');
+      }
+      if (recalculated % 20 === 0 || recalculated === uniqueParentIds.length) {
+        setTotals({ calculated: recalculated });
+        setCompProgress({
+          message: `Calculando ${recalculated}/${uniqueParentIds.length}...`,
+          percent: 83 + Math.floor((recalculated / Math.max(uniqueParentIds.length, 1)) * 14),
+        });
+        log(`  Calculados: ${recalculated}/${uniqueParentIds.length}`, 'info');
         await yieldToMain();
       }
     }
 
-    setProgress({ message: 'Concluído!', percent: 100 });
-    toast.success(`Importação finalizada! ${linksCreatedCount} vínculos criados, ${recalculated} serviços calculados${skippedDuplicates > 0 ? `, ${skippedDuplicates} duplicatas ignoradas` : ''}.`);
+    // ─── CONCLUÍDO ───────────────────────────────────────────────────────────
+    setCompPhase('done');
+    setCompProgress({ message: 'Concluído!', percent: 100 });
+    log(`✅ Importação finalizada! ${linksCreated.toLocaleString('pt-BR')} vínculos criados, ${recalculated} serviços calculados.`, 'success');
+
+    const parts = [
+      `${linksCreated.toLocaleString('pt-BR')} vínculos`,
+      missingServices.length > 0 ? `${missingServices.length} serviços criados` : null,
+      missingInputs.length > 0 ? `${missingInputs.length} insumos criados` : null,
+      skippedDuplicates > 0 ? `${skippedDuplicates.toLocaleString('pt-BR')} duplicatas ignoradas` : null,
+      linkErrors > 0 ? `${linkErrors} erros` : null,
+    ].filter(Boolean).join(', ');
+
+    if (linkErrors > 0) {
+      toast.warning(`Concluído com erros: ${parts}.`);
+    } else {
+      toast.success(`Importação finalizada! ${parts}.`);
+    }
   };
 
   // Colunas esperadas para o guia visual
@@ -524,6 +717,14 @@ export default function TableImport() {
                   rows={importRows}
                   startTime={importStartTime}
                   totals={importTotals}
+                />
+              ) : mode === 'COMPOSICAO' ? (
+                <CompositionImportProgressPanel
+                  phase={compPhase}
+                  progress={compProgress}
+                  startTime={compStartTime}
+                  totals={compTotals}
+                  log={compLog}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 space-y-4 bg-slate-50 rounded-lg">
