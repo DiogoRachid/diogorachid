@@ -32,12 +32,24 @@ export default function ServiceEditor() {
   const [editingItem, setEditingItem] = useState(null);
   const [newItem, setNewItem] = useState({ type: 'INSUMO', id: '', qtd: 1, cat: 'MATERIAL' });
 
+  const fetchAll = async (entity) => {
+    const limit = 5000;
+    let all = [], skip = 0;
+    while (true) {
+      const batch = await entity.list('created_date', limit, skip);
+      all = all.concat(batch);
+      if (batch.length < limit) break;
+      skip += limit;
+    }
+    return all;
+  };
+
   useEffect(() => {
     const load = async () => {
       const [allInputs, allServices, history] = await Promise.all([
-        base44.entities.Input.list('created_date', 100000),
-        base44.entities.Service.list('created_date', 100000),
-        base44.entities.InputPriceHistory.list('created_date', 100000),
+        fetchAll(base44.entities.Input),
+        fetchAll(base44.entities.Service),
+        fetchAll(base44.entities.InputPriceHistory),
       ]);
       setInputs(allInputs);
       setServices(allServices);

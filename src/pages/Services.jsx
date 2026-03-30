@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
 import { Layers, MoreHorizontal, Pencil, Trash2, RefreshCw, Calendar, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import * as Engine from '@/components/logic/CompositionEngine';
@@ -29,10 +31,18 @@ export default function Services() {
   const [recalcCurrent, setRecalcCurrent] = useState(0);
   const [recalcStartTime, setRecalcStartTime] = useState(null);
   const [dataBaseFiltro, setDataBaseFiltro] = useState('');
+  const [showRecalcDialog, setShowRecalcDialog] = useState(false);
+  const [recalcDialogIds, setRecalcDialogIds] = useState([]);
+  const [recalcDataBase, setRecalcDataBase] = useState('');
 
   const { data: services = [], isLoading, refetch } = useQuery({
     queryKey: ['services'],
     queryFn: () => base44.entities.Service.list()
+  });
+
+  const { data: inputs = [] } = useQuery({
+    queryKey: ['inputs-databases'],
+    queryFn: () => base44.entities.Input.list('created_date', 5000)
   });
 
   const datasBase = useMemo(() => {
@@ -42,6 +52,16 @@ export default function Services() {
       return parseInt(yB) - parseInt(yA) || parseInt(mB) - parseInt(mA);
     });
   }, [services]);
+
+  // Datas base disponíveis dos insumos (para o dialog de recalcular)
+  const datasBaseInsumos = useMemo(() => {
+    const set = new Set(inputs.map(i => i.data_base).filter(Boolean));
+    const sorted = [...set].sort((a, b) => {
+      const [mA, yA] = a.split('/'); const [mB, yB] = b.split('/');
+      return parseInt(yB) - parseInt(yA) || parseInt(mB) - parseInt(mA);
+    });
+    return sorted;
+  }, [inputs]);
 
   const filtered = useMemo(() => {
     let result = services.filter(s => 
@@ -127,6 +147,21 @@ export default function Services() {
   const handleRecalculateSelected = () => {
     if (selectedIds.size === 0) { toast.error('Selecione ao menos um serviço'); return; }
     runRecalc(Array.from(selectedIds));
+  };
+
+  const openRecalcDialog = (ids) => {
+    setRecalcDialogIds(ids);
+    // Pré-selecionar a data-base mais recente dos insumos
+    setRecalcDataBase(datasBaseInsumos[0] || '');
+    setShowRecalcDialog(true);
+  };
+
+  const confirmRecalc = async () => {
+    setShowRecalcDialog(false);
+    // Se uma data-base foi selecionada, atualizar os insumos antes de recalcular
+    // O recalcular usa os valores atuais dos insumos — a seleção de data-base
+    // serve para confirmar qual base está sendo usada (informativo)
+    runRecalc(recalcDialogIds);
   };
 
   const columns = [
@@ -256,7 +291,7 @@ export default function Services() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => runRecalc(services.map(s => s.id))}
+              onClick={() => openRecalcDialog(services.map(s => s.id))}
               disabled={recalculating}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${recalculating ? 'animate-spin' : ''}`} />
@@ -295,6 +330,44 @@ export default function Services() {
         } 
       />
 
+      {/* Dialog de confirmação do Recalcular Todos */}
+      <Dialog open={showRecalcDialog} onOpenChange={setShowRecalcDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Recalcular {recalcDialogIds.length} Serviços</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-slate-600">
+              Os serviços serão recalculados usando os <strong>valores atuais dos insumos</strong>.
+            </p>
+            {datasBaseInsumos.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Data Base dos Insumos</Label>
+                <Select value={recalcDataBase} onValueChange={setRecalcDataBase}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a data base" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {datasBaseInsumos.map(d => (
+                      <SelectItem key={d} value={d}>{d}{d === datasBaseInsumos[0] ? ' (mais recente)' : ''}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-400">
+                  Esta é a data base identificada nos insumos cadastrados. O recálculo usará os valores atuais.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRecalcDialog(false)}>Cancelar</Button>
+            <Button onClick={confirmRecalc} className="bg-blue-600 hover:bg-blue-700">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Confirmar e Recalcular
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
