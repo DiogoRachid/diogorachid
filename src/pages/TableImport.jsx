@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import * as Engine from '@/components/logic/CompositionEngine';
 import InputImportProgressPanel from '@/components/imports/InputImportProgressPanel';
 import CompositionImportProgressPanel from '@/components/imports/CompositionImportProgressPanel';
 
@@ -653,7 +652,7 @@ export default function TableImport() {
       setTotals({ links: linksCreated, errors: linkErrors, retries: totalRetries });
       setCompProgress({
         message: `Salvando vínculos ${linksCreated.toLocaleString('pt-BR')}/${linksToCreate.length.toLocaleString('pt-BR')}...`,
-        percent: 32 + Math.floor((linksCreated / Math.max(linksToCreate.length, 1)) * 50),
+        percent: 32 + Math.floor((linksCreated / Math.max(linksToCreate.length, 1)) * 65),
       });
 
       // Pausa entre lotes para não estourar o rate limit
@@ -661,61 +660,11 @@ export default function TableImport() {
       await yieldToMain();
     }
 
-    // ─── FASE 6: RECALCULAR CUSTOS ──────────────────────────────────────────
-    setCompPhase('calculating');
-    setCompProgress({ message: 'Calculando custos dos serviços...', percent: 83 });
-    log('▶ FASE 6: Recalculando custos dos serviços pai', 'phase');
-
-    const uniqueParentIds = [...new Set(
-      items.map(i => (serviceByCodigo.get(i.codigo_pai))?.id).filter(Boolean)
-    )];
-    log(`  ${uniqueParentIds.length} serviços pai para recalcular`, 'info');
-
-    let recalculated = 0;
-    const failedCalc = [];
-
-    for (const parentId of uniqueParentIds) {
-      try {
-        await withRetry(() => Engine.recalculateService(parentId), 5, 2000);
-        recalculated++;
-      } catch (e) {
-        failedCalc.push(parentId);
-        log(`  ↺ Erro ao recalcular ${parentId}: ${e.message} — será retentado`, 'warn');
-      }
-      await sleep(200); // pausa entre recálculos para não sobrecarregar
-      if (recalculated % 10 === 0 || recalculated + failedCalc.length === uniqueParentIds.length) {
-        setTotals({ calculated: recalculated });
-        setCompProgress({
-          message: `Calculando ${recalculated}/${uniqueParentIds.length}...`,
-          percent: 83 + Math.floor((recalculated / Math.max(uniqueParentIds.length, 1)) * 14),
-        });
-        await yieldToMain();
-      }
-    }
-
-    // Segunda passagem para os que falharam
-    if (failedCalc.length > 0) {
-      log(`  ↺ Retentando ${failedCalc.length} recálculos que falharam...`, 'retry');
-      await sleep(3000); // espera mais antes de retentar
-      for (const parentId of failedCalc) {
-        try {
-          await withRetry(() => Engine.recalculateService(parentId), 4, 3000);
-          recalculated++;
-          setTotals({ calculated: recalculated });
-        } catch (e) {
-          log(`  ✗ Falha definitiva ao recalcular ${parentId}: ${e.message}`, 'error');
-        }
-        await sleep(500);
-        await yieldToMain();
-      }
-    }
-
-    log(`  ✔ ${recalculated}/${uniqueParentIds.length} serviços recalculados`, 'success');
-
-    // ─── CONCLUÍDO ───────────────────────────────────────────────────────────
+    // ─── CONCLUÍDO — sem recálculo automático (calculado on-demand na página Serviços) ───
     setCompPhase('done');
     setCompProgress({ message: 'Concluído!', percent: 100 });
-    log(`✅ Importação finalizada! ${linksCreated.toLocaleString('pt-BR')} vínculos criados, ${recalculated} serviços calculados.`, 'success');
+    log(`✅ Importação finalizada! ${linksCreated.toLocaleString('pt-BR')} vínculos salvos.`, 'success');
+    log(`ℹ️ Os custos serão calculados quando você abrir cada serviço, ou use "Recalcular Tudo" na página Serviços.`, 'info');
 
     const parts = [
       `${linksCreated.toLocaleString('pt-BR')} vínculos`,
@@ -728,7 +677,7 @@ export default function TableImport() {
     if (linkErrors > 0) {
       toast.warning(`Concluído com erros: ${parts}.`);
     } else {
-      toast.success(`Importação finalizada! ${parts}.`);
+      toast.success(`Importação finalizada! ${parts}. Use "Recalcular Tudo" em Serviços para atualizar os custos.`);
     }
   };
 

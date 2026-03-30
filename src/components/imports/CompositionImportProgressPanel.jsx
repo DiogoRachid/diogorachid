@@ -11,13 +11,12 @@ const formatTime = (seconds) => {
 };
 
 const PHASE_NAMES = {
-  parsing:     'Analisando',
-  loading:     'Carregando',
-  resolving:   'Resolvendo',
-  linking:     'Vinculando',
-  calculating: 'Calculando',
-  done:        'Concluído',
-  error:       'Erro',
+  parsing:   'Analisando',
+  loading:   'Carregando',
+  resolving: 'Resolvendo',
+  linking:   'Vinculando',
+  done:      'Concluído',
+  error:     'Erro',
 };
 
 export default function CompositionImportProgressPanel({ phase, progress, startTime, totals, log }) {
@@ -47,7 +46,7 @@ export default function CompositionImportProgressPanel({ phase, progress, startT
     eta = totalEstimated - elapsed;
   }
 
-  const { parsed = 0, skipped = 0, newServices = 0, newInputs = 0, links = 0, duplicates = 0, errors = 0, calculated = 0, retries = 0 } = totals || {};
+  const { parsed = 0, skipped = 0, newServices = 0, newInputs = 0, links = 0, duplicates = 0, errors = 0, retries = 0 } = totals || {};
   const isDone = phase === 'done';
 
   return (
@@ -98,7 +97,7 @@ export default function CompositionImportProgressPanel({ phase, progress, startT
         {newInputs > 0 && <span className="text-blue-600">+{newInputs} insumos</span>}
         {links > 0 && <span className="text-green-600"><Link2 className="inline h-3 w-3 mr-0.5" />{links.toLocaleString('pt-BR')} vínculos</span>}
         {duplicates > 0 && <span className="text-amber-500">{duplicates.toLocaleString('pt-BR')} duplic.</span>}
-        {calculated > 0 && <span className="text-orange-500">{calculated} calc.</span>}
+  
         {retries > 0 && <span className="text-amber-600">↺ {retries} retentativas</span>}
         {errors > 0 && <span className="text-red-600"><XCircle className="inline h-3 w-3 mr-0.5" />{errors} erros</span>}
       </div>
