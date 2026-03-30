@@ -672,23 +672,45 @@ export default function TableImport() {
     log(`  ${uniqueParentIds.length} serviços pai para recalcular`, 'info');
 
     let recalculated = 0;
+    const failedCalc = [];
+
     for (const parentId of uniqueParentIds) {
       try {
-        await Engine.recalculateService(parentId);
+        await withRetry(() => Engine.recalculateService(parentId), 5, 2000);
         recalculated++;
       } catch (e) {
-        log(`  ✗ Erro ao recalcular ${parentId}: ${e.message}`, 'error');
+        failedCalc.push(parentId);
+        log(`  ↺ Erro ao recalcular ${parentId}: ${e.message} — será retentado`, 'warn');
       }
-      if (recalculated % 20 === 0 || recalculated === uniqueParentIds.length) {
+      await sleep(200); // pausa entre recálculos para não sobrecarregar
+      if (recalculated % 10 === 0 || recalculated + failedCalc.length === uniqueParentIds.length) {
         setTotals({ calculated: recalculated });
         setCompProgress({
           message: `Calculando ${recalculated}/${uniqueParentIds.length}...`,
           percent: 83 + Math.floor((recalculated / Math.max(uniqueParentIds.length, 1)) * 14),
         });
-        log(`  Calculados: ${recalculated}/${uniqueParentIds.length}`, 'info');
         await yieldToMain();
       }
     }
+
+    // Segunda passagem para os que falharam
+    if (failedCalc.length > 0) {
+      log(`  ↺ Retentando ${failedCalc.length} recálculos que falharam...`, 'retry');
+      await sleep(3000); // espera mais antes de retentar
+      for (const parentId of failedCalc) {
+        try {
+          await withRetry(() => Engine.recalculateService(parentId), 4, 3000);
+          recalculated++;
+          setTotals({ calculated: recalculated });
+        } catch (e) {
+          log(`  ✗ Falha definitiva ao recalcular ${parentId}: ${e.message}`, 'error');
+        }
+        await sleep(500);
+        await yieldToMain();
+      }
+    }
+
+    log(`  ✔ ${recalculated}/${uniqueParentIds.length} serviços recalculados`, 'success');
 
     // ─── CONCLUÍDO ───────────────────────────────────────────────────────────
     setCompPhase('done');
