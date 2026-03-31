@@ -43,7 +43,18 @@ export default function Inputs() {
 
   const { data: inputs = [], isLoading, refetch } = useQuery({
     queryKey: ['inputs'],
-    queryFn: () => base44.entities.Input.list()
+    queryFn: async () => {
+      const limit = 1000;
+      let all = [];
+      let skip = 0;
+      while (true) {
+        const batch = await base44.entities.Input.list('created_date', limit, skip);
+        all = all.concat(batch);
+        if (batch.length < limit) break;
+        skip += limit;
+      }
+      return all;
+    }
   });
 
   const { data: allHistory = [] } = useQuery({
