@@ -210,11 +210,11 @@ export default function LandingPage() {
           
           <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-blue-900/70 to-slate-900/80" />
         </div>
-        <div className="relative text-center text-white px-4 max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-blue-600/30 border border-blue-400/40 rounded-full px-4 py-2 text-sm mb-6 backdrop-blur">
-            <Shield className="h-4 w-4" /> Especialistas em Obras Públicas — Londrina/PR
+        <div className="relative text-center text-white px-4 max-w-4xl mx-auto pt-20 sm:pt-0">
+          <div className="inline-flex items-center gap-2 bg-blue-600/30 border border-blue-400/40 rounded-full px-3 py-1.5 text-xs sm:text-sm mb-6 backdrop-blur max-w-[90vw] text-center leading-snug">
+            <Shield className="h-4 w-4 flex-shrink-0" /> <span>Especialistas em Obras Públicas — Londrina/PR</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6 whitespace-pre-line">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6 whitespace-pre-line">
             {heroTitulo}
           </h1>
           <p className="text-lg sm:text-xl text-white/80 max-w-2xl mx-auto mb-10">
@@ -276,14 +276,14 @@ export default function LandingPage() {
                 )}
               </div>
             </div>
-            <div className="relative">
+            <div className="relative pb-8 md:pb-0">
               <img
                 src={sobreImagem}
                 alt="Obras"
-                className="rounded-2xl shadow-2xl w-full object-cover h-96" />
+                className="rounded-2xl shadow-2xl w-full object-cover h-72 sm:h-96" />
               
-              <div className="absolute -bottom-6 -left-6 bg-blue-600 text-white rounded-2xl p-6 shadow-xl">
-                <div className="text-3xl font-bold">Londrina</div>
+              <div className="absolute bottom-0 left-2 md:-bottom-6 md:-left-6 bg-blue-600 text-white rounded-2xl p-4 md:p-6 shadow-xl">
+                <div className="text-2xl md:text-3xl font-bold">Londrina</div>
                 <div className="text-blue-200 text-sm">Sede – Paraná</div>
               </div>
             </div>
@@ -380,7 +380,7 @@ export default function LandingPage() {
             <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Contato</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2">Fale Conosco</h2>
           </div>
-          <div className="grid md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             <a href={`mailto:${emailEmpresa}`} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow border border-slate-100 group">
               <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
                 <Mail className="h-6 w-6 text-blue-600" />
@@ -420,8 +420,8 @@ export default function LandingPage() {
             <img src={logoEscura} alt={nomeEmpresa} className="h-8 object-contain" />
             <span className="text-sm text-slate-400">© {new Date().getFullYear()} {nomeEmpresa}. Todos os direitos reservados.</span>
           </div>
-          <div className="flex items-center gap-4 text-sm text-slate-400">
-            <a href={`mailto:${emailEmpresa}`} className="hover:text-white flex items-center gap-1"><Mail className="h-4 w-4" /> {emailEmpresa}</a>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-slate-400">
+            <a href={`mailto:${emailEmpresa}`} className="hover:text-white flex items-center gap-1 break-all"><Mail className="h-4 w-4 flex-shrink-0" /> {emailEmpresa}</a>
             <Link to={createPageUrl('PortalSelect')} className="hover:text-white flex items-center gap-1"><Shield className="h-4 w-4" /> Sistema ERP</Link>
           </div>
         </div>
