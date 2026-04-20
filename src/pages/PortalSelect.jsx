@@ -9,11 +9,19 @@ const LOGO_ESCURA = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/
 
 export default function PortalSelect() {
   const [companySettings, setCompanySettings] = useState(null);
-  const { colorScheme } = useColorScheme();
+  const { colorScheme, loading: colorLoading } = useColorScheme();
 
   useEffect(() => {
     base44.entities.CompanySettings.list().then(r => { if (r.length > 0) setCompanySettings(r[0]); });
   }, []);
+
+  if (colorLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-700 border-t-slate-300 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const logoUrl = companySettings?.logo_url_escura || LOGO_ESCURA;
   const nomeEmpresa = companySettings?.nome_empresa || 'Virtual Construções Civis';
