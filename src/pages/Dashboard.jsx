@@ -108,6 +108,9 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Document.list('-created_date', 500)
   });
 
+  // Alertas de RH
+  const today = new Date();
+
   // Certidões próximas do vencimento (60 dias) e vencidas
   const docsAlerta = allDocuments
     .filter(d => !d.sem_vencimento && d.data_vencimento)
@@ -117,9 +120,6 @@ export default function Dashboard() {
     })
     .filter(d => d.diasRestantes <= 60)
     .sort((a, b) => a.diasRestantes - b.diasRestantes);
-
-  // Alertas de RH
-  const today = new Date();
   const in30 = new Date(today); in30.setDate(in30.getDate() + 30);
   const in60 = new Date(today); in60.setDate(in60.getDate() + 60);
 
