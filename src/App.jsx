@@ -21,6 +21,7 @@ import DiarioObra from './pages/DiarioObra';
 import InvoicePayableConfig from './pages/InvoicePayableConfig';
 import InputPriceVariationReport from './pages/InputPriceVariationReport';
 import ServicePriceVariationReport from './pages/ServicePriceVariationReport';
+import Documents from './pages/Documents';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -68,6 +69,7 @@ const AuthenticatedApp = () => {
       <Route path="/InvoicePayableConfig" element={<ProtectedAdminRoute><LayoutWrapper currentPageName="InvoicePayableConfig"><InvoicePayableConfig /></LayoutWrapper></ProtectedAdminRoute>} />
       <Route path="/InputPriceVariationReport" element={<ProtectedAdminRoute><LayoutWrapper currentPageName="InputPriceVariationReport"><InputPriceVariationReport /></LayoutWrapper></ProtectedAdminRoute>} />
       <Route path="/ServicePriceVariationReport" element={<ProtectedAdminRoute><LayoutWrapper currentPageName="ServicePriceVariationReport"><ServicePriceVariationReport /></LayoutWrapper></ProtectedAdminRoute>} />
+      <Route path="/Documents" element={<ProtectedAdminRoute><LayoutWrapper currentPageName="Documents"><Documents /></LayoutWrapper></ProtectedAdminRoute>} />
 
       <Route path="/" element={<LandingPage />} />
       {Object.entries(Pages).map(([path, Page]) => (

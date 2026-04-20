@@ -19,7 +19,9 @@ import {
   Bell,
   FileSignature,
   Palmtree,
-  Clock
+  Clock,
+  FolderOpen,
+  FileText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,6 +102,21 @@ export default function Dashboard() {
     queryKey: ['contracts'],
     queryFn: () => base44.entities.EmployeeContract.list()
   });
+
+  const { data: allDocuments = [] } = useQuery({
+    queryKey: ['documents-dashboard'],
+    queryFn: () => base44.entities.Document.list('-created_date', 500)
+  });
+
+  // Certidões próximas do vencimento (60 dias) e vencidas
+  const docsAlerta = allDocuments
+    .filter(d => !d.sem_vencimento && d.data_vencimento)
+    .map(d => {
+      const dias = Math.ceil((new Date(d.data_vencimento + 'T00:00:00') - today) / (1000 * 60 * 60 * 24));
+      return { ...d, diasRestantes: dias };
+    })
+    .filter(d => d.diasRestantes <= 60)
+    .sort((a, b) => a.diasRestantes - b.diasRestantes);
 
   // Alertas de RH
   const today = new Date();
@@ -493,6 +510,45 @@ export default function Dashboard() {
                       <p className="font-semibold text-slate-900 text-sm truncate">{item.contrato.colaborador_nome}</p>
                       <p className={`text-xs ${urgente ? 'text-red-600' : proximo ? 'text-amber-600' : 'text-purple-600'}`}>
                         {item.tipo} — {item.data.toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Alertas de Documentos */}
+      {docsAlerta.length > 0 && (
+        <Card className={`mb-6 ${docsAlerta.some(d => d.diasRestantes < 0) ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-amber-800 text-base">
+                <FolderOpen className="h-5 w-5" /> Certidões com Vencimento Próximo
+              </span>
+              <Button variant="ghost" size="sm" className="text-amber-700 text-xs" onClick={() => window.location.href = createPageUrl('Documents')}>
+                Ver documentos
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {docsAlerta.slice(0, 6).map(doc => {
+                const vencido = doc.diasRestantes < 0;
+                const urgente = doc.diasRestantes >= 0 && doc.diasRestantes <= 7;
+                return (
+                  <div key={doc.id} className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${vencido ? 'bg-red-50 border-red-200' : urgente ? 'bg-orange-50 border-orange-200' : 'bg-amber-50 border-amber-200'}`}>
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs ${vencido ? 'bg-red-100 text-red-700' : urgente ? 'bg-orange-100 text-orange-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {vencido ? 'VEN' : `${doc.diasRestantes}d`}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-900 text-sm truncate">{doc.nome}</p>
+                      <p className={`text-xs ${vencido ? 'text-red-600' : urgente ? 'text-orange-600' : 'text-amber-600'}`}>
+                        {vencido
+                          ? `Venceu em ${new Date(doc.data_vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}`
+                          : `Vence em ${new Date(doc.data_vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}`}
                       </p>
                     </div>
                   </div>

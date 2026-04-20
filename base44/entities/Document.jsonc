@@ -1,0 +1,80 @@
+{
+  "name": "Document",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "description": "Nome/t\u00edtulo do documento"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "certidao",
+        "balanco",
+        "declaracao",
+        "acervo",
+        "contrato",
+        "alvara",
+        "outro"
+      ],
+      "description": "Tipo do documento"
+    },
+    "descricao": {
+      "type": "string"
+    },
+    "numero_documento": {
+      "type": "string",
+      "description": "N\u00famero ou c\u00f3digo do documento"
+    },
+    "orgao_emissor": {
+      "type": "string",
+      "description": "\u00d3rg\u00e3o ou entidade emissora"
+    },
+    "data_emissao": {
+      "type": "string",
+      "format": "date"
+    },
+    "data_vencimento": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de vencimento (se aplic\u00e1vel)"
+    },
+    "sem_vencimento": {
+      "type": "boolean",
+      "default": false,
+      "description": "Documento sem prazo de vencimento"
+    },
+    "arquivo_url": {
+      "type": "string",
+      "description": "URL do arquivo PDF"
+    },
+    "arquivo_nome": {
+      "type": "string",
+      "description": "Nome original do arquivo"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "valido",
+        "vencido",
+        "a_vencer",
+        "sem_vencimento"
+      ],
+      "default": "valido"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags para categoriza\u00e7\u00e3o"
+    },
+    "observacoes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "nome",
+    "tipo"
+  ]
+}

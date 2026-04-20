@@ -119,6 +119,11 @@ const menuItems = [
     page: 'Settings'
   },
   {
+    title: 'Documentos',
+    icon: FileText,
+    page: 'Documents'
+  },
+  {
     title: 'Site da Empresa',
     icon: Globe,
     page: 'LandingPage'
