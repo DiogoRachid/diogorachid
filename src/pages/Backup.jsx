@@ -7,56 +7,71 @@ import { toast } from 'sonner';
 import PageHeader from '@/components/ui/PageHeader';
 
 const MODULES = [
-  { key: 'Employee',            label: 'Colaboradores',           group: 'RH' },
-  { key: 'EmployeeContract',    label: 'Contratos',               group: 'RH' },
-  { key: 'Payroll',             label: 'Folha de Pagamento',       group: 'RH' },
-  { key: 'TimeRecord',          label: 'Frequência',              group: 'RH' },
-  { key: 'Team',                label: 'Equipes',                 group: 'RH' },
-  { key: 'Benefit',             label: 'Benefícios',              group: 'RH' },
-  { key: 'EmployeeBenefit',     label: 'Benefícios por Colaborador', group: 'RH' },
+  // RH
+  { key: 'Employee',                   label: 'Colaboradores',                    group: 'RH' },
+  { key: 'EmployeeContract',           label: 'Contratos',                        group: 'RH' },
+  { key: 'Payroll',                    label: 'Folha de Pagamento',               group: 'RH' },
+  { key: 'TimeRecord',                 label: 'Frequência',                       group: 'RH' },
+  { key: 'Team',                       label: 'Equipes',                          group: 'RH' },
+  { key: 'Benefit',                    label: 'Benefícios',                       group: 'RH' },
+  { key: 'EmployeeBenefit',            label: 'Benefícios por Colaborador',       group: 'RH' },
 
-  { key: 'Project',             label: 'Obras',                   group: 'Obras' },
-  { key: 'Budget',              label: 'Orçamentos',              group: 'Obras' },
-  { key: 'BudgetItem',          label: 'Itens de Orçamento',      group: 'Obras' },
-  { key: 'BudgetStage',         label: 'Etapas (padrão)',         group: 'Obras' },
-  { key: 'ProjectStage',        label: 'Etapas do Projeto',       group: 'Obras' },
-  { key: 'Measurement',         label: 'Medições',                group: 'Obras' },
-  { key: 'MeasurementItem',     label: 'Itens de Medição',        group: 'Obras' },
-  { key: 'DiarioObra',          label: 'Diário de Obra',          group: 'Obras' },
+  // Cadastros
+  { key: 'Supplier',                   label: 'Fornecedores',                     group: 'Cadastros' },
+  { key: 'Client',                     label: 'Clientes',                         group: 'Cadastros' },
+  { key: 'CostCenter',                 label: 'Centros de Custo',                 group: 'Cadastros' },
+  { key: 'Input',                      label: 'Insumos',                          group: 'Cadastros' },
+  { key: 'Service',                    label: 'Serviços (Composições)',            group: 'Cadastros' },
+  { key: 'ServiceItem',                label: 'Itens de Serviço',                 group: 'Cadastros' },
+  { key: 'InputPriceHistory',          label: 'Histórico de Preços (Insumos)',    group: 'Cadastros' },
+  { key: 'ServicePriceHistory',        label: 'Histórico de Preços (Serviços)',   group: 'Cadastros' },
 
-  { key: 'Supplier',            label: 'Fornecedores',            group: 'Cadastros' },
-  { key: 'Client',              label: 'Clientes',                group: 'Cadastros' },
-  { key: 'CostCenter',          label: 'Centros de Custo',        group: 'Cadastros' },
-  { key: 'Input',               label: 'Insumos',                 group: 'Cadastros' },
-  { key: 'Service',             label: 'Serviços (Composições)',  group: 'Cadastros' },
-  { key: 'ServiceItem',         label: 'Itens de Serviço',        group: 'Cadastros' },
+  // Orçamentos e Planejamento
+  { key: 'Budget',                     label: 'Orçamentos',                       group: 'Orçamentos' },
+  { key: 'BudgetItem',                 label: 'Itens de Orçamento',               group: 'Orçamentos' },
+  { key: 'BudgetStage',                label: 'Etapas de Orçamento',              group: 'Orçamentos' },
+  { key: 'BudgetInputSummary',         label: 'Resumo de Insumos',                group: 'Orçamentos' },
+  { key: 'CompositionStaging',         label: 'Composições (Rascunho)',           group: 'Orçamentos' },
+  { key: 'ServiceMonthlyDistribution', label: 'Distribuição Mensal de Serviços',  group: 'Orçamentos' },
 
-  { key: 'AccountPayable',      label: 'Contas a Pagar',          group: 'Financeiro' },
-  { key: 'AccountReceivable',   label: 'Contas a Receber',        group: 'Financeiro' },
-  { key: 'Transaction',         label: 'Transações',              group: 'Financeiro' },
-  { key: 'BankAccount',         label: 'Contas Bancárias',        group: 'Financeiro' },
-  { key: 'Invoice',             label: 'Notas Fiscais',           group: 'Financeiro' },
-  { key: 'InvoiceItem',         label: 'Itens de Nota Fiscal',    group: 'Financeiro' },
+  // Obras
+  { key: 'Project',                    label: 'Obras',                            group: 'Obras' },
+  { key: 'ProjectStage',               label: 'Etapas do Projeto',                group: 'Obras' },
+  { key: 'Measurement',                label: 'Medições',                         group: 'Obras' },
+  { key: 'MeasurementItem',            label: 'Itens de Medição',                 group: 'Obras' },
+  { key: 'DiarioObra',                 label: 'Diário de Obra',                   group: 'Obras' },
 
-  { key: 'Investment',          label: 'Investimentos',           group: 'Investimentos' },
-  { key: 'InvestmentTransaction', label: 'Transações de Investimento', group: 'Investimentos' },
-  { key: 'InvestmentHistory',   label: 'Histórico de Investimentos', group: 'Investimentos' },
-  { key: 'EconomicIndicators',  label: 'Indicadores Econômicos',  group: 'Investimentos' },
+  // Compras e Materiais
+  { key: 'MaterialRequisition',        label: 'Pedidos de Material',              group: 'Compras' },
+  { key: 'MaterialRequisitionItem',    label: 'Itens de Pedido',                  group: 'Compras' },
+  { key: 'InputPurchaseHistory',       label: 'Histórico de Compras',             group: 'Compras' },
 
-  { key: 'MaterialRequisition', label: 'Pedidos de Material',     group: 'Compras' },
-  { key: 'MaterialRequisitionItem', label: 'Itens de Pedido',     group: 'Compras' },
-  { key: 'InputPurchaseHistory', label: 'Histórico de Compras',   group: 'Compras' },
+  // Financeiro
+  { key: 'BankAccount',                label: 'Contas Bancárias',                 group: 'Financeiro' },
+  { key: 'AccountPayable',             label: 'Contas a Pagar',                   group: 'Financeiro' },
+  { key: 'AccountReceivable',          label: 'Contas a Receber',                 group: 'Financeiro' },
+  { key: 'Transaction',                label: 'Transações',                       group: 'Financeiro' },
+  { key: 'Invoice',                    label: 'Notas Fiscais',                    group: 'Financeiro' },
+  { key: 'InvoiceItem',                label: 'Itens de Nota Fiscal',             group: 'Financeiro' },
 
-  { key: 'CompanySettings',     label: 'Configurações da Empresa', group: 'Sistema' },
-  { key: 'VersionHistory',      label: 'Histórico de Versões',    group: 'Sistema' },
-  { key: 'ServiceMonthlyDistribution', label: 'Distribuição Mensal de Serviços', group: 'Sistema' },
-  { key: 'ImportLog',           label: 'Logs de Importação',      group: 'Sistema' },
+  // Investimentos
+  { key: 'Investment',                 label: 'Investimentos',                    group: 'Investimentos' },
+  { key: 'InvestmentTransaction',      label: 'Transações de Investimento',       group: 'Investimentos' },
+  { key: 'InvestmentHistory',          label: 'Histórico de Investimentos',       group: 'Investimentos' },
+  { key: 'EconomicIndicators',         label: 'Indicadores Econômicos',           group: 'Investimentos' },
 
-  { key: 'CompositionStaging',  label: 'Composições (Rascunho)',  group: 'Obras' },
+  // Documentos
+  { key: 'Document',                   label: 'Documentos',                       group: 'Documentos' },
 
-  { key: 'Administrador',       label: 'Administradores (Portal)', group: 'Acesso' },
-  { key: 'Colaborador',         label: 'Colaboradores (Portal)',   group: 'Acesso' },
-  ];
+  // Sistema
+  { key: 'CompanySettings',            label: 'Configurações da Empresa',         group: 'Sistema' },
+  { key: 'VersionHistory',             label: 'Histórico de Versões',             group: 'Sistema' },
+  { key: 'ImportLog',                  label: 'Logs de Importação',               group: 'Sistema' },
+
+  // Acesso
+  { key: 'Administrador',              label: 'Administradores (Portal)',          group: 'Acesso' },
+  { key: 'Colaborador',                label: 'Colaboradores (Portal)',            group: 'Acesso' },
+];
 
 const GROUPS = [...new Set(MODULES.map(m => m.group))];
 
