@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       return dateB - dateA;
     })[0];
 
-    const patrimonioTotal = latestHistory?.valor_atual || 
+    const patrimonioTotal = latestHistory?.valor_total_atual || 
       ((investments || [])
         .filter(i => i.status === 'ativo')
         .reduce((sum, i) => sum + (i.valor_atual || 0), 0));
