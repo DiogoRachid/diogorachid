@@ -88,9 +88,10 @@ Deno.serve(async (req) => {
       `📦 *Logística:*\n` +
       `   • Pedidos (Ontem): ${pedidosOntem.length} solicitação(ões)`;
 
-    // Obter URL da Evolution API (usar variável de ambiente ou fallback para localhost)
-    const evolutionUrl = Deno.env.get('EVOLUTION_API_URL') || 'http://localhost:8080';
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY') || 'sua-chave-api';
+    // Configuração da Evolution API
+    const evolutionUrl = 'http://localhost:8080';
+    const evolutionApiKey = 'minha-chave-secreta';
+    const instancia = 'teste2';
 
     // Enviar mensagem para cada destinatário
     const resultados = [];
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
         text: mensagem
       };
 
-      const response = await fetch(`${evolutionUrl}/message/sendText/seu-instancia-whatsapp`, {
+      const response = await fetch(`${evolutionUrl}/message/sendText/${instancia}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
