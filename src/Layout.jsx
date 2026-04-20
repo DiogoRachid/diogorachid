@@ -170,8 +170,10 @@ export default function Layout({ children, currentPageName }) {
     if (!companySettings?.id) return;
     setSavingOrder(true);
     try {
-      await base44.entities.CompanySettings.update(companySettings.id, { site_menu_order: order });
-      setCompanySettings(prev => ({ ...prev, site_menu_order: order }));
+      const updated = await base44.entities.CompanySettings.update(companySettings.id, { site_menu_order: order });
+      setCompanySettings(updated);
+    } catch (e) {
+      console.error('Erro ao salvar menu:', e);
     } finally {
       setSavingOrder(false);
     }
@@ -200,17 +202,22 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     const loadData = async () => {
-      const userData = await base44.auth.me();
-      setUser(userData);
-      const settings = await base44.entities.CompanySettings.list();
-      if (settings.length > 0) {
-        setCompanySettings(settings[0]);
-        if (settings[0].site_menu_order?.length) {
-          const saved = settings[0].site_menu_order;
-          const merged = saved.filter(t => DEFAULT_MENU_ORDER.includes(t));
-          DEFAULT_MENU_ORDER.forEach(t => { if (!merged.includes(t)) merged.push(t); });
-          setMenuOrder(merged);
+      try {
+        const userData = await base44.auth.me();
+        setUser(userData);
+        const settings = await base44.entities.CompanySettings.list();
+        if (settings.length > 0) {
+          const s = settings[0];
+          setCompanySettings(s);
+          if (s.site_menu_order && Array.isArray(s.site_menu_order) && s.site_menu_order.length > 0) {
+            const saved = s.site_menu_order;
+            const merged = saved.filter(t => DEFAULT_MENU_ORDER.includes(t));
+            DEFAULT_MENU_ORDER.forEach(t => { if (!merged.includes(t)) merged.push(t); });
+            setMenuOrder(merged);
+          }
         }
+      } catch (e) {
+        console.error('Erro ao carregar dados:', e);
       }
     };
     loadData();

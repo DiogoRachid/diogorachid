@@ -7,6 +7,7 @@ import {
   MoreHorizontal, Eye, X, FolderOpen, Tag, ChevronUp, ChevronDown, ChevronsUpDown,
   RefreshCw, History
 } from 'lucide-react';
+import { useColorScheme } from '@/lib/useColorScheme';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,6 +82,7 @@ const emptyForm = {
 
 export default function Documents() {
   const queryClient = useQueryClient();
+  const { colorScheme } = useColorScheme();
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -365,7 +367,7 @@ export default function Documents() {
             <p className="text-slate-500 text-xs sm:text-sm hidden sm:block">Certidões, balanços, declarações e acervos técnicos</p>
           </div>
         </div>
-        <Button onClick={openNew} className="bg-indigo-600 hover:bg-indigo-700 w-full sm:w-auto">
+        <Button onClick={openNew} className="w-full sm:w-auto text-white" style={{ backgroundColor: colorScheme.primary }}>
           <Plus className="h-4 w-4 mr-2" /> Novo Documento
         </Button>
       </div>

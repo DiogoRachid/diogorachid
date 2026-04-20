@@ -436,15 +436,15 @@ export default function LandingPage() {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-slate-900 text-white py-10 px-4">
+      <footer className="text-white py-10 px-4" style={{ background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.primary}dd)` }}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src={logoEscura} alt={nomeEmpresa} className="h-8 object-contain" />
-            <span className="text-sm text-slate-400">© {new Date().getFullYear()} {nomeEmpresa}. Todos os direitos reservados.</span>
+            <span className="text-sm text-white/70">© {new Date().getFullYear()} {nomeEmpresa}. Todos os direitos reservados.</span>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-slate-400">
-            <a href={`mailto:${emailEmpresa}`} className="hover:text-white flex items-center gap-1 break-all"><Mail className="h-4 w-4 flex-shrink-0" /> {emailEmpresa}</a>
-            <Link to={createPageUrl('PortalSelect')} className="hover:text-white flex items-center gap-1"><Shield className="h-4 w-4" /> Sistema ERP</Link>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-white/70">
+            <a href={`mailto:${emailEmpresa}`} className="hover:text-white flex items-center gap-1 break-all transition-colors"><Mail className="h-4 w-4 flex-shrink-0" /> {emailEmpresa}</a>
+            <Link to={createPageUrl('PortalSelect')} className="hover:text-white flex items-center gap-1 transition-colors"><Shield className="h-4 w-4" /> Sistema ERP</Link>
           </div>
         </div>
       </footer>
