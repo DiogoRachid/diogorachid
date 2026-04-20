@@ -61,15 +61,9 @@ Deno.serve(async (req) => {
       return isAfter(dataFim, today) && isBefore(dataFim, sevenDaysFromNow);
     });
 
-    const saldoBancario = (bankAccounts || [])
-      .filter(b => b.status === 'ativa')
-      .reduce((sum, b) => sum + (b.saldo_atual || 0), 0);
-
-    const valorInvestidoTotal = (investments || [])
+    const patrimonioTotal = (investments || [])
       .filter(i => i.status === 'ativo')
-      .reduce((sum, i) => sum + (i.valor_investido || 0), 0);
-
-    const patrimonioTotal = saldoBancario + valorInvestidoTotal;
+      .reduce((sum, i) => sum + (i.valor_atual || 0), 0);
 
     const pedidosOntem = (materialRequisitions || []).filter(mr => {
       if (!mr.created_date) return false;
