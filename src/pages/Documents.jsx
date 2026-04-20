@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileText, Plus, Upload, Trash2, Download, Calendar,
   AlertTriangle, CheckCircle2, Clock, Search, Filter,
-  MoreHorizontal, Eye, X, FolderOpen, Tag, ChevronUp, ChevronDown, ChevronsUpDown
+  MoreHorizontal, Eye, X, FolderOpen, Tag, ChevronUp, ChevronDown, ChevronsUpDown,
+  RefreshCw, History
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +94,11 @@ export default function Documents() {
   const [filePreview, setFilePreview] = useState(null);
   const [sortCol, setSortCol] = useState('');
   const [sortDir, setSortDir] = useState('asc');
+  const [renewDoc, setRenewDoc] = useState(null);
+  const [renewForm, setRenewForm] = useState({ numero_documento: '', data_emissao: '', data_vencimento: '', observacoes: '' });
+  const [renewFile, setRenewFile] = useState(null);
+  const [renewSaving, setRenewSaving] = useState(false);
+  const [historyDoc, setHistoryDoc] = useState(null);
 
   const { data: docs = [], isLoading } = useQuery({
     queryKey: ['documents'],
@@ -281,6 +287,64 @@ export default function Documents() {
     queryClient.invalidateQueries(['documents']);
     setSelectedIds(new Set());
     toast.success('Documentos excluídos.');
+  };
+
+  const openRenew = (doc) => {
+    setRenewDoc(doc);
+    setRenewForm({
+      numero_documento: '',
+      data_emissao: '',
+      data_vencimento: '',
+      observacoes: ''
+    });
+    setRenewFile(null);
+  };
+
+  const handleRenew = async () => {
+    if (!renewForm.data_vencimento && !renewDoc.sem_vencimento) {
+      toast.error('Informe a nova data de vencimento.');
+      return;
+    }
+    setRenewSaving(true);
+    try {
+      // Arquiva a versão atual no histórico
+      const historicoAtual = renewDoc.historico_renovacoes || [];
+      const entradaHistorico = {
+        numero_documento: renewDoc.numero_documento || '',
+        data_emissao: renewDoc.data_emissao || '',
+        data_vencimento: renewDoc.data_vencimento || '',
+        arquivo_url: renewDoc.arquivo_url || '',
+        arquivo_nome: renewDoc.arquivo_nome || '',
+        data_renovacao: new Date().toISOString().split('T')[0],
+        observacoes: renewForm.observacoes || ''
+      };
+
+      // Upload do novo arquivo se fornecido
+      let novo_arquivo_url = renewDoc.arquivo_url;
+      let novo_arquivo_nome = renewDoc.arquivo_nome;
+      if (renewFile) {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file: renewFile });
+        novo_arquivo_url = file_url;
+        novo_arquivo_nome = renewFile.name;
+      }
+
+      await base44.entities.Document.update(renewDoc.id, {
+        numero_documento: renewForm.numero_documento || renewDoc.numero_documento,
+        data_emissao: renewForm.data_emissao || renewDoc.data_emissao,
+        data_vencimento: renewForm.data_vencimento,
+        arquivo_url: novo_arquivo_url,
+        arquivo_nome: novo_arquivo_nome,
+        historico_renovacoes: [...historicoAtual, entradaHistorico]
+      });
+
+      queryClient.invalidateQueries(['documents']);
+      setRenewDoc(null);
+      toast.success('Documento renovado com sucesso!');
+    } catch (e) {
+      toast.error('Erro ao renovar documento.');
+    } finally {
+      setRenewSaving(false);
+    }
   };
 
   const diasRestantes = (doc) => {
@@ -494,6 +558,14 @@ export default function Documents() {
                           <DropdownMenuItem onClick={() => openEdit(doc)}>
                             <FileText className="h-4 w-4 mr-2" /> Editar
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openRenew(doc)}>
+                            <RefreshCw className="h-4 w-4 mr-2 text-indigo-600" /> Renovar
+                          </DropdownMenuItem>
+                          {(doc.historico_renovacoes?.length > 0) && (
+                            <DropdownMenuItem onClick={() => setHistoryDoc(doc)}>
+                              <History className="h-4 w-4 mr-2 text-slate-500" /> Histórico ({doc.historico_renovacoes.length})
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => handleDelete(doc.id)} className="text-red-600">
                             <Trash2 className="h-4 w-4 mr-2" /> Excluir
                           </DropdownMenuItem>
@@ -507,6 +579,112 @@ export default function Documents() {
           </table>
         </div>
       </Card>
+
+      {/* Renew Dialog */}
+      <Dialog open={!!renewDoc} onOpenChange={v => !v && setRenewDoc(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-indigo-600" /> Renovar Documento
+            </DialogTitle>
+          </DialogHeader>
+          {renewDoc && (
+            <div className="space-y-4 py-2">
+              <div className="p-3 bg-slate-50 rounded-lg border text-sm text-slate-600">
+                <p className="font-medium text-slate-800">{renewDoc.nome}</p>
+                <p>Vencimento atual: <span className="font-medium">{renewDoc.data_vencimento ? renewDoc.data_vencimento.split('-').reverse().join('/') : 'Sem vencimento'}</span></p>
+                {renewDoc.numero_documento && <p>Nº atual: <span className="font-medium">{renewDoc.numero_documento}</span></p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Novo Nº do Documento</Label>
+                  <Input className="mt-1" placeholder="Deixe em branco para manter" value={renewForm.numero_documento} onChange={e => setRenewForm(f => ({ ...f, numero_documento: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Nova Data de Emissão</Label>
+                  <Input type="date" className="mt-1" value={renewForm.data_emissao} onChange={e => setRenewForm(f => ({ ...f, data_emissao: e.target.value }))} />
+                </div>
+                <div className="col-span-2">
+                  <Label>Nova Data de Vencimento *</Label>
+                  <Input type="date" className="mt-1" value={renewForm.data_vencimento} onChange={e => setRenewForm(f => ({ ...f, data_vencimento: e.target.value }))} />
+                </div>
+              </div>
+
+              <div>
+                <Label className="mb-2 block">Novo Arquivo PDF (opcional)</Label>
+                {renewFile ? (
+                  <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-200">
+                    <FileText className="h-6 w-6 text-indigo-500 flex-shrink-0" />
+                    <p className="text-sm font-medium text-slate-800 flex-1 truncate">{renewFile.name}</p>
+                    <button onClick={() => setRenewFile(null)} className="text-red-400 hover:text-red-600"><X className="h-4 w-4" /></button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-3 border-2 border-dashed border-slate-300 rounded-xl p-4 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+                    <Upload className="h-5 w-5 text-slate-400" />
+                    <span className="text-sm text-slate-500">Clique para selecionar novo PDF</span>
+                    <input type="file" accept=".pdf,application/pdf" className="hidden" onChange={e => { const f = e.target.files[0]; if (f) setRenewFile(f); }} />
+                  </label>
+                )}
+              </div>
+
+              <div>
+                <Label>Observações sobre a renovação</Label>
+                <textarea
+                  className="mt-1 w-full border border-input rounded-md px-3 py-2 text-sm bg-transparent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                  rows={2}
+                  placeholder="Ex: Renovado em cartório X..."
+                  value={renewForm.observacoes}
+                  onChange={e => setRenewForm(f => ({ ...f, observacoes: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenewDoc(null)}>Cancelar</Button>
+            <Button onClick={handleRenew} disabled={renewSaving} className="bg-indigo-600 hover:bg-indigo-700">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              {renewSaving ? 'Salvando...' : 'Confirmar Renovação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={!!historyDoc} onOpenChange={v => !v && setHistoryDoc(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-slate-600" /> Histórico de Renovações
+            </DialogTitle>
+          </DialogHeader>
+          {historyDoc && (
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-slate-500 font-medium">{historyDoc.nome}</p>
+              {(historyDoc.historico_renovacoes || []).slice().reverse().map((h, i) => (
+                <div key={i} className="p-3 border rounded-xl bg-slate-50 text-sm space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-700">Versão anterior #{(historyDoc.historico_renovacoes.length - i)}</span>
+                    <span className="text-xs text-slate-400">Substituído em {h.data_renovacao?.split('-').reverse().join('/')}</span>
+                  </div>
+                  {h.numero_documento && <p className="text-slate-600">Nº: <span className="font-medium">{h.numero_documento}</span></p>}
+                  {h.data_emissao && <p className="text-slate-600">Emissão: <span className="font-medium">{h.data_emissao.split('-').reverse().join('/')}</span></p>}
+                  {h.data_vencimento && <p className="text-slate-600">Vencimento: <span className="font-medium">{h.data_vencimento.split('-').reverse().join('/')}</span></p>}
+                  {h.observacoes && <p className="text-slate-500 italic">{h.observacoes}</p>}
+                  {h.arquivo_url && (
+                    <a href={h.arquivo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:underline text-xs mt-1">
+                      <Eye className="h-3 w-3" /> Ver arquivo desta versão
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryDoc(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>

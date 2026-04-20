@@ -71,6 +71,36 @@
     },
     "observacoes": {
       "type": "string"
+    },
+    "historico_renovacoes": {
+      "type": "array",
+      "description": "Hist\u00f3rico de renova\u00e7\u00f5es anteriores",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero_documento": {
+            "type": "string"
+          },
+          "data_emissao": {
+            "type": "string"
+          },
+          "data_vencimento": {
+            "type": "string"
+          },
+          "arquivo_url": {
+            "type": "string"
+          },
+          "arquivo_nome": {
+            "type": "string"
+          },
+          "data_renovacao": {
+            "type": "string"
+          },
+          "observacoes": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "required": [
