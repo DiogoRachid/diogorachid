@@ -1,49 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { base44 } from '@/api/base44Client';
 import {
-                        LayoutDashboard,
-                        Users,
-                        Building2,
-                        Wallet,
-                        Receipt,
-                        ArrowDownCircle,
-                        ArrowUpCircle,
-                        PieChart,
-                        FileText,
-                        Settings,
-                        Menu,
-                        X,
-                        ChevronDown,
-                        LogOut,
-                        HardHat,
-                        Landmark,
-                        FolderKanban,
-                        TrendingUp,
-                        Moon,
-                        Sun,
-                        UsersRound,
-                        Clock,
-                        FileSignature,
-                        Gift,
-                        Package,
-                        Layers,
-                        Calculator,
-                        UploadCloud,
-                        History,
-                        DollarSign,
-                        DatabaseBackup,
-                        Ruler,
-                        ChevronLeft,
-                        ChevronRight,
-                        Calendar,
-                        FileInput,
-                        Truck,
-                        ShoppingCart,
-                        Globe,
-                        BookOpen
-                        } from 'lucide-react';
+  LayoutDashboard, Users, Building2, Wallet, Receipt,
+  ArrowDownCircle, ArrowUpCircle, PieChart, FileText, Settings,
+  Menu, X, ChevronDown, LogOut, HardHat, Landmark, FolderKanban,
+  TrendingUp, Moon, Sun, UsersRound, Clock, FileSignature, Gift,
+  Package, Layers, Calculator, UploadCloud, History, DollarSign,
+  DatabaseBackup, Ruler, ChevronLeft, ChevronRight, Calendar,
+  FileInput, Truck, ShoppingCart, Globe, BookOpen, GripVertical,
+  ArrowUp, ArrowDown
+} from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -160,6 +128,8 @@ const menuItems = [
 const DEFAULT_LOGO_CLARA = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_690c7efb29582ad524a0ff3e/fb3eac426_logofundoclaro.jpg";
 const DEFAULT_LOGO_ESCURA = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6926eb0b6c1242bf806695a4/4053fb920_logofundoescuro.png";
 
+const DEFAULT_MENU_ORDER = menuItems.map(m => m.title);
+
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -169,8 +139,37 @@ export default function Layout({ children, currentPageName }) {
     return false;
   });
   const [expandedMenus, setExpandedMenus] = useState([]);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [menuOrder, setMenuOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('menuOrder');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Garantir que todos os itens estejam presentes
+        const merged = parsed.filter(t => DEFAULT_MENU_ORDER.includes(t));
+        DEFAULT_MENU_ORDER.forEach(t => { if (!merged.includes(t)) merged.push(t); });
+        return merged;
+      }
+    } catch (_) {}
+    return DEFAULT_MENU_ORDER;
+  });
   const [user, setUser] = useState(null);
   const [companySettings, setCompanySettings] = useState(null);
+
+  const sortedMenuItems = useMemo(() => {
+    return [...menuItems].sort((a, b) => menuOrder.indexOf(a.title) - menuOrder.indexOf(b.title));
+  }, [menuOrder]);
+
+  const moveMenuItem = (index, direction) => {
+    setMenuOrder(prev => {
+      const newOrder = [...prev];
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= newOrder.length) return prev;
+      [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
+      localStorage.setItem('menuOrder', JSON.stringify(newOrder));
+      return newOrder;
+    });
+  };
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('darkMode') === 'true';
@@ -309,67 +308,103 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-6 px-4">
-            <div className="space-y-1">
-              {menuItems.map((item) => (
-                <div key={item.title}>
-                  {item.submenu ? (
-                    <>
-                      <button
-                        onClick={() => toggleSubmenu(item.title)}
-                        className={cn(
-                          "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all",
-                          "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
-                        )}
-                        title={sidebarCollapsed ? item.title : ''}
-                      >
-                        <div className="flex items-center gap-3">
-                          <item.icon className="h-5 w-5" />
-                          {!sidebarCollapsed && item.title}
-                        </div>
-                        {!sidebarCollapsed && (
-                          <ChevronDown className={cn(
-                            "h-4 w-4 transition-transform",
-                            expandedMenus.includes(item.title) && "rotate-180"
-                          )} />
-                        )}
-                      </button>
-                      {expandedMenus.includes(item.title) && !sidebarCollapsed && (
-                        <div className="ml-4 mt-1 space-y-1 border-l-2 pl-4 border-slate-200 dark:border-slate-700">
-                          {item.submenu.map((subitem) => (
-                            <Link
-                              key={subitem.page}
-                              to={createPageUrl(subitem.page)}
-                              onClick={() => setSidebarOpen(false)}
-                              className={cn(
-                                "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all",
-                                currentPageName === subitem.page
-                                  ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-medium"
-                                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-white"
-                              )}
-                            >
-                              <subitem.icon className="h-4 w-4" />
-                              {subitem.title}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <Link
-                      to={createPageUrl(item.page)}
-                      onClick={() => setSidebarOpen(false)}
-                      title={sidebarCollapsed ? item.title : ''}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
-                        currentPageName === item.page
-                          ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25"
-                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {!sidebarCollapsed && item.title}
-                    </Link>
+            {!sidebarCollapsed && (
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Menu</span>
+                <button
+                  onClick={() => setReorderMode(r => !r)}
+                  className={cn(
+                    "text-xs px-2 py-1 rounded-lg transition-colors",
+                    reorderMode
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
                   )}
+                >
+                  {reorderMode ? 'Concluir' : 'Reordenar'}
+                </button>
+              </div>
+            )}
+            <div className="space-y-1">
+              {sortedMenuItems.map((item, index) => (
+                <div key={item.title} className="flex items-center gap-1">
+                  {reorderMode && !sidebarCollapsed && (
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                      <button
+                        onClick={() => moveMenuItem(index, -1)}
+                        disabled={index === 0}
+                        className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 text-slate-400"
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => moveMenuItem(index, 1)}
+                        disabled={index === sortedMenuItems.length - 1}
+                        className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 text-slate-400"
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    {item.submenu ? (
+                      <>
+                        <button
+                          onClick={() => !reorderMode && toggleSubmenu(item.title)}
+                          className={cn(
+                            "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all",
+                            "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+                          )}
+                          title={sidebarCollapsed ? item.title : ''}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <item.icon className="h-5 w-5 flex-shrink-0" />
+                            {!sidebarCollapsed && <span className="truncate">{item.title}</span>}
+                          </div>
+                          {!sidebarCollapsed && !reorderMode && (
+                            <ChevronDown className={cn(
+                              "h-4 w-4 transition-transform flex-shrink-0",
+                              expandedMenus.includes(item.title) && "rotate-180"
+                            )} />
+                          )}
+                        </button>
+                        {expandedMenus.includes(item.title) && !sidebarCollapsed && !reorderMode && (
+                          <div className="ml-4 mt-1 space-y-1 border-l-2 pl-4 border-slate-200 dark:border-slate-700">
+                            {item.submenu.map((subitem) => (
+                              <Link
+                                key={subitem.page}
+                                to={createPageUrl(subitem.page)}
+                                onClick={() => setSidebarOpen(false)}
+                                className={cn(
+                                  "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all",
+                                  currentPageName === subitem.page
+                                    ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-medium"
+                                    : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-white"
+                                )}
+                              >
+                                <subitem.icon className="h-4 w-4" />
+                                {subitem.title}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <Link
+                        to={createPageUrl(item.page)}
+                        onClick={() => setSidebarOpen(false)}
+                        title={sidebarCollapsed ? item.title : ''}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
+                          currentPageName === item.page
+                            ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25"
+                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+                        )}
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        {!sidebarCollapsed && <span className="truncate">{item.title}</span>}
+                      </Link>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

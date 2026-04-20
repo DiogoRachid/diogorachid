@@ -1,0 +1,165 @@
+{
+  "name": "CompanySettings",
+  "type": "object",
+  "properties": {
+    "nome_empresa": {
+      "type": "string"
+    },
+    "logo_url_clara": {
+      "type": "string"
+    },
+    "logo_url_escura": {
+      "type": "string"
+    },
+    "cnpj": {
+      "type": "string"
+    },
+    "telefone": {
+      "type": "string"
+    },
+    "whatsapp": {
+      "type": "string",
+      "description": "N\u00famero do WhatsApp (com DDD)"
+    },
+    "email": {
+      "type": "string"
+    },
+    "endereco": {
+      "type": "string"
+    },
+    "cidade": {
+      "type": "string"
+    },
+    "estado": {
+      "type": "string"
+    },
+    "cep": {
+      "type": "string"
+    },
+    "site": {
+      "type": "string"
+    },
+    "ramo_atividade": {
+      "type": "string"
+    },
+    "moeda": {
+      "type": "string",
+      "default": "BRL"
+    },
+    "site_hero_titulo": {
+      "type": "string"
+    },
+    "site_hero_subtitulo": {
+      "type": "string"
+    },
+    "site_hero_imagem": {
+      "type": "string"
+    },
+    "site_sobre_titulo": {
+      "type": "string"
+    },
+    "site_sobre_texto1": {
+      "type": "string"
+    },
+    "site_sobre_texto2": {
+      "type": "string"
+    },
+    "site_sobre_texto3": {
+      "type": "string"
+    },
+    "site_sobre_imagem": {
+      "type": "string"
+    },
+    "site_numeros_anos": {
+      "type": "string"
+    },
+    "site_numeros_anos_label": {
+      "type": "string"
+    },
+    "site_numeros_obras": {
+      "type": "string"
+    },
+    "site_numeros_obras_label": {
+      "type": "string"
+    },
+    "site_numeros_sede": {
+      "type": "string"
+    },
+    "site_numeros_sede_label": {
+      "type": "string"
+    },
+    "site_numeros_tipo": {
+      "type": "string"
+    },
+    "site_numeros_tipo_label": {
+      "type": "string"
+    },
+    "site_cta_titulo": {
+      "type": "string"
+    },
+    "site_cta_texto": {
+      "type": "string"
+    },
+    "site_color_scheme": {
+      "type": "string",
+      "description": "Esquema de cores do site: blue, green, slate, orange, violet",
+      "default": "blue"
+    },
+    "site_menu_order": {
+      "type": "array",
+      "description": "Ordem personalizada dos m\u00f3dulos do menu lateral",
+      "items": {
+        "type": "string"
+      }
+    },
+    "site_servicos": {
+      "type": "array",
+      "description": "Cards da se\u00e7\u00e3o O que Fazemos",
+      "items": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "cor": {
+            "type": "string",
+            "description": "Ex: bg-blue-50 text-blue-600"
+          }
+        }
+      }
+    },
+    "site_obras": {
+      "type": "array",
+      "description": "Cards do Portf\u00f3lio",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "local": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Entregue",
+              "Em Andamento",
+              "Planejado"
+            ]
+          },
+          "img": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": []
+}

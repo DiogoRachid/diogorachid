@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import AdminProfileEditor from '@/components/settings/AdminProfileEditor';
+import SiteColorSchemeEditor from '@/components/settings/SiteColorSchemeEditor';
 
 const DEFAULT_SERVICOS = [
   { titulo: 'Edificações Públicas', descricao: 'Construção de hospitais universitários, blocos acadêmicos, creches, escolas, delegacias e demais equipamentos públicos.', cor: 'bg-blue-50 text-blue-600' },
@@ -139,7 +140,8 @@ export default function Settings() {
     site_cta_titulo: 'Sistema de Gestão de Obras',
     site_cta_texto: 'Acesse nosso ERP interno para gerenciar orçamentos, planejamento, medições, financeiro, RH e muito mais — tudo em um só lugar.',
     site_servicos: DEFAULT_SERVICOS,
-    site_obras: DEFAULT_OBRAS
+    site_obras: DEFAULT_OBRAS,
+    site_color_scheme: 'blue'
   });
 
   const [uploadingClara, setUploadingClara] = useState(false);
@@ -180,7 +182,8 @@ export default function Settings() {
         site_cta_titulo: companySettings.site_cta_titulo || 'Sistema de Gestão de Obras',
         site_cta_texto: companySettings.site_cta_texto || 'Acesse nosso ERP interno para gerenciar orçamentos, planejamento, medições, financeiro, RH e muito mais — tudo em um só lugar.',
         site_servicos: companySettings.site_servicos?.length > 0 ? companySettings.site_servicos : DEFAULT_SERVICOS,
-        site_obras: companySettings.site_obras?.length > 0 ? companySettings.site_obras : DEFAULT_OBRAS
+        site_obras: companySettings.site_obras?.length > 0 ? companySettings.site_obras : DEFAULT_OBRAS,
+        site_color_scheme: companySettings.site_color_scheme || 'blue'
       });
     }
   }, [companySettings.id]);
@@ -546,6 +549,20 @@ export default function Settings() {
                   <SiteObrasEditor
                     obras={companyData.site_obras || []}
                     onChange={list => setCompanyData(p => ({ ...p, site_obras: list }))}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Esquema de Cores */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">🎨 Esquema de Cores</CardTitle>
+                  <CardDescription>Cor principal usada nos botões, faixas e seções do site</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SiteColorSchemeEditor
+                    value={companyData.site_color_scheme}
+                    onChange={v => setCompanyData(p => ({ ...p, site_color_scheme: v }))}
                   />
                 </CardContent>
               </Card>

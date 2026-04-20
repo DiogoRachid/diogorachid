@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
+import { COLOR_SCHEMES } from '@/components/settings/SiteColorSchemeEditor';
 import {
   HardHat, Building2, Users, Phone, Mail, MapPin, Globe,
   ChevronDown, Menu, X, ArrowRight, CheckCircle2, Shield, BarChart3,
@@ -100,6 +101,7 @@ export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [companySettings, setCompanySettings] = useState(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -108,7 +110,10 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    base44.entities.CompanySettings.list().then((r) => {if (r.length > 0) setCompanySettings(r[0]);});
+    base44.entities.CompanySettings.list().then((r) => {
+      if (r.length > 0) setCompanySettings(r[0]);
+      setSettingsLoaded(true);
+    });
   }, []);
 
   const logoClara = companySettings?.logo_url_clara || LOGO_CLARA;
@@ -140,6 +145,9 @@ export default function LandingPage() {
   const ctaTitulo = companySettings?.site_cta_titulo || 'Sistema de Gestão de Obras';
   const ctaTexto = companySettings?.site_cta_texto || 'Acesse nosso ERP interno para gerenciar orçamentos, planejamento, medições, financeiro, RH e muito mais — tudo em um só lugar.';
 
+  const colorSchemeId = companySettings?.site_color_scheme || 'blue';
+  const colorScheme = useMemo(() => COLOR_SCHEMES.find(s => s.id === colorSchemeId) || COLOR_SCHEMES[0], [colorSchemeId]);
+
   const servicos = (companySettings?.site_servicos?.length > 0 ? companySettings.site_servicos : servicosDefault).map(s => ({
     ...s,
     color: s.cor || s.color || 'bg-blue-50 text-blue-600'
@@ -150,6 +158,14 @@ export default function LandingPage() {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
     setMenuOpen(false);
   };
+
+  if (!settingsLoaded) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -208,7 +224,7 @@ export default function LandingPage() {
             alt="Obras"
             className="w-full h-full object-cover" />
           
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-blue-900/70 to-slate-900/80" />
+          <div className={`absolute inset-0 bg-gradient-to-br ${colorScheme.heroOverlay}`} />
         </div>
         <div className="relative text-center text-white px-4 max-w-4xl mx-auto pt-20 sm:pt-0">
           <div className="inline-flex items-center gap-2 bg-blue-600/30 border border-blue-400/40 rounded-full px-3 py-1.5 text-xs sm:text-sm mb-6 backdrop-blur max-w-[90vw] text-center leading-snug">
@@ -239,7 +255,7 @@ export default function LandingPage() {
       </section>
 
       {/* NÚMEROS */}
-      <section className="bg-blue-700 py-12">
+      <section className={`${colorScheme.numbersSection} py-12`}>
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
           {numeros.map((n, i) =>
           <div key={i}>
@@ -353,7 +369,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA SISTEMA */}
-      <section className="py-20 px-4 bg-gradient-to-br from-blue-700 to-blue-900 text-white">
+      <section className={`py-20 px-4 bg-gradient-to-br ${colorScheme.ctaSection} text-white`}>
         <div className="max-w-4xl mx-auto text-center">
           <BarChart3 className="h-12 w-12 mx-auto mb-4 text-blue-300" />
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">{ctaTitulo}</h2>

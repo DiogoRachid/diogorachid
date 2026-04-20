@@ -119,7 +119,9 @@ export default function BatchUpdateQuotesDialog({ open, onOpenChange, investment
             await Promise.all(updates);
             
             queryClient.invalidateQueries({ queryKey: ['investments'] });
-            queryClient.invalidateQueries({ queryKey: ['economic_indicators'] }); // Invalida indicadores se houver query
+            queryClient.invalidateQueries({ queryKey: ['bankAccounts'] });
+            queryClient.invalidateQueries({ queryKey: ['investment_history'] });
+            queryClient.invalidateQueries({ queryKey: ['economic_indicators'] });
             toast.success('Valores atualizados com sucesso!');
             onOpenChange(false);
         } catch (error) {
