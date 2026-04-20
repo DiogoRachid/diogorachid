@@ -26,25 +26,31 @@ const getAllInputsFromService = async (serviceId, services, serviceItems, inputs
     const itemQuantity = (item.quantidade || 0) * multiplier;
     const itemCost = item.custo_unitario || 0;
     
-    if (item.tipo_item === 'INSUMO' && item.item_id) {
-      // É um insumo direto
-      const input = inputs.find(inp => inp.id === item.item_id);
+    if (item.tipo_item === 'INSUMO') {
+      // Buscar pelo id primeiro, depois pelo codigo como fallback
+      const input = inputs.find(inp => inp.id === item.item_id)
+        || (item.item_codigo ? inputs.find(inp => inp.codigo === item.item_codigo) : null);
       if (input) {
         resultInputs.push({
-          id: item.item_id,
+          id: input.id,
           code: input.codigo,
           description: input.descricao,
           unit: input.unidade,
-          category: item.categoria,
+          category: item.categoria || input.categoria,
           quantity: itemQuantity,
           unitCost: item.custo_unitario_snapshot || input.valor_unitario || 0,
           value: itemQuantity * (item.custo_unitario_snapshot || input.valor_unitario || 0)
         });
       }
-    } else if (item.tipo_item === 'SERVICO' && item.item_id) {
-      // É um sub-serviço, buscar recursivamente
-      const subInputs = await getAllInputsFromService(item.item_id, services, serviceItems, inputs, itemQuantity);
-      resultInputs.push(...subInputs);
+    } else if (item.tipo_item === 'SERVICO') {
+      // Buscar sub-serviço pelo id primeiro, depois pelo codigo
+      const subService = services.find(s => s.id === item.item_id)
+        || (item.item_codigo ? services.find(s => s.codigo === item.item_codigo) : null);
+      const resolvedId = subService?.id || item.item_id;
+      if (resolvedId) {
+        const subInputs = await getAllInputsFromService(resolvedId, services, serviceItems, inputs, itemQuantity);
+        resultInputs.push(...subInputs);
+      }
     }
   }
   
@@ -101,12 +107,14 @@ export default function ABCAnalysis({ items, services, budget }) {
         const allInputs = await base44.entities.Input.list();
         
         for (const budgetItem of items) {
-          const service = services.find(s => s.id === budgetItem.servico_id);
+          // Buscar serviço pelo id primeiro, depois pelo codigo como fallback
+          const service = services.find(s => s.id === budgetItem.servico_id)
+            || (budgetItem.codigo ? services.find(s => s.codigo === budgetItem.codigo) : null);
           if (!service) continue;
           
           // Buscar todos os insumos recursivamente
           const itemInputs = await getAllInputsFromService(
-            budgetItem.servico_id, 
+            service.id, 
             services, 
             serviceItems, 
             allInputs, 

@@ -21,20 +21,28 @@ const getAllInputsFromService = async (serviceId, services, serviceItems, inputs
   for (const item of items) {
     const itemQuantity = (item.quantidade || 0) * multiplier;
     
-    if (item.tipo_item === 'INSUMO' && item.item_id) {
-      const input = inputs.find(inp => inp.id === item.item_id);
+    if (item.tipo_item === 'INSUMO') {
+      // Buscar pelo id primeiro, depois pelo codigo como fallback
+      const input = inputs.find(inp => inp.id === item.item_id)
+        || (item.item_codigo ? inputs.find(inp => inp.codigo === item.item_codigo) : null);
       if (input) {
         resultInputs.push({
-          id: item.item_id,
+          id: input.id,
           descricao: input.descricao,
           categoria: input.categoria,
           quantity: itemQuantity,
           horas_por_unidade: input.horas_por_unidade || 0
         });
       }
-    } else if (item.tipo_item === 'SERVICO' && item.item_id) {
-      const subInputs = await getAllInputsFromService(item.item_id, services, serviceItems, inputs, itemQuantity);
-      resultInputs.push(...subInputs);
+    } else if (item.tipo_item === 'SERVICO') {
+      // Buscar sub-serviço pelo id primeiro, depois pelo codigo
+      const subService = services.find(s => s.id === item.item_id)
+        || (item.item_codigo ? services.find(s => s.codigo === item.item_codigo) : null);
+      const resolvedId = subService?.id || item.item_id;
+      if (resolvedId) {
+        const subInputs = await getAllInputsFromService(resolvedId, services, serviceItems, inputs, itemQuantity);
+        resultInputs.push(...subInputs);
+      }
     }
   }
   
@@ -68,9 +76,14 @@ export default function StaffingCalculator({ schedule, stages, items, services, 
             if (percentage === 0) continue;
 
             for (const budgetItem of stageItems) {
+              // Buscar serviço pelo id primeiro, depois pelo codigo como fallback
+              const service = services.find(s => s.id === budgetItem.servico_id)
+                || (budgetItem.codigo ? services.find(s => s.codigo === budgetItem.codigo) : null);
+              if (!service) continue;
+
               // Buscar todos os insumos recursivamente (Curva ABC)
               const itemInputs = await getAllInputsFromService(
-                budgetItem.servico_id,
+                service.id,
                 services,
                 serviceItems,
                 allInputs,
