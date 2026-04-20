@@ -15,47 +15,6 @@ const COLORS_ABC = {
   C: '#10b981'
 };
 
-// Função recursiva para buscar todos os insumos de um serviço
-const getAllInputsFromService = async (serviceId, services, serviceItems, inputs, multiplier = 1) => {
-  const resultInputs = [];
-  
-  // Buscar itens do serviço (ServiceItem)
-  const items = serviceItems.filter(si => si.servico_id === serviceId);
-  
-  for (const item of items) {
-    const itemQuantity = (item.quantidade || 0) * multiplier;
-    const itemCost = item.custo_unitario || 0;
-    
-    if (item.tipo_item === 'INSUMO') {
-      // Buscar pelo id primeiro, depois pelo codigo como fallback
-      const input = inputs.find(inp => inp.id === item.item_id)
-        || (item.item_codigo ? inputs.find(inp => inp.codigo === item.item_codigo) : null);
-      if (input) {
-        resultInputs.push({
-          id: input.id,
-          code: input.codigo,
-          description: input.descricao,
-          unit: input.unidade,
-          category: item.categoria || input.categoria,
-          quantity: itemQuantity,
-          unitCost: item.custo_unitario_snapshot || input.valor_unitario || 0,
-          value: itemQuantity * (item.custo_unitario_snapshot || input.valor_unitario || 0)
-        });
-      }
-    } else if (item.tipo_item === 'SERVICO') {
-      // Buscar sub-serviço pelo id primeiro, depois pelo codigo
-      const subService = services.find(s => s.id === item.item_id)
-        || (item.item_codigo ? services.find(s => s.codigo === item.item_codigo) : null);
-      const resolvedId = subService?.id || item.item_id;
-      if (resolvedId) {
-        const subInputs = await getAllInputsFromService(resolvedId, services, serviceItems, inputs, itemQuantity);
-        resultInputs.push(...subInputs);
-      }
-    }
-  }
-  
-  return resultInputs;
-};
 
 const classifyABC = (items) => {
   // Ordenar por valor decrescente
@@ -95,67 +54,36 @@ export default function ABCAnalysis({ items, services, budget }) {
   const [inputAnalysisData, setInputAnalysisData] = useState([]);
   const [isLoadingInputs, setIsLoadingInputs] = useState(true);
 
-  // Carregar análise de insumos de forma assíncrona
+  // Carregar análise de insumos a partir do resumo pré-calculado
   useEffect(() => {
     const loadInputAnalysis = async () => {
+      if (!budget?.id) {
+        setInputAnalysisData([]);
+        setIsLoadingInputs(false);
+        return;
+      }
       setIsLoadingInputs(true);
       try {
-        const inputMap = {};
-        
-        // Carregar ServiceItems e Inputs com paginação completa
-        const fetchAll = async (entity) => {
-          const limit = 1000;
-          let all = [], skip = 0;
-          while (true) {
-            const batch = await entity.list('created_date', limit, skip);
-            all = all.concat(batch);
-            if (batch.length < limit) break;
-            skip += limit;
-          }
-          return all;
-        };
-        const [serviceItems, allInputs] = await Promise.all([
-          fetchAll(base44.entities.ServiceItem),
-          fetchAll(base44.entities.Input)
-        ]);
-        
-        for (const budgetItem of items) {
-          // Buscar serviço pelo id primeiro, depois pelo codigo como fallback
-          const service = services.find(s => s.id === budgetItem.servico_id)
-            || (budgetItem.codigo ? services.find(s => s.codigo === budgetItem.codigo) : null);
-          if (!service) continue;
-          
-          // Buscar todos os insumos recursivamente
-          const itemInputs = await getAllInputsFromService(
-            service.id, 
-            services, 
-            serviceItems, 
-            allInputs, 
-            budgetItem.quantidade || 0
-          );
-          
-          // Agregar insumos (evitar duplicação)
-          itemInputs.forEach(input => {
-            const key = `${input.id}_${input.code}`;
+        const summaries = await base44.entities.BudgetInputSummary.filter({ orcamento_id: budget.id });
 
-            if (!inputMap[key]) {
-              inputMap[key] = {
-                id: input.id,
-                code: input.code,
-                description: input.description,
-                value: 0,
-                quantity: 0,
-                unit: input.unit,
-                category: input.category
-              };
-            }
-
-            inputMap[key].value += input.value;
-            inputMap[key].quantity += input.quantity;
-          });
+        if (summaries.length === 0) {
+          setInputAnalysisData([]);
+          setIsLoadingInputs(false);
+          return;
         }
-        
-        setInputAnalysisData(classifyABC(Object.values(inputMap)));
+
+        const mapped = summaries.map(s => ({
+          id: s.insumo_id,
+          code: s.codigo,
+          description: s.descricao,
+          unit: s.unidade,
+          category: s.categoria,
+          quantity: s.quantidade_total,
+          unitCost: s.custo_unitario,
+          value: s.valor_total
+        }));
+
+        setInputAnalysisData(classifyABC(mapped));
       } catch (error) {
         console.error('Erro ao carregar análise de insumos:', error);
         setInputAnalysisData([]);
@@ -163,14 +91,9 @@ export default function ABCAnalysis({ items, services, budget }) {
         setIsLoadingInputs(false);
       }
     };
-    
-    if (items.length > 0 && services.length > 0) {
-      loadInputAnalysis();
-    } else {
-      setInputAnalysisData([]);
-      setIsLoadingInputs(false);
-    }
-  }, [items, services]);
+
+    loadInputAnalysis();
+  }, [budget?.id]);
 
   const serviceAnalysis = useMemo(() => {
     const serviceMap = {};
@@ -389,8 +312,9 @@ export default function ABCAnalysis({ items, services, budget }) {
         ) : inputAnalysisData.length > 0 ? (
         renderAnalysisTable(inputAnalysisData, 'Insumos', true)
         ) : (
-          <div className="flex items-center justify-center h-64">
-            <p className="text-slate-500">Nenhum insumo encontrado</p>
+          <div className="flex flex-col items-center justify-center h-64 gap-3 text-center px-8">
+            <p className="text-slate-500 font-medium">Nenhum insumo encontrado</p>
+            <p className="text-slate-400 text-sm">Para gerar a Curva ABC de Insumos, abra o orçamento e salve novamente. Os insumos serão calculados e armazenados automaticamente.</p>
           </div>
         )}
       </TabsContent>

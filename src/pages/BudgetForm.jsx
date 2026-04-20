@@ -24,6 +24,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { exportBudgetPDF, exportBudgetXLSX } from '@/components/budgets/BudgetExporter';
+import { recalcBudgetInputSummary } from '@/components/logic/BudgetInputsCalculator';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import BudgetStageEditor from '@/components/planner/BudgetStageEditor';
@@ -429,6 +430,10 @@ export default function BudgetForm() {
           });
         }));
       }
+
+      // Recalcular e salvar resumo de insumos em background
+      const savedItems = await base44.entities.BudgetItem.filter({ orcamento_id: savedBudgetId });
+      recalcBudgetInputSummary(savedBudgetId, savedItems).catch(e => console.error('Erro ao recalcular insumos:', e));
 
       toast.success('Orçamento salvo com sucesso!');
       if (!budgetId) window.location.href = createPageUrl('Budgets');

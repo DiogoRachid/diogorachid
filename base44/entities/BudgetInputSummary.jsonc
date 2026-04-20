@@ -1,0 +1,44 @@
+{
+  "name": "BudgetInputSummary",
+  "type": "object",
+  "properties": {
+    "orcamento_id": {
+      "type": "string",
+      "description": "ID do or\u00e7amento"
+    },
+    "insumo_id": {
+      "type": "string",
+      "description": "ID do insumo"
+    },
+    "codigo": {
+      "type": "string"
+    },
+    "descricao": {
+      "type": "string"
+    },
+    "unidade": {
+      "type": "string"
+    },
+    "categoria": {
+      "type": "string",
+      "enum": [
+        "MATERIAL",
+        "MAO_OBRA"
+      ]
+    },
+    "quantidade_total": {
+      "type": "number"
+    },
+    "custo_unitario": {
+      "type": "number"
+    },
+    "valor_total": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "orcamento_id",
+    "insumo_id",
+    "valor_total"
+  ]
+}
