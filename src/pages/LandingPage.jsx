@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
-import { useColorScheme } from '@/lib/useColorScheme';
 import {
   HardHat, Building2, Users, Phone, Mail, MapPin, Globe,
   ChevronDown, Menu, X, ArrowRight, CheckCircle2, Shield, BarChart3,
@@ -101,8 +100,6 @@ export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [companySettings, setCompanySettings] = useState(null);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const { colorScheme } = useColorScheme();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -111,10 +108,7 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    base44.entities.CompanySettings.list().then((r) => {
-      if (r.length > 0) setCompanySettings(r[0]);
-      setSettingsLoaded(true);
-    });
+    base44.entities.CompanySettings.list().then((r) => {if (r.length > 0) setCompanySettings(r[0]);});
   }, []);
 
   const logoClara = companySettings?.logo_url_clara || LOGO_CLARA;
@@ -146,8 +140,6 @@ export default function LandingPage() {
   const ctaTitulo = companySettings?.site_cta_titulo || 'Sistema de Gestão de Obras';
   const ctaTexto = companySettings?.site_cta_texto || 'Acesse nosso ERP interno para gerenciar orçamentos, planejamento, medições, financeiro, RH e muito mais — tudo em um só lugar.';
 
-
-
   const servicos = (companySettings?.site_servicos?.length > 0 ? companySettings.site_servicos : servicosDefault).map(s => ({
     ...s,
     color: s.cor || s.color || 'bg-blue-50 text-blue-600'
@@ -158,14 +150,6 @@ export default function LandingPage() {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
     setMenuOpen(false);
   };
-
-  if (!settingsLoaded) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -178,10 +162,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium">
             {['sobre', 'servicos', 'obras', 'contato'].map((s) =>
             <button key={s} onClick={() => scrollTo(s)}
-            style={scrolled ? {} : {}}
-            className={`capitalize transition-colors ${scrolled ? 'text-slate-700' : 'text-white'}`}
-            onMouseEnter={e => scrolled && (e.currentTarget.style.color = colorScheme.primary)}
-            onMouseLeave={e => scrolled && (e.currentTarget.style.color = '')}>
+            className={`capitalize transition-colors hover:text-blue-600 ${scrolled ? 'text-slate-700' : 'text-white'}`}>
                 {s === 'sobre' ? 'Sobre' : s === 'servicos' ? 'Serviços' : s === 'obras' ? 'Obras' : 'Contato'}
               </button>
             )}
@@ -189,13 +170,11 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-3">
             <a href={`mailto:${emailEmpresa}`}
-            className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-slate-600' : 'text-white/80 hover:text-white'}`}
-            onMouseEnter={e => scrolled && (e.currentTarget.style.color = colorScheme.primary)}
-            onMouseLeave={e => scrolled && (e.currentTarget.style.color = '')}>
+            className={`flex items-center gap-2 text-sm font-medium transition-colors ${scrolled ? 'text-slate-600 hover:text-blue-600' : 'text-white/80 hover:text-white'}`}>
               <Mail className="h-4 w-4" /> {emailEmpresa}
             </a>
             <Link to={createPageUrl('PortalSelect')}>
-              <Button className="text-white rounded-full px-5" style={{ backgroundColor: colorScheme.primary }}>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-5">
                 Acessar Sistema
               </Button>
             </Link>
@@ -215,7 +194,7 @@ export default function LandingPage() {
               </button>
           )}
             <Link to={createPageUrl('PortalSelect')} onClick={() => setMenuOpen(false)}>
-              <Button className="w-full mt-2 text-white" style={{ backgroundColor: colorScheme.primary }}>Acessar Sistema ERP</Button>
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 mt-2">Acessar Sistema ERP</Button>
             </Link>
           </div>
         }
@@ -229,10 +208,10 @@ export default function LandingPage() {
             alt="Obras"
             className="w-full h-full object-cover" />
           
-          <div className={`absolute inset-0 bg-gradient-to-br ${colorScheme.heroOverlay}`} />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-blue-900/70 to-slate-900/80" />
         </div>
         <div className="relative text-center text-white px-4 max-w-4xl mx-auto pt-20 sm:pt-0">
-          <div className="inline-flex items-center gap-2 border rounded-full px-3 py-1.5 text-xs sm:text-sm mb-6 backdrop-blur max-w-[90vw] text-center leading-snug" style={{ backgroundColor: `${colorScheme.primary}4D`, borderColor: `${colorScheme.primary}66` }}>
+          <div className="inline-flex items-center gap-2 bg-blue-600/30 border border-blue-400/40 rounded-full px-3 py-1.5 text-xs sm:text-sm mb-6 backdrop-blur max-w-[90vw] text-center leading-snug">
             <Shield className="h-4 w-4 flex-shrink-0" /> <span>Especialistas em Obras Públicas — Londrina/PR</span>
           </div>
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6 whitespace-pre-line">
@@ -243,8 +222,7 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={() => scrollTo('obras')}
-            className="text-white px-8 py-4 rounded-full font-semibold flex items-center justify-center gap-2 transition-all hover:scale-105"
-            style={{ backgroundColor: colorScheme.primary }}>
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-semibold flex items-center justify-center gap-2 transition-all hover:scale-105">
               Ver Nossas Obras <ArrowRight className="h-5 w-5" />
             </button>
             <button onClick={() => scrollTo('contato')}
@@ -261,12 +239,12 @@ export default function LandingPage() {
       </section>
 
       {/* NÚMEROS */}
-      <section className={`${colorScheme.numbersSection} py-12`}>
+      <section className="bg-blue-700 py-12">
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
           {numeros.map((n, i) =>
           <div key={i}>
               <div className="text-3xl sm:text-4xl font-bold">{n.valor}</div>
-              <div className="text-white/70 text-sm mt-1">{n.label}</div>
+              <div className="text-blue-200 text-sm mt-1">{n.label}</div>
             </div>
           )}
         </div>
@@ -277,7 +255,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <span className="font-semibold text-sm uppercase tracking-wider" style={{ color: colorScheme.primary }}>Sobre a Empresa</span>
+              <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Sobre a Empresa</span>
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2 mb-6">
                 {sobreTitulo}
               </h2>
@@ -292,7 +270,7 @@ export default function LandingPage() {
                 "Equipe de engenheiros e técnicos especializados"].
                 map((item, i) =>
                 <div key={i} className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 flex-shrink-0" style={{ color: colorScheme.primary }} />
+                    <CheckCircle2 className="h-5 w-5 text-blue-600 flex-shrink-0" />
                     <span className="text-slate-700">{item}</span>
                   </div>
                 )}
@@ -304,9 +282,9 @@ export default function LandingPage() {
                 alt="Obras"
                 className="rounded-2xl shadow-2xl w-full object-cover h-72 sm:h-96" />
               
-              <div className="absolute bottom-0 left-2 md:-bottom-6 md:-left-6 text-white rounded-2xl p-4 md:p-6 shadow-xl" style={{ backgroundColor: colorScheme.primary }}>
+              <div className="absolute bottom-0 left-2 md:-bottom-6 md:-left-6 bg-blue-600 text-white rounded-2xl p-4 md:p-6 shadow-xl">
                 <div className="text-2xl md:text-3xl font-bold">Londrina</div>
-                <div className="text-white/70 text-sm">Sede – Paraná</div>
+                <div className="text-blue-200 text-sm">Sede – Paraná</div>
               </div>
             </div>
           </div>
@@ -317,7 +295,7 @@ export default function LandingPage() {
       <section id="servicos" className="py-20 px-4 bg-slate-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <span className="font-semibold text-sm uppercase tracking-wider" style={{ color: colorScheme.primary }}>O Que Fazemos</span>
+            <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">O Que Fazemos</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2">Serviços Especializados</h2>
             <p className="text-slate-500 mt-4 max-w-xl mx-auto">Atuamos exclusivamente em obras públicas — universidades, hospitais, infraestrutura e equipamentos urbanos — com rigor técnico e comprometimento com prazos.</p>
           </div>
@@ -344,7 +322,7 @@ export default function LandingPage() {
       <section id="obras" className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <span className="font-semibold text-sm uppercase tracking-wider" style={{ color: colorScheme.primary }}>Portfólio</span>
+            <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Portfólio</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2">Obras Realizadas</h2>
             <p className="text-slate-500 mt-4 max-w-xl mx-auto">Uma seleção de obras públicas que demonstram nossa capacidade técnica e compromisso com a qualidade em Londrina e região Norte do Paraná.</p>
           </div>
@@ -362,7 +340,7 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <div className="p-5">
-                  <span className="text-xs font-semibold uppercase" style={{ color: colorScheme.primary }}>{o.tipo}</span>
+                  <span className="text-xs text-blue-600 font-semibold uppercase">{o.tipo}</span>
                   <h3 className="font-bold text-slate-900 mt-1 mb-1">{o.nome}</h3>
                   <div className="flex items-center gap-1 text-slate-500 text-sm">
                     <MapPin className="h-3 w-3" /> {o.local}
@@ -375,14 +353,14 @@ export default function LandingPage() {
       </section>
 
       {/* CTA SISTEMA */}
-      <section className={`py-20 px-4 bg-gradient-to-br ${colorScheme.ctaSection} text-white`}>
+      <section className="py-20 px-4 bg-gradient-to-br from-blue-700 to-blue-900 text-white">
         <div className="max-w-4xl mx-auto text-center">
-          <BarChart3 className="h-12 w-12 mx-auto mb-4 text-white/60" />
+          <BarChart3 className="h-12 w-12 mx-auto mb-4 text-blue-300" />
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">{ctaTitulo}</h2>
-          <p className="text-white/70 text-lg mb-8 max-w-2xl mx-auto">{ctaTexto}</p>
+          <p className="text-blue-200 text-lg mb-8 max-w-2xl mx-auto">{ctaTexto}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to={createPageUrl('PortalSelect')}>
-              <Button className="bg-white hover:bg-white/90 font-semibold px-8 py-3 h-auto rounded-full text-base" style={{ color: colorScheme.primary }}>
+              <Button className="bg-white text-blue-700 hover:bg-blue-50 font-semibold px-8 py-3 h-auto rounded-full text-base">
                 <Shield className="h-5 w-5 mr-2" /> Acessar Sistema ERP
               </Button>
             </Link>
@@ -399,20 +377,20 @@ export default function LandingPage() {
       <section id="contato" className="py-20 px-4 bg-slate-50">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <span className="font-semibold text-sm uppercase tracking-wider" style={{ color: colorScheme.primary }}>Contato</span>
+            <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Contato</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mt-2">Fale Conosco</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             <a href={`mailto:${emailEmpresa}`} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow border border-slate-100 group">
-              <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-4 transition-colors" style={{ backgroundColor: `${colorScheme.primary}1A` }}>
-                <Mail className="h-6 w-6" style={{ color: colorScheme.primary }} />
+              <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+                <Mail className="h-6 w-6 text-blue-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-1">E-mail</h3>
-              <p className="text-sm break-all" style={{ color: colorScheme.primary }}>{emailEmpresa}</p>
+              <p className="text-blue-600 text-sm break-all">{emailEmpresa}</p>
             </a>
             <a href={`tel:${whatsappNum}`} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow border border-slate-100 group">
-              <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-4 transition-colors" style={{ backgroundColor: `${colorScheme.primary}1A` }}>
-                <Phone className="h-6 w-6" style={{ color: colorScheme.primary }} />
+              <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+                <Phone className="h-6 w-6 text-blue-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-1">Telefone</h3>
               <p className="text-slate-600 text-sm">{telefone}</p>
@@ -425,26 +403,26 @@ export default function LandingPage() {
               <p className="text-green-600 text-sm">{whatsappRaw}</p>
             </a>
             <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`} target="_blank" rel="noopener noreferrer" className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow border border-slate-100 group">
-              <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-4 transition-colors" style={{ backgroundColor: `${colorScheme.primary}1A` }}>
-                <MapPin className="h-6 w-6" style={{ color: colorScheme.primary }} />
+              <div className="h-12 w-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+                <MapPin className="h-6 w-6 text-blue-600" />
               </div>
               <h3 className="font-semibold text-slate-900 mb-1">Endereço</h3>
-              <p className="text-xs leading-relaxed" style={{ color: colorScheme.primary }}>{endereco}</p>
+              <p className="text-blue-600 text-xs leading-relaxed">{endereco}</p>
             </a>
           </div>
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer className="text-white py-10 px-4" style={{ backgroundColor: colorScheme.footer }}>
+      <footer className="bg-slate-900 text-white py-10 px-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src={logoEscura} alt={nomeEmpresa} className="h-8 object-contain" />
-            <span className="text-sm text-white/70">© {new Date().getFullYear()} {nomeEmpresa}. Todos os direitos reservados.</span>
+            <span className="text-sm text-slate-400">© {new Date().getFullYear()} {nomeEmpresa}. Todos os direitos reservados.</span>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-white/70">
-            <a href={`mailto:${emailEmpresa}`} className="hover:text-white flex items-center gap-1 break-all transition-colors"><Mail className="h-4 w-4 flex-shrink-0" /> {emailEmpresa}</a>
-            <Link to={createPageUrl('PortalSelect')} className="hover:text-white flex items-center gap-1 transition-colors"><Shield className="h-4 w-4" /> Sistema ERP</Link>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-slate-400">
+            <a href={`mailto:${emailEmpresa}`} className="hover:text-white flex items-center gap-1 break-all"><Mail className="h-4 w-4 flex-shrink-0" /> {emailEmpresa}</a>
+            <Link to={createPageUrl('PortalSelect')} className="hover:text-white flex items-center gap-1"><Shield className="h-4 w-4" /> Sistema ERP</Link>
           </div>
         </div>
       </footer>
