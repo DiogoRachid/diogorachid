@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileText, Plus, Upload, Trash2, Download, Calendar,
   AlertTriangle, CheckCircle2, Clock, Search, Filter,
-  MoreHorizontal, Eye, X, FolderOpen, Tag
+  MoreHorizontal, Eye, X, FolderOpen, Tag, ChevronUp, ChevronDown, ChevronsUpDown
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,6 +91,8 @@ export default function Documents() {
   const [saving, setSaving] = useState(false);
   const [fileToUpload, setFileToUpload] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
+  const [sortCol, setSortCol] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
 
   const { data: docs = [], isLoading } = useQuery({
     queryKey: ['documents'],
@@ -102,8 +104,20 @@ export default function Documents() {
     onSuccess: () => queryClient.invalidateQueries(['documents'])
   });
 
+  const handleSort = (col) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('asc'); }
+  };
+
+  const SortIcon = ({ col }) => {
+    if (sortCol !== col) return <ChevronsUpDown className="h-3 w-3 ml-1 text-slate-400 inline" />;
+    return sortDir === 'asc'
+      ? <ChevronUp className="h-3 w-3 ml-1 text-indigo-500 inline" />
+      : <ChevronDown className="h-3 w-3 ml-1 text-indigo-500 inline" />;
+  };
+
   const filtered = useMemo(() => {
-    return docs.filter(d => {
+    const list = docs.filter(d => {
       const matchSearch = !search ||
         d.nome?.toLowerCase().includes(search.toLowerCase()) ||
         d.orgao_emissor?.toLowerCase().includes(search.toLowerCase()) ||
@@ -112,7 +126,27 @@ export default function Documents() {
       const matchStatus = !filterStatus || getStatus(d) === filterStatus;
       return matchSearch && matchTipo && matchStatus;
     });
-  }, [docs, search, filterTipo, filterStatus]);
+
+    if (!sortCol) return list;
+
+    return [...list].sort((a, b) => {
+      let va, vb;
+      if (sortCol === 'nome') { va = a.nome || ''; vb = b.nome || ''; }
+      else if (sortCol === 'tipo') { va = a.tipo || ''; vb = b.tipo || ''; }
+      else if (sortCol === 'emissor') { va = a.orgao_emissor || ''; vb = b.orgao_emissor || ''; }
+      else if (sortCol === 'vencimento') {
+        va = a.data_vencimento || '9999';
+        vb = b.data_vencimento || '9999';
+      } else if (sortCol === 'status') {
+        const order = { vencido: 0, a_vencer: 1, valido: 2, sem_vencimento: 3 };
+        va = order[getStatus(a)] ?? 9;
+        vb = order[getStatus(b)] ?? 9;
+        return sortDir === 'asc' ? va - vb : vb - va;
+      }
+      const cmp = String(va).localeCompare(String(vb), 'pt-BR', { sensitivity: 'base' });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [docs, search, filterTipo, filterStatus, sortCol, sortDir]);
 
   // Stats
   const stats = useMemo(() => {
@@ -362,11 +396,11 @@ export default function Documents() {
                     onCheckedChange={toggleSelectAll}
                   />
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">Documento</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600 hidden md:table-cell">Tipo</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600 hidden lg:table-cell">Emissor</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600 hidden sm:table-cell">Vencimento</th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">Status</th>
+                <th className="px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none" onClick={() => handleSort('nome')}>Documento<SortIcon col="nome" /></th>
+                <th className="px-4 py-3 text-left font-medium text-slate-600 hidden md:table-cell cursor-pointer select-none" onClick={() => handleSort('tipo')}>Tipo<SortIcon col="tipo" /></th>
+                <th className="px-4 py-3 text-left font-medium text-slate-600 hidden lg:table-cell cursor-pointer select-none" onClick={() => handleSort('emissor')}>Emissor<SortIcon col="emissor" /></th>
+                <th className="px-4 py-3 text-left font-medium text-slate-600 hidden sm:table-cell cursor-pointer select-none" onClick={() => handleSort('vencimento')}>Vencimento<SortIcon col="vencimento" /></th>
+                <th className="px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none" onClick={() => handleSort('status')}>Status<SortIcon col="status" /></th>
                 <th className="px-4 py-3 w-12"></th>
               </tr>
             </thead>
