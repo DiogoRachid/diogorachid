@@ -331,6 +331,7 @@ export default function BudgetPlanner() {
             items={items}
             services={services}
             months={months}
+            budget={budget}
           />
         </TabsContent>
 

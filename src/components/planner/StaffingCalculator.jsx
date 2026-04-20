@@ -12,44 +12,8 @@ const COLORS = [
   '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
 ];
 
-// Função recursiva para buscar todos os insumos de um serviço (mesma lógica do ABCAnalysis)
-const getAllInputsFromService = async (serviceId, services, serviceItems, inputs, multiplier = 1) => {
-  const resultInputs = [];
-  
-  const items = serviceItems.filter(si => si.servico_id === serviceId);
-  
-  for (const item of items) {
-    const itemQuantity = (item.quantidade || 0) * multiplier;
-    
-    if (item.tipo_item === 'INSUMO') {
-      // Buscar pelo id primeiro, depois pelo codigo como fallback
-      const input = inputs.find(inp => inp.id === item.item_id)
-        || (item.item_codigo ? inputs.find(inp => inp.codigo === item.item_codigo) : null);
-      if (input) {
-        resultInputs.push({
-          id: input.id,
-          descricao: input.descricao,
-          categoria: input.categoria,
-          quantity: itemQuantity,
-          horas_por_unidade: input.horas_por_unidade || 0
-        });
-      }
-    } else if (item.tipo_item === 'SERVICO') {
-      // Buscar sub-serviço pelo id primeiro, depois pelo codigo
-      const subService = services.find(s => s.id === item.item_id)
-        || (item.item_codigo ? services.find(s => s.codigo === item.item_codigo) : null);
-      const resolvedId = subService?.id || item.item_id;
-      if (resolvedId) {
-        const subInputs = await getAllInputsFromService(resolvedId, services, serviceItems, inputs, itemQuantity);
-        resultInputs.push(...subInputs);
-      }
-    }
-  }
-  
-  return resultInputs;
-};
 
-export default function StaffingCalculator({ schedule, stages, items, services, months }) {
+export default function StaffingCalculator({ schedule, stages, items, services, months, budget }) {
   const [expandedMonths, setExpandedMonths] = useState({});
   const [staffingData, setStaffingData] = useState({ monthlyData: [], allFunctions: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -58,76 +22,67 @@ export default function StaffingCalculator({ schedule, stages, items, services, 
     const calculateStaffing = async () => {
       setIsLoading(true);
       try {
-        const fetchAll = async (entity) => {
-          const limit = 1000;
-          let all = [], skip = 0;
-          while (true) {
-            const batch = await entity.list('created_date', limit, skip);
-            all = all.concat(batch);
-            if (batch.length < limit) break;
-            skip += limit;
-          }
-          return all;
-        };
-        const [allInputs, serviceItems] = await Promise.all([
-          fetchAll(base44.entities.Input),
-          fetchAll(base44.entities.ServiceItem)
-        ]);
+        if (!budget?.id) {
+          setStaffingData({ monthlyData: [], allFunctions: [] });
+          setIsLoading(false);
+          return;
+        }
+
+        // Carregar resumo de insumos pré-calculado (apenas MAO_OBRA)
+        const allSummaries = await base44.entities.BudgetInputSummary.filter({ orcamento_id: budget.id });
+        const maoObraSummaries = allSummaries.filter(s => s.categoria === 'MAO_OBRA');
+
+        if (maoObraSummaries.length === 0) {
+          setStaffingData({ monthlyData: [], allFunctions: [] });
+          setIsLoading(false);
+          return;
+        }
+
+        // Mapear insumo -> quantidade total por budget item
+        // Como o resumo é agregado por orçamento, precisamos distribuir proporcionalmente por etapa/mês
+        // Mapeamos: para cada budget item, qual % da quantidade total do orçamento ele representa
+        const totalQtdByInput = {};
+        for (const s of maoObraSummaries) {
+          totalQtdByInput[s.insumo_id || s.codigo] = s.quantidade_total;
+        }
+
+        // Para cada item do orçamento, calcular o peso proporcional dos insumos MAO_OBRA
+        // Usamos o custo_direto_total do item como proxy de proporção
+        const totalCustoDireto = items.reduce((sum, i) => sum + (i.custo_direto_total || 0), 0);
 
         const monthlyData = [];
         const functionsSet = new Set();
 
+        // Palavras a excluir (benefícios/custos indiretos)
+        const palavrasExcluidas = ['alimentação', 'alimentacao', 'epi', 'exames', 'ferramentas', 'seguro', 'transporte'];
+
         for (let monthIdx = 0; monthIdx < months; monthIdx++) {
           const hoursByFunction = {};
+
+          // Calcular percentual total executado neste mês (média ponderada por valor de etapa)
+          let totalValorMes = 0;
+          let totalValor = 0;
 
           for (const stage of stages) {
             const stageItems = items.filter(item => item.stage_id === stage.id);
             const percentage = schedule[stage.id]?.percentages[monthIdx] || 0;
+            const stageValue = stageItems.reduce((sum, i) => sum + (i.custo_direto_total || 0), 0);
+            totalValor += stageValue;
+            totalValorMes += stageValue * (percentage / 100);
+          }
 
-            if (percentage === 0) continue;
+          const percentualMes = totalValor > 0 ? totalValorMes / totalValor : 0;
 
-            for (const budgetItem of stageItems) {
-              // Buscar serviço pelo id primeiro, depois pelo codigo como fallback
-              const service = services.find(s => s.id === budgetItem.servico_id)
-                || (budgetItem.codigo ? services.find(s => s.codigo === budgetItem.codigo) : null);
-              if (!service) continue;
+          for (const s of maoObraSummaries) {
+            const descricao = s.descricao || '';
+            const deveExcluir = palavrasExcluidas.some(p => descricao.toLowerCase().includes(p));
+            if (deveExcluir) continue;
 
-              // Buscar todos os insumos recursivamente (Curva ABC)
-              const itemInputs = await getAllInputsFromService(
-                service.id,
-                services,
-                serviceItems,
-                allInputs,
-                budgetItem.quantidade || 0
-              );
+            const funcao = descricao || 'Não Identificado';
+            functionsSet.add(funcao);
 
-              // Processar apenas insumos de mão de obra
-              itemInputs.forEach(input => {
-                if (input.categoria === 'MAO_OBRA') {
-                  const descricao = input.descricao || '';
-                  
-                  // Filtrar insumos que não são funções (benefícios/custos indiretos)
-                  const palavrasExcluidas = ['alimentação', 'alimentacao', 'epi', 'exames', 'ferramentas', 'seguro', 'transporte'];
-                  const deveExcluir = palavrasExcluidas.some(palavra => 
-                    descricao.toLowerCase().includes(palavra)
-                  );
-                  
-                  if (deveExcluir) return;
-                  
-                  const funcao = descricao || 'Não Identificado';
-                  functionsSet.add(funcao);
-
-                  // Quantidade do insumo que será executada neste mês
-                  const quantidadeMensal = (input.quantity * percentage) / 100;
-                  
-                  // Se horas_por_unidade não estiver definido, usar a própria quantidade como horas
-                  const horasPorUnidade = input.horas_por_unidade || 1;
-                  const horasMes = quantidadeMensal * horasPorUnidade;
-
-                  hoursByFunction[funcao] = (hoursByFunction[funcao] || 0) + horasMes;
-                }
-              });
-            }
+            const horasMes = s.quantidade_total * percentualMes;
+            hoursByFunction[funcao] = (hoursByFunction[funcao] || 0) + horasMes;
           }
 
           const workersByFunction = {};
@@ -163,13 +118,13 @@ export default function StaffingCalculator({ schedule, stages, items, services, 
       }
     };
 
-    if (items.length > 0 && services.length > 0) {
+    if (items.length > 0) {
       calculateStaffing();
     } else {
       setStaffingData({ monthlyData: [], allFunctions: [] });
       setIsLoading(false);
     }
-  }, [schedule, stages, items, services, months]);
+  }, [budget?.id, schedule, stages, items, months]);
 
   const totalStats = useMemo(() => {
     if (!staffingData.monthlyData.length) return { totalHours: 0, maxWorkers: 0, avgWorkers: 0, functionPeaks: {} };
@@ -222,8 +177,8 @@ export default function StaffingCalculator({ schedule, stages, items, services, 
       <Card className="bg-amber-50 border-amber-200">
         <CardContent className="pt-6">
           <div className="text-sm text-amber-800">
-            <strong>Atenção:</strong> Nenhum insumo de mão de obra encontrado no cronograma.
-            Certifique-se de que os serviços possuem insumos do tipo "MAO_OBRA" e que o cronograma possui distribuição mensal definida.
+            <strong>Atenção:</strong> Nenhum insumo de mão de obra encontrado.
+            Para gerar este relatório, abra o orçamento e salve novamente — os insumos de mão de obra serão calculados e armazenados automaticamente.
           </div>
         </CardContent>
       </Card>

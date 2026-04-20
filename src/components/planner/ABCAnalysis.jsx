@@ -72,16 +72,19 @@ export default function ABCAnalysis({ items, services, budget }) {
           return;
         }
 
-        const mapped = summaries.map(s => ({
-          id: s.insumo_id,
-          code: s.codigo,
-          description: s.descricao,
-          unit: s.unidade,
-          category: s.categoria,
-          quantity: s.quantidade_total,
-          unitCost: s.custo_unitario,
-          value: s.valor_total
-        }));
+        // Apenas insumos de MATERIAL na curva ABC
+        const mapped = summaries
+          .filter(s => s.categoria === 'MATERIAL')
+          .map(s => ({
+            id: s.insumo_id,
+            code: s.codigo,
+            description: s.descricao,
+            unit: s.unidade,
+            category: s.categoria,
+            quantity: s.quantidade_total,
+            unitCost: s.custo_unitario,
+            value: s.valor_total
+          }));
 
         setInputAnalysisData(classifyABC(mapped));
       } catch (error) {
