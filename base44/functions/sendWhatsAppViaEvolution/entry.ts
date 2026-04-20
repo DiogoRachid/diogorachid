@@ -95,33 +95,54 @@ Deno.serve(async (req) => {
 
     // Enviar mensagem para cada destinatário
     const resultados = [];
+    console.log(`🔌 Conectando a: ${evolutionUrl}/message/sendText/${instancia}`);
+    console.log(`📱 Destinatários: ${config.whatsapp_recipients.join(', ')}`);
+
     for (const numero of config.whatsapp_recipients) {
       const payload = {
         number: numero,
         text: mensagem
       };
 
-      const response = await fetch(`${evolutionUrl}/message/sendText/${instancia}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': evolutionApiKey
-        },
-        body: JSON.stringify(payload)
-      }).catch(error => ({ ok: false, error: error.message }));
+      const url = `${evolutionUrl}/message/sendText/${instancia}`;
+      console.log(`📤 Enviando para ${numero}...`);
 
-      resultados.push({
-        numero,
-        sucesso: response?.ok || false,
-        status: response?.status || 'erro conexão'
-      });
+      let response;
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': evolutionApiKey
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const responseText = await response.text();
+        console.log(`✅ Response (${numero}):`, response.status, responseText);
+
+        resultados.push({
+          numero,
+          sucesso: response.ok,
+          status: response.status,
+          mensagem: responseText
+        });
+      } catch (fetchError) {
+        console.error(`❌ Erro ao enviar para ${numero}:`, fetchError.message);
+        resultados.push({
+          numero,
+          sucesso: false,
+          status: 'erro conexão',
+          erro: fetchError.message
+        });
+      }
     }
 
-    console.log('Mensagens enviadas:', resultados);
+    console.log('✅ Resultados finais:', resultados);
 
     return Response.json({
       success: true,
-      message: 'Alertas enviados com sucesso',
+      message: 'Alertas processados',
       destinatarios: config.whatsapp_recipients.length,
       resultados
     });
