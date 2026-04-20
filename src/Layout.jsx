@@ -140,21 +140,10 @@ export default function Layout({ children, currentPageName }) {
   });
   const [expandedMenus, setExpandedMenus] = useState([]);
   const [reorderMode, setReorderMode] = useState(false);
-  const [menuOrder, setMenuOrder] = useState(() => {
-    try {
-      const saved = localStorage.getItem('menuOrder');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Garantir que todos os itens estejam presentes
-        const merged = parsed.filter(t => DEFAULT_MENU_ORDER.includes(t));
-        DEFAULT_MENU_ORDER.forEach(t => { if (!merged.includes(t)) merged.push(t); });
-        return merged;
-      }
-    } catch (_) {}
-    return DEFAULT_MENU_ORDER;
-  });
+  const [menuOrder, setMenuOrder] = useState(DEFAULT_MENU_ORDER);
   const [user, setUser] = useState(null);
   const [companySettings, setCompanySettings] = useState(null);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   const sortedMenuItems = useMemo(() => {
     return [...menuItems].sort((a, b) => menuOrder.indexOf(a.title) - menuOrder.indexOf(b.title));
@@ -166,9 +155,19 @@ export default function Layout({ children, currentPageName }) {
       const targetIndex = index + direction;
       if (targetIndex < 0 || targetIndex >= newOrder.length) return prev;
       [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
-      localStorage.setItem('menuOrder', JSON.stringify(newOrder));
       return newOrder;
     });
+  };
+
+  const saveMenuOrder = async (order) => {
+    if (!companySettings?.id) return;
+    setSavingOrder(true);
+    try {
+      await base44.entities.CompanySettings.update(companySettings.id, { site_menu_order: order });
+      setCompanySettings(prev => ({ ...prev, site_menu_order: order }));
+    } finally {
+      setSavingOrder(false);
+    }
   };
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -197,7 +196,15 @@ export default function Layout({ children, currentPageName }) {
       const userData = await base44.auth.me();
       setUser(userData);
       const settings = await base44.entities.CompanySettings.list();
-      if (settings.length > 0) setCompanySettings(settings[0]);
+      if (settings.length > 0) {
+        setCompanySettings(settings[0]);
+        if (settings[0].site_menu_order?.length) {
+          const saved = settings[0].site_menu_order;
+          const merged = saved.filter(t => DEFAULT_MENU_ORDER.includes(t));
+          DEFAULT_MENU_ORDER.forEach(t => { if (!merged.includes(t)) merged.push(t); });
+          setMenuOrder(merged);
+        }
+      }
     };
     loadData();
   }, []);
@@ -312,7 +319,13 @@ export default function Layout({ children, currentPageName }) {
               <div className="flex items-center justify-between mb-3 px-1">
                 <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Menu</span>
                 <button
-                  onClick={() => setReorderMode(r => !r)}
+                  onClick={() => {
+                    if (reorderMode) {
+                      saveMenuOrder(menuOrder);
+                    }
+                    setReorderMode(r => !r);
+                  }}
+                  disabled={savingOrder}
                   className={cn(
                     "text-xs px-2 py-1 rounded-lg transition-colors",
                     reorderMode
@@ -320,7 +333,7 @@ export default function Layout({ children, currentPageName }) {
                       : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
                   )}
                 >
-                  {reorderMode ? 'Concluir' : 'Reordenar'}
+                  {savingOrder ? 'Salvando...' : reorderMode ? 'Concluir' : 'Reordenar'}
                 </button>
               </div>
             )}
