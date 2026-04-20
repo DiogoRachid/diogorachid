@@ -62,17 +62,14 @@ Deno.serve(async (req) => {
       return isAfter(dataFim, today) && isBefore(dataFim, sevenDaysFromNow);
     });
 
-    // Buscar valor patrimonial do dia anterior na tabela de evolução
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-    
-    const patrimonialHistoryYesterday = (investmentHistory || []).find(h => {
-      const historyDate = h.data_base ? h.data_base.split('/').reverse().join('-') : '';
-      return historyDate === yesterdayStr;
-    });
+    // Buscar valor patrimonial do último dia registrado na tabela de evolução
+    const latestHistory = (investmentHistory || []).sort((a, b) => {
+      const dateA = a.data_base ? new Date(a.data_base.split('/').reverse().join('-')) : new Date(0);
+      const dateB = b.data_base ? new Date(b.data_base.split('/').reverse().join('-')) : new Date(0);
+      return dateB - dateA;
+    })[0];
 
-    const patrimonioTotal = patrimonialHistoryYesterday?.valor_atual || 
+    const patrimonioTotal = latestHistory?.valor_atual || 
       ((investments || [])
         .filter(i => i.status === 'ativo')
         .reduce((sum, i) => sum + (i.valor_atual || 0), 0));
