@@ -176,7 +176,7 @@ export default function LandingPage() {
               <Mail className="h-4 w-4" /> {emailEmpresa}
             </a>
             <Link to={createPageUrl('PortalSelect')}>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-5">
+              <Button className="text-white rounded-full px-5 hover:opacity-90" style={{ backgroundColor: colorScheme.primary }}>
                 Acessar Sistema
               </Button>
             </Link>
@@ -196,7 +196,7 @@ export default function LandingPage() {
               </button>
           )}
             <Link to={createPageUrl('PortalSelect')} onClick={() => setMenuOpen(false)}>
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 mt-2">Acessar Sistema ERP</Button>
+              <Button className="w-full mt-2 text-white hover:opacity-90" style={{ backgroundColor: colorScheme.primary }}>Acessar Sistema ERP</Button>
             </Link>
           </div>
         }
@@ -210,7 +210,7 @@ export default function LandingPage() {
             alt="Obras"
             className="w-full h-full object-cover" />
           
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-blue-900/70 to-slate-900/80" />
+          <div className="absolute inset-0 bg-gradient-to-br" style={{ backgroundImage: `linear-gradient(135deg, rgba(15,23,42,0.85), rgba(15,23,42,0.90))` }} />
         </div>
         <div className="relative text-center text-white px-4 max-w-4xl mx-auto pt-20 sm:pt-0">
           <div className="inline-flex items-center gap-2 border border-white/40 rounded-full px-3 py-1.5 text-xs sm:text-sm mb-6 backdrop-blur max-w-[90vw] text-center leading-snug text-white" style={{ backgroundColor: `${colorScheme.primary}30` }}>
@@ -286,7 +286,7 @@ export default function LandingPage() {
               
               <div className="text-white rounded-2xl p-4 md:p-6 shadow-xl absolute bottom-0 left-2 md:-bottom-6 md:-left-6" style={{ backgroundColor: colorScheme.primary }}>
                 <div className="text-2xl md:text-3xl font-bold">Londrina</div>
-                <div className="text-blue-200 text-sm">Sede – Paraná</div>
+                <div className="text-sm opacity-80" style={{ color: 'rgba(255,255,255,0.7)' }}>Sede – Paraná</div>
               </div>
             </div>
           </div>
@@ -333,16 +333,16 @@ export default function LandingPage() {
             <div key={i} className="rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow border border-slate-100 group">
                 <div className="relative overflow-hidden h-48">
                   <img src={o.img} alt={o.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  <div className={`absolute top-3 right-3 text-xs font-semibold px-3 py-1 rounded-full ${
-                o.status === 'Entregue' ? 'bg-emerald-500 text-white' :
-                o.status === 'Em Andamento' ? 'bg-amber-500 text-white' :
-                'bg-blue-500 text-white'}`
-                }>
+                  <div className={`absolute top-3 right-3 text-xs font-semibold px-3 py-1 rounded-full text-white ${
+                o.status === 'Entregue' ? 'bg-emerald-500' :
+                o.status === 'Em Andamento' ? 'bg-amber-500' :
+                ''}`
+                } style={o.status === 'Planejado' ? { backgroundColor: colorScheme.primary } : {}}>
                     {o.status}
                   </div>
                 </div>
                 <div className="p-5">
-                  <span className="text-xs text-blue-600 font-semibold uppercase">{o.tipo}</span>
+                  <span className="text-xs font-semibold uppercase" style={{ color: colorScheme.primary }}>{o.tipo}</span>
                   <h3 className="font-bold text-slate-900 mt-1 mb-1">{o.nome}</h3>
                   <div className="flex items-center gap-1 text-slate-500 text-sm">
                     <MapPin className="h-3 w-3" /> {o.local}
@@ -359,7 +359,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-80" style={{ color: 'rgba(255,255,255,0.5)' }} />
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">{ctaTitulo}</h2>
-          <p className="text-blue-200 text-lg mb-8 max-w-2xl mx-auto">{ctaTexto}</p>
+          <p className="text-lg mb-8 max-w-2xl mx-auto opacity-80" style={{ color: 'rgba(255,255,255,0.8)' }}>{ctaTexto}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to={createPageUrl('PortalSelect')}>
               <Button className="text-white font-semibold px-8 py-3 h-auto rounded-full text-base" style={{ backgroundColor: 'white', color: colorScheme.primary, hover: { backgroundColor: 'rgba(255,255,255,0.9)' } }}>
@@ -416,7 +416,7 @@ export default function LandingPage() {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-slate-900 text-white py-10 px-4">
+      <footer className="text-white py-10 px-4" style={{ backgroundColor: colorScheme.footer }}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src={logoEscura} alt={nomeEmpresa} className="h-8 object-contain" />
