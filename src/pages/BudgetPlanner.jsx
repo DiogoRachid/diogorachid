@@ -264,8 +264,8 @@ export default function BudgetPlanner() {
               <div className="text-2xl font-bold">{items.length}</div>
             </div>
             <div>
-              <div className="text-sm opacity-90 mb-1">Status</div>
-              <div className="text-2xl font-bold capitalize">{budget?.status || 'Rascunho'}</div>
+              <div className="text-sm opacity-90 mb-1">Duração</div>
+              <div className="text-2xl font-bold">{months} meses</div>
             </div>
           </div>
         </CardContent>

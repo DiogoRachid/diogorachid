@@ -1,7 +1,7 @@
 import { base44 } from '@/api/base44Client';
 
 // Busca todos os registros paginados de uma entidade
-const fetchAllRecords = async (entity) => {
+export const fetchAllRecords = async (entity) => {
   const limit = 1000;
   let all = [], skip = 0;
   while (true) {
@@ -14,7 +14,7 @@ const fetchAllRecords = async (entity) => {
 };
 
 // Recursivamente coleta todos os insumos de um serviço
-const collectInputsFromService = (serviceId, services, serviceItems, inputs, multiplier = 1, visited = new Set()) => {
+export const collectInputsFromService = (serviceId, services, serviceItems, inputs, multiplier = 1, visited = new Set()) => {
   if (visited.has(serviceId)) return [];
   visited.add(serviceId);
 

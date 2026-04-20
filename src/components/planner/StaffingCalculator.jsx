@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { useBudgetInputs } from '@/hooks/useBudgetInputs';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -15,136 +15,78 @@ const COLORS = [
 
 export default function StaffingCalculator({ schedule, stages, items, services, months, budget }) {
   const [expandedMonths, setExpandedMonths] = useState({});
-  const [staffingData, setStaffingData] = useState({ monthlyData: [], allFunctions: [] });
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const calculateStaffing = async () => {
-      setIsLoading(true);
-      try {
-        if (!budget?.id) {
-          setStaffingData({ monthlyData: [], allFunctions: [] });
-          setIsLoading(false);
-          return;
-        }
+  const { inputs: rawInputs, isLoading } = useBudgetInputs(items);
 
-        // Carregar resumo de insumos pré-calculado (apenas MAO_OBRA)
-        const allSummaries = await base44.entities.BudgetInputSummary.filter({ orcamento_id: budget.id });
-        const maoObraSummaries = allSummaries.filter(s => s.categoria === 'MAO_OBRA');
+  const palavrasExcluidas = ['alimentação', 'alimentacao', 'epi', 'exames', 'ferramentas', 'seguro', 'transporte'];
 
-        if (maoObraSummaries.length === 0) {
-          setStaffingData({ monthlyData: [], allFunctions: [] });
-          setIsLoading(false);
-          return;
-        }
+  const maoObraInputs = useMemo(() =>
+    rawInputs.filter(s => s.categoria === 'MAO_OBRA' && !palavrasExcluidas.some(p => (s.descricao || '').toLowerCase().includes(p))),
+    [rawInputs]
+  );
 
-        // Mapear insumo -> quantidade total por budget item
-        // Como o resumo é agregado por orçamento, precisamos distribuir proporcionalmente por etapa/mês
-        // Mapeamos: para cada budget item, qual % da quantidade total do orçamento ele representa
-        const totalQtdByInput = {};
-        for (const s of maoObraSummaries) {
-          totalQtdByInput[s.insumo_id || s.codigo] = s.quantidade_total;
-        }
+  const staffingData = useMemo(() => {
+    if (!maoObraInputs.length || !stages.length) return { monthlyData: [], allFunctions: [] };
 
-        // Para cada item do orçamento, calcular o peso proporcional dos insumos MAO_OBRA
-        // Usamos o custo_direto_total do item como proxy de proporção
-        const totalCustoDireto = items.reduce((sum, i) => sum + (i.custo_direto_total || 0), 0);
+    const functionsSet = new Set(maoObraInputs.map(s => s.descricao || 'Não Identificado'));
+    const monthlyData = [];
 
-        const monthlyData = [];
-        const functionsSet = new Set();
+    for (let monthIdx = 0; monthIdx < months; monthIdx++) {
+      // Percentual médio ponderado executado neste mês
+      let totalValorMes = 0;
+      let totalValor = 0;
 
-        // Palavras a excluir (benefícios/custos indiretos)
-        const palavrasExcluidas = ['alimentação', 'alimentacao', 'epi', 'exames', 'ferramentas', 'seguro', 'transporte'];
-
-        for (let monthIdx = 0; monthIdx < months; monthIdx++) {
-          const hoursByFunction = {};
-
-          // Calcular percentual total executado neste mês (média ponderada por valor de etapa)
-          let totalValorMes = 0;
-          let totalValor = 0;
-
-          for (const stage of stages) {
-            const stageItems = items.filter(item => item.stage_id === stage.id);
-            const percentage = schedule[stage.id]?.percentages[monthIdx] || 0;
-            const stageValue = stageItems.reduce((sum, i) => sum + (i.custo_direto_total || 0), 0);
-            totalValor += stageValue;
-            totalValorMes += stageValue * (percentage / 100);
-          }
-
-          const percentualMes = totalValor > 0 ? totalValorMes / totalValor : 0;
-
-          for (const s of maoObraSummaries) {
-            const descricao = s.descricao || '';
-            const deveExcluir = palavrasExcluidas.some(p => descricao.toLowerCase().includes(p));
-            if (deveExcluir) continue;
-
-            const funcao = descricao || 'Não Identificado';
-            functionsSet.add(funcao);
-
-            const horasMes = s.quantidade_total * percentualMes;
-            hoursByFunction[funcao] = (hoursByFunction[funcao] || 0) + horasMes;
-          }
-
-          const workersByFunction = {};
-          let totalWorkers = 0;
-          let totalHours = 0;
-
-          for (const funcao in hoursByFunction) {
-            const workers = Math.ceil(hoursByFunction[funcao] / HORAS_TRABALHO_MES);
-            workersByFunction[funcao] = workers;
-            totalWorkers += workers;
-            totalHours += hoursByFunction[funcao];
-          }
-
-          monthlyData.push({
-            month: monthIdx + 1,
-            monthName: `Mês ${monthIdx + 1}`,
-            totalHours,
-            totalWorkers,
-            hoursByFunction,
-            workersByFunction
-          });
-        }
-
-        setStaffingData({
-          monthlyData,
-          allFunctions: Array.from(functionsSet).sort()
-        });
-      } catch (error) {
-        console.error('Erro ao calcular recursos:', error);
-        setStaffingData({ monthlyData: [], allFunctions: [] });
-      } finally {
-        setIsLoading(false);
+      for (const stage of stages) {
+        const stageItems = items.filter(item => item.stage_id === stage.id);
+        const percentage = schedule[stage.id]?.percentages[monthIdx] || 0;
+        const stageValue = stageItems.reduce((sum, i) => sum + (i.custo_direto_total || 0), 0);
+        totalValor += stageValue;
+        totalValorMes += stageValue * (percentage / 100);
       }
-    };
 
-    if (items.length > 0) {
-      calculateStaffing();
-    } else {
-      setStaffingData({ monthlyData: [], allFunctions: [] });
-      setIsLoading(false);
+      const percentualMes = totalValor > 0 ? totalValorMes / totalValor : 0;
+
+      const hoursByFunction = {};
+      for (const s of maoObraInputs) {
+        const funcao = s.descricao || 'Não Identificado';
+        const horasMes = s.quantidade_total * percentualMes;
+        hoursByFunction[funcao] = (hoursByFunction[funcao] || 0) + horasMes;
+      }
+
+      const workersByFunction = {};
+      let totalWorkers = 0;
+      let totalHours = 0;
+
+      for (const funcao in hoursByFunction) {
+        const workers = Math.ceil(hoursByFunction[funcao] / HORAS_TRABALHO_MES);
+        workersByFunction[funcao] = workers;
+        totalWorkers += workers;
+        totalHours += hoursByFunction[funcao];
+      }
+
+      monthlyData.push({
+        month: monthIdx + 1,
+        monthName: `Mês ${monthIdx + 1}`,
+        totalHours,
+        totalWorkers,
+        hoursByFunction,
+        workersByFunction,
+      });
     }
-  }, [budget?.id, schedule, stages, items, months]);
+
+    return { monthlyData, allFunctions: Array.from(functionsSet).sort() };
+  }, [maoObraInputs, schedule, stages, items, months]);
 
   const totalStats = useMemo(() => {
     if (!staffingData.monthlyData.length) return { totalHours: 0, maxWorkers: 0, avgWorkers: 0, functionPeaks: {} };
-
     const totalHours = staffingData.monthlyData.reduce((sum, m) => sum + m.totalHours, 0);
     const maxWorkers = Math.max(...staffingData.monthlyData.map(m => m.totalWorkers));
     const avgWorkers = staffingData.monthlyData.reduce((sum, m) => sum + m.totalWorkers, 0) / months;
-
     const functionPeaks = {};
     staffingData.allFunctions.forEach(funcao => {
-      const peaks = staffingData.monthlyData.map(m => m.workersByFunction[funcao] || 0);
-      functionPeaks[funcao] = Math.max(...peaks);
+      functionPeaks[funcao] = Math.max(...staffingData.monthlyData.map(m => m.workersByFunction[funcao] || 0));
     });
-
-    return {
-      totalHours: totalHours.toFixed(0),
-      maxWorkers,
-      avgWorkers: avgWorkers.toFixed(1),
-      functionPeaks
-    };
+    return { totalHours: totalHours.toFixed(0), maxWorkers, avgWorkers: avgWorkers.toFixed(1), functionPeaks };
   }, [staffingData, months]);
 
   const chartData = useMemo(() => {
@@ -177,8 +119,8 @@ export default function StaffingCalculator({ schedule, stages, items, services, 
       <Card className="bg-amber-50 border-amber-200">
         <CardContent className="pt-6">
           <div className="text-sm text-amber-800">
-            <strong>Atenção:</strong> Nenhum insumo de mão de obra encontrado.
-            Para gerar este relatório, abra o orçamento e salve novamente — os insumos de mão de obra serão calculados e armazenados automaticamente.
+            <strong>Atenção:</strong> Nenhum insumo de mão de obra (MAO_OBRA) encontrado nas composições dos serviços deste orçamento.
+            Certifique-se de que os serviços possuem insumos do tipo "MAO_OBRA" cadastrados.
           </div>
         </CardContent>
       </Card>

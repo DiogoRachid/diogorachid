@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useMemo } from 'react';
+import { useBudgetInputs } from '@/hooks/useBudgetInputs';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -51,52 +51,23 @@ const classifyABC = (items) => {
 };
 
 export default function ABCAnalysis({ items, services, budget }) {
-  const [inputAnalysisData, setInputAnalysisData] = useState([]);
-  const [isLoadingInputs, setIsLoadingInputs] = useState(true);
+  const { inputs: rawInputs, isLoading: isLoadingInputs } = useBudgetInputs(items);
 
-  // Carregar análise de insumos a partir do resumo pré-calculado
-  useEffect(() => {
-    const loadInputAnalysis = async () => {
-      if (!budget?.id) {
-        setInputAnalysisData([]);
-        setIsLoadingInputs(false);
-        return;
-      }
-      setIsLoadingInputs(true);
-      try {
-        const summaries = await base44.entities.BudgetInputSummary.filter({ orcamento_id: budget.id });
-
-        if (summaries.length === 0) {
-          setInputAnalysisData([]);
-          setIsLoadingInputs(false);
-          return;
-        }
-
-        // Apenas insumos de MATERIAL na curva ABC
-        const mapped = summaries
-          .filter(s => s.categoria === 'MATERIAL')
-          .map(s => ({
-            id: s.insumo_id,
-            code: s.codigo,
-            description: s.descricao,
-            unit: s.unidade,
-            category: s.categoria,
-            quantity: s.quantidade_total,
-            unitCost: s.custo_unitario,
-            value: s.valor_total
-          }));
-
-        setInputAnalysisData(classifyABC(mapped));
-      } catch (error) {
-        console.error('Erro ao carregar análise de insumos:', error);
-        setInputAnalysisData([]);
-      } finally {
-        setIsLoadingInputs(false);
-      }
-    };
-
-    loadInputAnalysis();
-  }, [budget?.id]);
+  const inputAnalysisData = useMemo(() => {
+    const materialInputs = rawInputs
+      .filter(s => s.categoria === 'MATERIAL')
+      .map(s => ({
+        id: s.id,
+        code: s.codigo,
+        description: s.descricao,
+        unit: s.unidade,
+        category: s.categoria,
+        quantity: s.quantidade_total,
+        unitCost: s.custo_unitario,
+        value: s.valor_total,
+      }));
+    return classifyABC(materialInputs);
+  }, [rawInputs]);
 
   const serviceAnalysis = useMemo(() => {
     const serviceMap = {};
