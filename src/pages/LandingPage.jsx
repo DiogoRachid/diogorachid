@@ -210,7 +210,10 @@ export default function LandingPage() {
             alt="Obras"
             className="w-full h-full object-cover" />
           
-          <div className="absolute inset-0 bg-gradient-to-br" style={{ backgroundImage: `linear-gradient(135deg, rgba(15,23,42,0.85), rgba(15,23,42,0.90))` }} />
+          <div className="absolute inset-0" style={{ 
+            backgroundImage: `linear-gradient(135deg, ${colorScheme.primary}da, ${colorScheme.primary}e6)`,
+            mixBlendMode: 'multiply'
+          }} />
         </div>
         <div className="relative text-center text-white px-4 max-w-4xl mx-auto pt-20 sm:pt-0">
           <div className="inline-flex items-center gap-2 border border-white/40 rounded-full px-3 py-1.5 text-xs sm:text-sm mb-6 backdrop-blur max-w-[90vw] text-center leading-snug text-white" style={{ backgroundColor: `${colorScheme.primary}30` }}>
