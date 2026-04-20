@@ -20,12 +20,13 @@ Deno.serve(async (req) => {
     const today = startOfDay(new Date());
     const sevenDaysFromNow = addDays(today, 7);
 
-    const [accountsPayable, accountsReceivable, documents, employeeContracts, investments, materialRequisitions] = await Promise.all([
+    const [accountsPayable, accountsReceivable, documents, employeeContracts, investments, bankAccounts, materialRequisitions] = await Promise.all([
       base44.entities.AccountPayable.list('', 1000).catch(() => []),
       base44.entities.AccountReceivable.list('', 1000).catch(() => []),
       base44.entities.Document.list('', 1000).catch(() => []),
       base44.entities.EmployeeContract.list('', 1000).catch(() => []),
       base44.entities.Investment.list('', 1000).catch(() => []),
+      base44.entities.BankAccount.list('', 1000).catch(() => []),
       base44.entities.MaterialRequisition.list('', 1000).catch(() => []),
     ]);
 
@@ -60,9 +61,15 @@ Deno.serve(async (req) => {
       return isAfter(dataFim, today) && isBefore(dataFim, sevenDaysFromNow);
     });
 
+    const saldoBancario = (bankAccounts || [])
+      .filter(b => b.status === 'ativa')
+      .reduce((sum, b) => sum + (b.saldo_atual || 0), 0);
+
     const valorInvestidoTotal = (investments || [])
       .filter(i => i.status === 'ativo')
       .reduce((sum, i) => sum + (i.valor_investido || 0), 0);
+
+    const patrimonioTotal = saldoBancario + valorInvestidoTotal;
 
     const pedidosOntem = (materialRequisitions || []).filter(mr => {
       if (!mr.created_date) return false;
@@ -78,8 +85,8 @@ Deno.serve(async (req) => {
       `💰 *Contas a Pagar/Receber:*\n` +
       `   • Hoje: ${contasHoje.length} vencimento(s)\n` +
       `   • Próximos 7 dias: ${contas7Dias.length} vencimento(s)\n\n` +
-      `💵 *Investimentos:*\n` +
-      `   • Valor Total Investido: R$ ${valorInvestidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
+      `💵 *Patrimônio Total:*\n` +
+      `   • R$ ${patrimonioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
       `📄 *Documentos:*\n` +
       `   • Vencimento Hoje: ${docsHoje.length} documento(s)\n` +
       `   • Próximos 7 dias: ${docs7Dias.length} documento(s)\n\n` +
