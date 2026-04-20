@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
-import { COLOR_SCHEMES } from '@/components/settings/SiteColorSchemeEditor';
+import { useColorScheme } from '@/lib/useColorScheme';
 import {
   HardHat, Building2, Users, Phone, Mail, MapPin, Globe,
   ChevronDown, Menu, X, ArrowRight, CheckCircle2, Shield, BarChart3,
@@ -102,6 +102,7 @@ export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [companySettings, setCompanySettings] = useState(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const { colorScheme } = useColorScheme();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -145,8 +146,7 @@ export default function LandingPage() {
   const ctaTitulo = companySettings?.site_cta_titulo || 'Sistema de Gestão de Obras';
   const ctaTexto = companySettings?.site_cta_texto || 'Acesse nosso ERP interno para gerenciar orçamentos, planejamento, medições, financeiro, RH e muito mais — tudo em um só lugar.';
 
-  const colorSchemeId = companySettings?.site_color_scheme || 'blue';
-  const colorScheme = useMemo(() => COLOR_SCHEMES.find(s => s.id === colorSchemeId) || COLOR_SCHEMES[0], [colorSchemeId]);
+
 
   const servicos = (companySettings?.site_servicos?.length > 0 ? companySettings.site_servicos : servicosDefault).map(s => ({
     ...s,
