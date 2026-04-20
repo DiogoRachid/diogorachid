@@ -337,10 +337,9 @@ export default function LandingPage() {
                 <div className="relative overflow-hidden h-48">
                   <img src={o.img} alt={o.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   <div className={`absolute top-3 right-3 text-xs font-semibold px-3 py-1 rounded-full text-white ${
-                o.status === 'Entregue' ? 'bg-emerald-500' :
                 o.status === 'Em Andamento' ? 'bg-amber-500' :
                 ''}`
-                } style={o.status === 'Planejado' ? { backgroundColor: colorScheme.primary } : {}}>
+                } style={o.status === 'Entregue' || o.status === 'Planejado' ? { backgroundColor: colorScheme.primary } : {}}>
                     {o.status}
                   </div>
                 </div>
@@ -401,11 +400,11 @@ export default function LandingPage() {
               <p className="text-slate-600 text-sm">{telefone}</p>
             </a>
             <a href={`https://wa.me/55${whatsappNum}`} target="_blank" rel="noopener noreferrer" className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow border border-slate-100 group">
-              <div className="h-12 w-12 bg-green-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-green-100 transition-colors">
-                <MessageCircle className="h-6 w-6 text-green-600" />
+              <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-4 group-hover:opacity-80 transition-opacity" style={{ backgroundColor: `${colorScheme.primary}18` }}>
+                <MessageCircle className="h-6 w-6" style={{ color: colorScheme.primary }} />
               </div>
               <h3 className="font-semibold text-slate-900 mb-1">WhatsApp</h3>
-              <p className="text-green-600 text-sm">{whatsappRaw}</p>
+              <p className="text-sm" style={{ color: colorScheme.primary }}>{whatsappRaw}</p>
             </a>
             <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`} target="_blank" rel="noopener noreferrer" className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow border border-slate-100 group">
               <div className="rounded-xl flex items-center justify-center mb-4 group-hover:opacity-80 transition-colors h-12 w-12" style={{ backgroundColor: `${colorScheme.primary}18` }}>
