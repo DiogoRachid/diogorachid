@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { createPageUrl } from '@/utils';
-import { Layers, MoreHorizontal, Pencil, Trash2, RefreshCw, Calendar, X } from 'lucide-react';
+import { Layers, MoreHorizontal, Pencil, Trash2, RefreshCw, Calendar, X, AlertCircle, DollarSign, Clock } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -31,9 +31,11 @@ export default function Services() {
   const [recalcCurrent, setRecalcCurrent] = useState(0);
   const [recalcStartTime, setRecalcStartTime] = useState(null);
   const [dataBaseFiltro, setDataBaseFiltro] = useState('');
+  const [semDataBase, setSemDataBase] = useState(false);
   const [showRecalcDialog, setShowRecalcDialog] = useState(false);
   const [recalcDialogIds, setRecalcDialogIds] = useState([]);
   const [recalcDataBase, setRecalcDataBase] = useState('');
+  const [recalcDialogLabel, setRecalcDialogLabel] = useState('');
 
   const { data: services = [], isLoading, refetch } = useQuery({
     queryKey: ['services'],
@@ -85,11 +87,19 @@ export default function Services() {
     return sorted;
   }, [inputs]);
 
+  // Data base mais recente dos serviços (para comparação)
+  const dataBaseMaisRecente = useMemo(() => {
+    if (datasBase.length === 0) return null;
+    return datasBase[0]; // já ordenado desc
+  }, [datasBase]);
+
   const filtered = useMemo(() => {
-    let result = services.filter(s => 
-      (!search || s.descricao?.toLowerCase().includes(search.toLowerCase()) || s.codigo?.toLowerCase().includes(search.toLowerCase())) &&
-      (!dataBaseFiltro || s.data_base === dataBaseFiltro)
-    );
+    let result = services.filter(s => {
+      const matchSearch = !search || s.descricao?.toLowerCase().includes(search.toLowerCase()) || s.codigo?.toLowerCase().includes(search.toLowerCase());
+      const matchDataBase = !dataBaseFiltro || s.data_base === dataBaseFiltro;
+      const matchSemDataBase = !semDataBase || !s.data_base;
+      return matchSearch && matchDataBase && matchSemDataBase;
+    });
 
     if (sortConfig.key) {
       result.sort((a, b) => {
@@ -171,19 +181,77 @@ export default function Services() {
     runRecalc(Array.from(selectedIds));
   };
 
-  const openRecalcDialog = (ids) => {
+  const parseDataBase = (str) => {
+    if (!str) return null;
+    const [m, y] = str.split('/');
+    return new Date(parseInt(y), parseInt(m) - 1, 1);
+  };
+
+  const openRecalcDialog = (ids, label = '') => {
     setRecalcDialogIds(ids);
-    // Pré-selecionar a data-base mais recente dos insumos
+    setRecalcDialogLabel(label);
     setRecalcDataBase(datasBaseInsumos[0] || '');
     setShowRecalcDialog(true);
   };
 
+  const handleRecalcZero = () => {
+    const ids = services.filter(s => !s.custo_total || s.custo_total === 0).map(s => s.id);
+    if (ids.length === 0) { toast.info('Nenhum serviço com valor R$ 0,00.'); return; }
+    openRecalcDialog(ids, `${ids.length} serviços com valor R$ 0,00`);
+  };
+
+  const handleRecalcSemDataBase = () => {
+    const ids = services.filter(s => !s.data_base).map(s => s.id);
+    if (ids.length === 0) { toast.info('Nenhum serviço sem data base.'); return; }
+    openRecalcDialog(ids, `${ids.length} serviços sem data base`);
+  };
+
+  const handleRecalcDesatualizados = async () => {
+    if (!dataBaseMaisRecente) { toast.info('Nenhuma data base encontrada nos serviços.'); return; }
+    const maisRecente = parseDataBase(dataBaseMaisRecente);
+    
+    // Primeira passagem
+    let ids = services.filter(s => {
+      if (!s.data_base) return true; // sem data base também entra
+      const d = parseDataBase(s.data_base);
+      return d < maisRecente;
+    }).map(s => s.id);
+
+    if (ids.length === 0) { toast.info('Todos os serviços já estão na data base mais recente.'); return; }
+    openRecalcDialog(ids, `${ids.length} serviços com data base anterior a ${dataBaseMaisRecente} (rodará até zerar)`);
+  };
+
   const confirmRecalc = async () => {
     setShowRecalcDialog(false);
-    // Se uma data-base foi selecionada, atualizar os insumos antes de recalcular
-    // O recalcular usa os valores atuais dos insumos — a seleção de data-base
-    // serve para confirmar qual base está sendo usada (informativo)
-    runRecalc(recalcDialogIds);
+    const isDesatualizados = recalcDialogLabel.includes('anterior a');
+
+    if (isDesatualizados && dataBaseMaisRecente) {
+      // Rodar em múltiplas passagens até não sobrar nenhum desatualizado
+      const maisRecente = parseDataBase(dataBaseMaisRecente);
+      let rodada = 1;
+      let currentServices = services;
+      
+      while (true) {
+        const pendentes = currentServices.filter(s => {
+          if (!s.data_base) return true;
+          return parseDataBase(s.data_base) < maisRecente;
+        }).map(s => s.id);
+        
+        if (pendentes.length === 0) break;
+        toast.info(`Rodada ${rodada}: recalculando ${pendentes.length} serviços...`);
+        await runRecalc(pendentes);
+        rodada++;
+        
+        // Recarregar lista atualizada do backend
+        const fresh = await base44.entities.Service.list('created_date', 5000, 0);
+        currentServices = fresh;
+        
+        if (rodada > 5) break; // segurança máxima
+      }
+      toast.success(`Concluído após ${rodada - 1} rodada(s). Todos os serviços atualizados!`);
+    } else {
+      runRecalc(recalcDialogIds);
+    }
   };
 
   const columns = [
@@ -272,27 +340,49 @@ export default function Services() {
         onAction={() => window.location.href = createPageUrl('ServiceEditor')}
       />
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <SearchFilter 
-          searchValue={search} 
-          onSearchChange={setSearch} 
-          placeholder="Buscar serviço..." 
-        />
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <SearchFilter 
+            searchValue={search} 
+            onSearchChange={setSearch} 
+            placeholder="Buscar serviço..." 
+          />
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* Filtro por data base */}
+            {datasBase.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-slate-500" />
+                <Select value={dataBaseFiltro} onValueChange={(v) => { setDataBaseFiltro(v); setSemDataBase(false); }}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="Todas as datas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>Todas as datas</SelectItem>
+                    {datasBase.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {/* Filtro sem data base */}
+            <Button
+              size="sm"
+              variant={semDataBase ? 'default' : 'outline'}
+              onClick={() => { setSemDataBase(!semDataBase); setDataBaseFiltro(''); }}
+              className={semDataBase ? 'bg-amber-600 hover:bg-amber-700' : ''}
+            >
+              <AlertCircle className="h-4 w-4 mr-1" />
+              Sem data base
+              {!semDataBase && services.filter(s => !s.data_base).length > 0 && (
+                <span className="ml-1 bg-amber-100 text-amber-700 text-xs px-1.5 rounded-full">
+                  {services.filter(s => !s.data_base).length}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Linha de ações */}
         <div className="flex flex-wrap gap-2 items-center">
-          {datasBase.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-slate-500" />
-              <Select value={dataBaseFiltro} onValueChange={setDataBaseFiltro}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="Todas as datas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={null}>Todas as datas</SelectItem>
-                  {datasBase.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           {selectedIds.size > 0 ? (
             <>
               <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
@@ -310,15 +400,29 @@ export default function Services() {
               </Button>
             </>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openRecalcDialog(services.map(s => s.id))}
-              disabled={recalculating}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${recalculating ? 'animate-spin' : ''}`} />
-              Recalcular Todos
-            </Button>
+            <>
+              <Button size="sm" variant="outline" onClick={() => openRecalcDialog(services.map(s => s.id), `${services.length} serviços`)} disabled={recalculating}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+                Recalcular Todos
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleRecalcZero} disabled={recalculating} className="border-orange-300 text-orange-700 hover:bg-orange-50">
+                <DollarSign className="h-4 w-4 mr-1" />
+                Recalcular Valor R$ 0
+                <span className="ml-1 text-xs text-orange-500">({services.filter(s => !s.custo_total || s.custo_total === 0).length})</span>
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleRecalcSemDataBase} disabled={recalculating} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                Recalcular Sem Data Base
+                <span className="ml-1 text-xs text-amber-500">({services.filter(s => !s.data_base).length})</span>
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleRecalcDesatualizados} disabled={recalculating} className="border-blue-300 text-blue-700 hover:bg-blue-50">
+                <Clock className="h-4 w-4 mr-1" />
+                Recalcular Desatualizados
+                <span className="ml-1 text-xs text-blue-500">
+                  ({services.filter(s => { if (!s.data_base || !dataBaseMaisRecente) return true; return parseDataBase(s.data_base) < parseDataBase(dataBaseMaisRecente); }).length})
+                </span>
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -356,7 +460,7 @@ export default function Services() {
       <Dialog open={showRecalcDialog} onOpenChange={setShowRecalcDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Recalcular {recalcDialogIds.length} Serviços</DialogTitle>
+            <DialogTitle>Recalcular {recalcDialogLabel || `${recalcDialogIds.length} serviços`}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-slate-600">
