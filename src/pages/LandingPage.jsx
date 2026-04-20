@@ -123,7 +123,7 @@ export default function LandingPage() {
   const endereco = companySettings?.endereco || 'Rua Maria Lúcia da Paz, 550 sl503 - Gleba Palhano - Londrina-PR';
 
   const heroTitulo = companySettings?.site_hero_titulo || 'Construindo o Brasil com Qualidade e Transparência';
-  const heroSubtitulo = companySettings?.site_hero_subtitulo || 'Há mais de duas décadas, a Virtual Construções Civis executa obras públicas em Londrina e região — universidades, hospitais, infraestrutura e equipamentos urbanos — com excelência técnica e total conformidade legal.';
+  const heroSubtitulo = companySettings?.site_hero_subtitulo || 'Há mais de duas décadas, a Virtual Construções Civis executa obras públicas em Londrina e região com excelência técnica e total conformidade legal.';
   const heroImagem = companySettings?.site_hero_imagem || 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1600&q=85';
 
   const sobreTitulo = companySettings?.site_sobre_titulo || 'Tradição e Competência em Obras Públicas';
