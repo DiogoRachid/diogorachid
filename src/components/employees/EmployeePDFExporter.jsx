@@ -70,16 +70,16 @@ export function exportEmployeePDF(emp) {
   };
 
   const sectionHeader = (text) => {
-    checkNewPage(10);
+    checkNewPage(12);
     doc.setFillColor(30, 64, 120);
-    doc.rect(ML, y, CW, 6, 'F');
-    doc.setFontSize(8);
+    doc.rect(ML, y, CW, 7, 'F');
+    doc.setFontSize(8.5);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text(text, ML + 2, y + 4.2);
+    doc.text(text, ML + 3, y + 5);
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
-    y += 8;
+    y += 10;
   };
 
   // linha simples: "LABEL: value"
@@ -140,21 +140,22 @@ export function exportEmployeePDF(emp) {
   // ══════════════════════════════════════════════════════════════════════════
   // LOGO + CABEÇALHO
   // ══════════════════════════════════════════════════════════════════════════
+  // Logo proporcional: máx 50mm largura, altura calculada para não distorcer
   try {
     doc.addImage(
       'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6926eb0b6c1242bf806695a4/e482e0b04_logofundoclaro.jpg',
-      'JPEG', ML, y, 50, 13
+      'JPEG', ML, y, 50, 16, undefined, 'FAST'
     );
   } catch (e) {}
 
   // Código funcionário (canto direito)
   doc.setFontSize(8);
   doc.setFont(undefined, 'bold');
-  doc.text('Código do Funcionário:', W - MR - 45, y + 5);
+  doc.text('Código do Funcionário:', W - MR - 45, y + 6);
   doc.setFont(undefined, 'normal');
   doc.setFontSize(11);
-  doc.text(emp.codigo_funcionario || '________', W - MR - 45, y + 11);
-  y += 18;
+  doc.text(emp.codigo_funcionario || '________', W - MR - 45, y + 13);
+  y += 22;
 
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
@@ -174,12 +175,55 @@ export function exportEmployeePDF(emp) {
   // DADOS DO FUNCIONÁRIO
   // ══════════════════════════════════════════════════════════════════════════
   sectionHeader('DADOS DO FUNCIONÁRIO');
-  row('NOME COMPLETO', emp.nome_completo?.toUpperCase());
-  cols([{ label: 'CPF', value: emp.cpf }, { label: 'NÚMERO DE PIS', value: emp.pis }, { label: 'DATA DE NASCIMENTO', value: fmtDate(emp.data_nascimento) }]);
-  cols([{ label: 'ENDEREÇO', value: emp.endereco }, { label: 'CEP', value: emp.cep }]);
-  cols([{ label: 'CIDADE/ESTADO', value: `${emp.cidade || ''}/${emp.estado || ''}` }, { label: 'NATURALIDADE', value: emp.naturalidade_cidade }, { label: 'UF', value: emp.naturalidade_estado }]);
-  cols([{ label: 'TELEFONE', value: emp.telefone }, { label: 'EMAIL', value: emp.email }]);
-  cols([{ label: 'ALTURA', value: emp.altura }, { label: 'CALÇADO', value: emp.calcado }, { label: 'ROUPA', value: emp.roupa }]);
+
+  // Foto 3x4 no canto direito
+  const fotoX = W - MR - 25;
+  const fotoY = y;
+  if (emp.foto_url) {
+    try {
+      doc.addImage(emp.foto_url, 'JPEG', fotoX, fotoY, 25, 33, undefined, 'FAST');
+    } catch (e) {
+      doc.setDrawColor(180, 180, 180);
+      doc.rect(fotoX, fotoY, 25, 33, 'S');
+      doc.setFontSize(7);
+      doc.text('FOTO', fotoX + 12.5, fotoY + 18, { align: 'center' });
+    }
+  } else {
+    doc.setDrawColor(180, 180, 180);
+    doc.rect(fotoX, fotoY, 25, 33, 'S');
+    doc.setFontSize(7);
+    doc.setTextColor(160, 160, 160);
+    doc.text('FOTO 3x4', fotoX + 12.5, fotoY + 18, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+  }
+
+  // Ajustar largura das colunas para deixar espaço para a foto
+  const CW2 = CW - 28;
+
+  // Linhas com espaço para a foto (primeiras ~6 linhas)
+  const colsNarrow = (items) => {
+    checkNewPage(7);
+    const colW = CW2 / items.length;
+    items.forEach(({ label, value }, i) => {
+      const x = ML + i * colW;
+      doc.setFontSize(7.5);
+      doc.setFont(undefined, 'bold');
+      doc.text(`${label}: `, x, y);
+      const lw = doc.getTextWidth(`${label}: `);
+      doc.setFont(undefined, 'normal');
+      doc.text(String(value || ''), x + lw, y, { maxWidth: colW - lw - 2 });
+    });
+    y += 5.5;
+  };
+
+  row('NOME COMPLETO', emp.nome_completo?.toUpperCase(), ML, CW2);
+  colsNarrow([{ label: 'CPF', value: emp.cpf }, { label: 'NÚMERO DE PIS', value: emp.pis }, { label: 'DATA DE NASCIMENTO', value: fmtDate(emp.data_nascimento) }]);
+  colsNarrow([{ label: 'ENDEREÇO', value: emp.endereco }, { label: 'CEP', value: emp.cep }]);
+  colsNarrow([{ label: 'CIDADE/ESTADO', value: `${emp.cidade || ''}/${emp.estado || ''}` }, { label: 'NATURALIDADE', value: emp.naturalidade_cidade }, { label: 'UF', value: emp.naturalidade_estado }]);
+  colsNarrow([{ label: 'TELEFONE', value: emp.telefone }, { label: 'EMAIL', value: emp.email }]);
+  colsNarrow([{ label: 'ALTURA', value: emp.altura }, { label: 'CALÇADO', value: emp.calcado }, { label: 'ROUPA', value: emp.roupa }]);
+  // Garantir que y passou da área da foto antes de volcar para largura total
+  if (y < fotoY + 35) y = fotoY + 35;
   row('RAÇA', RACA_LABELS[emp.raca] || emp.raca || '( ) INDÍGENA  ( ) BRANCA  ( ) PRETA  ( ) AMARELA  ( ) PARDA');
   row('GRAU DE INSTRUÇÃO', GRAU_LABELS[emp.grau_instrucao] || '');
   row('PORTADOR DE DEFICIÊNCIA', emp.pcd ? (PCD_LABELS[emp.pcd_tipo] || 'SIM') : 'NÃO PORTADOR');

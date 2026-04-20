@@ -23,7 +23,7 @@ export default function PayrollsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter] = useState('all');
   const [deleteId, setDeleteId] = useState(null);
   const [sortColumn, setSortColumn] = useState('data_pagamento');
   const [sortDirection, setSortDirection] = useState('desc');
@@ -105,12 +105,6 @@ export default function PayrollsPage() {
       )
     },
     {
-      header: 'Status',
-      accessor: 'status',
-      sortable: true,
-      render: (row) => <StatusBadge status={row.status} />
-    },
-    {
       header: 'Centro de Custo',
       accessor: 'centro_custo_nome',
       render: (row) => (
@@ -144,19 +138,7 @@ export default function PayrollsPage() {
     }
   ];
 
-  const filters = [
-    {
-      label: 'Status',
-      value: statusFilter,
-      onChange: setStatusFilter,
-      options: [
-        { value: 'all', label: 'Todos' },
-        { value: 'pendente', label: 'Pendente' },
-        { value: 'pago', label: 'Pago' },
-        { value: 'cancelado', label: 'Cancelado' }
-      ]
-    }
-  ];
+  const filters = [];
 
   return (
     <div>

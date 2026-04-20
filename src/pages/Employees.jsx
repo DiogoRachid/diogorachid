@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { Users, Plus, Search, MoreVertical, Eye, Pencil, Trash2, UserCircle } from 'lucide-react';
+import { Users, Plus, Search, MoreVertical, Eye, Pencil, Trash2, UserCircle, Download } from 'lucide-react';
+import { exportEmployeePDF } from '@/components/employees/EmployeePDFExporter';
+import { toast } from 'sonner';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -36,6 +38,8 @@ export default function Employees() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [vinculoFilter, setVinculoFilter] = useState('all');
+  const [obraFilter, setObraFilter] = useState('all');
+  const [equipeFilter, setEquipeFilter] = useState('all');
   const [deleteItem, setDeleteItem] = useState(null);
   const queryClient = useQueryClient();
 
@@ -43,6 +47,9 @@ export default function Employees() {
     queryKey: ['employees'],
     queryFn: () => base44.entities.Employee.list('-created_date')
   });
+
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: () => base44.entities.Project.list() });
+  const { data: teams = [] } = useQuery({ queryKey: ['teams'], queryFn: () => base44.entities.Team.list() });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Employee.delete(id),
@@ -58,7 +65,9 @@ export default function Employees() {
                        emp.funcao?.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || emp.status === statusFilter;
     const matchVinculo = vinculoFilter === 'all' || emp.tipo_vinculo === vinculoFilter;
-    return matchSearch && matchStatus && matchVinculo;
+    const matchObra = obraFilter === 'all' || emp.obra_id === obraFilter;
+    const matchEquipe = equipeFilter === 'all' || emp.equipe_id === equipeFilter;
+    return matchSearch && matchStatus && matchVinculo && matchObra && matchEquipe;
   });
 
   const columns = [
@@ -132,6 +141,9 @@ export default function Employees() {
                 <Pencil className="h-4 w-4 mr-2" /> Editar
               </Link>
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { exportEmployeePDF(row); toast.success('PDF gerado!'); }}>
+              <Download className="h-4 w-4 mr-2" /> Exportar Ficha PDF
+            </DropdownMenuItem>
             <DropdownMenuItem 
               className="text-red-600"
               onClick={() => setDeleteItem(row)}
@@ -177,11 +189,25 @@ export default function Employees() {
               { value: 'pj', label: 'PJ' },
               { value: 'terceirizado', label: 'Terceirizado' }
             ]
+          },
+          {
+            value: obraFilter,
+            onChange: setObraFilter,
+            placeholder: 'Obra',
+            options: projects.map(p => ({ value: p.id, label: p.nome }))
+          },
+          {
+            value: equipeFilter,
+            onChange: setEquipeFilter,
+            placeholder: 'Equipe',
+            options: teams.map(t => ({ value: t.id, label: t.nome }))
           }
         ]}
         onClearFilters={() => {
           setStatusFilter('all');
           setVinculoFilter('all');
+          setObraFilter('all');
+          setEquipeFilter('all');
         }}
       />
 

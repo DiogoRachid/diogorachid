@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
-import { Users, Save, X, Plus, Trash2, Upload, FileText, Loader2, Download } from 'lucide-react';
+import { Users, Save, X, Plus, Trash2, Upload, FileText, Loader2, Download, Camera } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,7 +82,9 @@ export default function EmployeeForm() {
   const isEditing = !!employeeId;
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
+  const fotoInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
   const [formData, setFormData] = useState(EMPTY);
 
   const { data: employee, isLoading: loadingEmployee } = useQuery({
@@ -161,6 +163,19 @@ export default function EmployeeForm() {
   };
   const removeDoc = (i) => setFormData(prev => ({ ...prev, documentos: prev.documentos.filter((_, idx) => idx !== i) }));
 
+  const handleFotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFoto(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      set('foto_url', file_url);
+      toast.success('Foto enviada com sucesso!');
+    } catch { toast.error('Erro ao enviar foto'); }
+    setUploadingFoto(false);
+    e.target.value = '';
+  };
+
   const handleExportPDF = () => {
     exportEmployeePDF(formData);
     toast.success('PDF gerado!');
@@ -185,6 +200,22 @@ export default function EmployeeForm() {
         <Section title="1. Dados Pessoais">
           <Field label="Código do Funcionário">
             <Input value={formData.codigo_funcionario} onChange={e => set('codigo_funcionario', e.target.value)} placeholder="Ex: 0042" />
+          </Field>
+          <Field label="Foto 3x4">
+            <div className="flex flex-col items-center gap-2">
+              {formData.foto_url ? (
+                <img src={formData.foto_url} alt="Foto" className="w-16 h-20 object-cover rounded border border-slate-200 shadow-sm" style={{ aspectRatio: '3/4' }} />
+              ) : (
+                <div className="w-16 h-20 bg-slate-100 rounded border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer" onClick={() => fotoInputRef.current?.click()}>
+                  <Camera className="h-6 w-6 text-slate-400" />
+                </div>
+              )}
+              <Button type="button" size="sm" variant="outline" onClick={() => fotoInputRef.current?.click()} disabled={uploadingFoto} className="text-xs px-2 h-7">
+                {uploadingFoto ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
+                {formData.foto_url ? 'Trocar' : 'Enviar'}
+              </Button>
+              <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleFotoUpload} />
+            </div>
           </Field>
           <Field label="Nome Completo *" className="col-span-2 lg:col-span-3">
             <Input value={formData.nome_completo} onChange={e => set('nome_completo', e.target.value)} required />
