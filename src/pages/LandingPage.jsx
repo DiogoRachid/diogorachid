@@ -219,7 +219,7 @@ export default function LandingPage() {
           <div className="inline-flex items-center gap-2 border border-white/40 rounded-full px-3 py-1.5 text-xs sm:text-sm mb-6 backdrop-blur max-w-[90vw] text-center leading-snug text-white" style={{ backgroundColor: `${colorScheme.primary}30` }}>
             <Shield className="h-4 w-4 flex-shrink-0" /> <span>Especialistas em Obras Públicas — Londrina/PR</span>
           </div>
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6 whitespace-pre-line">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold leading-tight mb-6">
             {heroTitulo}
           </h1>
           <p className="text-lg sm:text-xl text-white/80 max-w-2xl mx-auto mb-10">
