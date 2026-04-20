@@ -12,6 +12,7 @@ import {
   FileInput, Truck, ShoppingCart, Globe, BookOpen, GripVertical,
   ArrowUp, ArrowDown
 } from 'lucide-react';
+import { useColorScheme } from '@/lib/useColorScheme';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -149,6 +150,7 @@ export default function Layout({ children, currentPageName }) {
   const [user, setUser] = useState(null);
   const [companySettings, setCompanySettings] = useState(null);
   const [savingOrder, setSavingOrder] = useState(false);
+  const { colorScheme } = useColorScheme();
 
   const sortedMenuItems = useMemo(() => {
     return [...menuItems].sort((a, b) => menuOrder.indexOf(a.title) - menuOrder.indexOf(b.title));
@@ -393,11 +395,12 @@ export default function Layout({ children, currentPageName }) {
                                 to={createPageUrl(subitem.page)}
                                 onClick={() => setSidebarOpen(false)}
                                 className={cn(
-                                  "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all",
+                                  "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all font-medium",
                                   currentPageName === subitem.page
-                                    ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-medium"
+                                    ? "font-semibold"
                                     : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-white"
                                 )}
+                                style={currentPageName === subitem.page ? { backgroundColor: `${colorScheme.primary}18`, color: colorScheme.primary } : {}}
                               >
                                 <subitem.icon className="h-4 w-4" />
                                 {subitem.title}
@@ -414,9 +417,10 @@ export default function Layout({ children, currentPageName }) {
                         className={cn(
                           "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
                           currentPageName === item.page
-                            ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25"
+                            ? "text-white shadow-lg"
                             : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
                         )}
+                        style={currentPageName === item.page ? { backgroundColor: colorScheme.primary } : {}}
                       >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
                         {!sidebarCollapsed && <span className="truncate">{item.title}</span>}
@@ -447,7 +451,7 @@ export default function Layout({ children, currentPageName }) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="w-full flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" style={{ background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.primary}cc)` }}>
                       {user.full_name?.[0]?.toUpperCase() || 'U'}
                     </div>
                     {!sidebarCollapsed && (

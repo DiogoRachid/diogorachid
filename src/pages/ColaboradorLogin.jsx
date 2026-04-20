@@ -6,12 +6,14 @@ import { HardHat, ArrowLeft, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-re
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useColorScheme } from '@/lib/useColorScheme';
 
 const LOGO_ESCURA = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6926eb0b6c1242bf806695a4/4053fb920_logofundoescuro.png";
 
 export default function ColaboradorLogin() {
   const navigate = useNavigate();
   const [companySettings, setCompanySettings] = useState(null);
+  const { colorScheme } = useColorScheme();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [showSenha, setShowSenha] = useState(false);
@@ -56,12 +58,12 @@ export default function ColaboradorLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-950 to-slate-900 flex flex-col items-center justify-center px-4">
+    <div className={`min-h-screen bg-gradient-to-br ${colorScheme.gradient} flex flex-col items-center justify-center px-4`}>
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
           <img src={logoUrl} alt={nomeEmpresa} className="h-12 object-contain mx-auto mb-4" />
-          <div className="inline-flex items-center gap-2 bg-orange-600/20 border border-orange-500/30 rounded-full px-4 py-1.5 text-orange-300 text-sm mb-2">
+          <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm mb-2" style={{ backgroundColor: `${colorScheme.primary}33`, border: `1px solid ${colorScheme.primary}55`, color: colorScheme.primary }}>
             <HardHat className="h-4 w-4" /> Portal Colaborador
           </div>
           <h1 className="text-2xl font-bold text-white mt-3">Acesso Colaborador</h1>
@@ -77,7 +79,7 @@ export default function ColaboradorLogin() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="seu@email.com"
-              className="mt-1.5 bg-white/10 border-white/20 text-white placeholder:text-slate-500 focus:border-orange-400"
+              className="mt-1.5 bg-white/10 border-white/20 text-white placeholder:text-slate-500"
               autoComplete="username"
             />
           </div>
@@ -89,7 +91,7 @@ export default function ColaboradorLogin() {
                 value={senha}
                 onChange={e => setSenha(e.target.value)}
                 placeholder="••••••••"
-                className="bg-white/10 border-white/20 text-white placeholder:text-slate-500 focus:border-orange-400 pr-10"
+                className="bg-white/10 border-white/20 text-white placeholder:text-slate-500 pr-10"
                 autoComplete="current-password"
               />
               <button type="button" onClick={() => setShowSenha(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
@@ -104,7 +106,7 @@ export default function ColaboradorLogin() {
             </div>
           )}
 
-          <Button type="submit" disabled={loading} className="w-full bg-orange-600 hover:bg-orange-700 h-11 text-base font-semibold">
+          <Button type="submit" disabled={loading} className="w-full h-11 text-base font-semibold text-white" style={{ backgroundColor: colorScheme.primary }}>
             {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <HardHat className="h-5 w-5 mr-2" />}
             Entrar
           </Button>
