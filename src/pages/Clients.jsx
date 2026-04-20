@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, MoreHorizontal, Pencil, Trash2, Eye, Phone, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useColorScheme } from '@/lib/useColorScheme';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchFilter from '@/components/shared/SearchFilter';
 import DataTable from '@/components/shared/DataTable';
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function Clients() {
+  const { colorScheme } = useColorScheme();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteId, setDeleteId] = useState(null);
@@ -74,7 +76,7 @@ export default function Clients() {
       sortable: true,
       render: (row) => (
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold">
+          <div className="h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold" style={{ background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.primary}cc)` }}>
             {row.nome?.[0]?.toUpperCase() || 'C'}
           </div>
           <div>

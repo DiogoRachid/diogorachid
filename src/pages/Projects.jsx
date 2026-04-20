@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useColorScheme } from '@/lib/useColorScheme';
 import PageHeader from '@/components/ui/PageHeader';
 import SearchFilter from '@/components/shared/SearchFilter';
 import DataTable from '@/components/shared/DataTable';
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function Projects() {
+  const { colorScheme } = useColorScheme();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteId, setDeleteId] = useState(null);
@@ -79,8 +81,8 @@ export default function Projects() {
       sortable: true,
       render: (row) => (
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
-            <HardHat className="h-5 w-5 text-amber-600" />
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${colorScheme.primary}19`, color: colorScheme.primary }}>
+            <HardHat className="h-5 w-5" />
           </div>
           <div>
             <p className="font-medium text-slate-900">{row.nome}</p>
