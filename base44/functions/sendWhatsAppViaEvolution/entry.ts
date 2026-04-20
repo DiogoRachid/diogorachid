@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     const today = startOfDay(new Date());
     const sevenDaysFromNow = addDays(today, 7);
 
-    const [accountsPayable, accountsReceivable, documents, employeeContracts, investments, bankAccounts, materialRequisitions] = await Promise.all([
+    const [accountsPayable, accountsReceivable, documents, employeeContracts, investments, bankAccounts, materialRequisitions, investmentHistory] = await Promise.all([
       base44.entities.AccountPayable.list('', 1000).catch(() => []),
       base44.entities.AccountReceivable.list('', 1000).catch(() => []),
       base44.entities.Document.list('', 1000).catch(() => []),
@@ -28,6 +28,7 @@ Deno.serve(async (req) => {
       base44.entities.Investment.list('', 1000).catch(() => []),
       base44.entities.BankAccount.list('', 1000).catch(() => []),
       base44.entities.MaterialRequisition.list('', 1000).catch(() => []),
+      base44.entities.InvestmentHistory.list('', 1000).catch(() => []),
     ]);
 
     // Processar dados
@@ -61,9 +62,20 @@ Deno.serve(async (req) => {
       return isAfter(dataFim, today) && isBefore(dataFim, sevenDaysFromNow);
     });
 
-    const patrimonioTotal = (investments || [])
-      .filter(i => i.status === 'ativo')
-      .reduce((sum, i) => sum + (i.valor_atual || 0), 0);
+    // Buscar valor patrimonial do dia anterior na tabela de evolução
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const patrimonialHistoryYesterday = (investmentHistory || []).find(h => {
+      const historyDate = h.data_base ? h.data_base.split('/').reverse().join('-') : '';
+      return historyDate === yesterdayStr;
+    });
+
+    const patrimonioTotal = patrimonialHistoryYesterday?.valor_atual || 
+      ((investments || [])
+        .filter(i => i.status === 'ativo')
+        .reduce((sum, i) => sum + (i.valor_atual || 0), 0));
 
     const pedidosOntem = (materialRequisitions || []).filter(mr => {
       if (!mr.created_date) return false;
