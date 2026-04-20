@@ -58,9 +58,20 @@ export default function StaffingCalculator({ schedule, stages, items, services, 
     const calculateStaffing = async () => {
       setIsLoading(true);
       try {
+        const fetchAll = async (entity) => {
+          const limit = 1000;
+          let all = [], skip = 0;
+          while (true) {
+            const batch = await entity.list('created_date', limit, skip);
+            all = all.concat(batch);
+            if (batch.length < limit) break;
+            skip += limit;
+          }
+          return all;
+        };
         const [allInputs, serviceItems] = await Promise.all([
-          base44.entities.Input.list(),
-          base44.entities.ServiceItem.list()
+          fetchAll(base44.entities.Input),
+          fetchAll(base44.entities.ServiceItem)
         ]);
 
         const monthlyData = [];

@@ -102,9 +102,22 @@ export default function ABCAnalysis({ items, services, budget }) {
       try {
         const inputMap = {};
         
-        // Carregar ServiceItems e Inputs
-        const serviceItems = await base44.entities.ServiceItem.list();
-        const allInputs = await base44.entities.Input.list();
+        // Carregar ServiceItems e Inputs com paginação completa
+        const fetchAll = async (entity) => {
+          const limit = 1000;
+          let all = [], skip = 0;
+          while (true) {
+            const batch = await entity.list('created_date', limit, skip);
+            all = all.concat(batch);
+            if (batch.length < limit) break;
+            skip += limit;
+          }
+          return all;
+        };
+        const [serviceItems, allInputs] = await Promise.all([
+          fetchAll(base44.entities.ServiceItem),
+          fetchAll(base44.entities.Input)
+        ]);
         
         for (const budgetItem of items) {
           // Buscar serviço pelo id primeiro, depois pelo codigo como fallback
