@@ -436,7 +436,7 @@ export default function LandingPage() {
       </section>
 
       {/* FOOTER */}
-      <footer className="text-white py-10 px-4" style={{ background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.primary}dd)` }}>
+      <footer className="text-white py-10 px-4" style={{ backgroundColor: colorScheme.darkest }}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src={logoEscura} alt={nomeEmpresa} className="h-8 object-contain" />
