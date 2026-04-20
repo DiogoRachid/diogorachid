@@ -355,19 +355,19 @@ export default function Documents() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="h-12 w-12 rounded-xl bg-indigo-100 flex items-center justify-center">
-          <FolderOpen className="h-6 w-6 text-indigo-600" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <FolderOpen className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Documentos</h1>
+            <p className="text-slate-500 text-xs sm:text-sm hidden sm:block">Certidões, balanços, declarações e acervos técnicos</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Documentos</h1>
-          <p className="text-slate-500 text-sm">Certidões, balanços, declarações e acervos técnicos</p>
-        </div>
-        <div className="ml-auto">
-          <Button onClick={openNew} className="bg-indigo-600 hover:bg-indigo-700">
-            <Plus className="h-4 w-4 mr-2" /> Novo Documento
-          </Button>
-        </div>
+        <Button onClick={openNew} className="bg-indigo-600 hover:bg-indigo-700 w-full sm:w-auto">
+          <Plus className="h-4 w-4 mr-2" /> Novo Documento
+        </Button>
       </div>
 
       {/* Stats */}
@@ -399,8 +399,8 @@ export default function Documents() {
       </div>
 
       {/* Filters + Actions */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             className="pl-9"
@@ -409,38 +409,40 @@ export default function Documents() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <Select value={filterTipo} onValueChange={setFilterTipo}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={null}>Todos os tipos</SelectItem>
-            {TIPOS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={null}>Todos os status</SelectItem>
-            <SelectItem value="valido">Válido</SelectItem>
-            <SelectItem value="a_vencer">A Vencer</SelectItem>
-            <SelectItem value="vencido">Vencido</SelectItem>
-            <SelectItem value="sem_vencimento">Sem Vencimento</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select value={filterTipo} onValueChange={setFilterTipo}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={null}>Todos os tipos</SelectItem>
+              {TIPOS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={null}>Todos os status</SelectItem>
+              <SelectItem value="valido">Válido</SelectItem>
+              <SelectItem value="a_vencer">A Vencer</SelectItem>
+              <SelectItem value="vencido">Vencido</SelectItem>
+              <SelectItem value="sem_vencimento">Sem Vencimento</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Bulk actions */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 mb-4 p-3 bg-indigo-50 rounded-xl border border-indigo-200">
+        <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-indigo-50 rounded-xl border border-indigo-200">
           <span className="text-sm font-medium text-indigo-700">{selectedIds.size} selecionado(s)</span>
           <Button size="sm" variant="outline" onClick={handleBulkDownload} className="border-indigo-300 text-indigo-700 hover:bg-indigo-100">
-            <Download className="h-4 w-4 mr-1" /> Baixar Selecionados
+            <Download className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Baixar</span>
           </Button>
           <Button size="sm" variant="destructive" onClick={handleBulkDelete}>
-            <Trash2 className="h-4 w-4 mr-1" /> Excluir Selecionados
+            <Trash2 className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Excluir</span>
           </Button>
           <button className="ml-auto text-slate-400 hover:text-slate-600" onClick={() => setSelectedIds(new Set())}>
             <X className="h-4 w-4" />
@@ -448,141 +450,217 @@ export default function Documents() {
         </div>
       )}
 
-      {/* Table */}
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50">
-                <th className="px-4 py-3 w-10">
-                  <Checkbox
-                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none" onClick={() => handleSort('nome')}>Documento<SortIcon col="nome" /></th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600 hidden md:table-cell cursor-pointer select-none" onClick={() => handleSort('tipo')}>Tipo<SortIcon col="tipo" /></th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600 hidden lg:table-cell cursor-pointer select-none" onClick={() => handleSort('emissor')}>Emissor<SortIcon col="emissor" /></th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600 hidden sm:table-cell cursor-pointer select-none" onClick={() => handleSort('vencimento')}>Vencimento<SortIcon col="vencimento" /></th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none" onClick={() => handleSort('status')}>Status<SortIcon col="status" /></th>
-                <th className="px-4 py-3 w-12"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    {Array.from({ length: 7 }).map((_, j) => (
-                      <td key={j} className="px-4 py-3">
-                        <div className="h-4 bg-slate-100 rounded animate-pulse" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
-                    <FolderOpen className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                    Nenhum documento encontrado
-                  </td>
-                </tr>
-              ) : filtered.map(doc => {
-                const dias = diasRestantes(doc);
-                const status = getStatus(doc);
-                return (
-                  <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3">
+      {/* Mobile: Cards / Desktop: Table */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-slate-400">
+            <FolderOpen className="h-10 w-10 mx-auto mb-2 opacity-30" />
+            Nenhum documento encontrado
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile Cards */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {filtered.map(doc => {
+              const dias = diasRestantes(doc);
+              return (
+                <Card key={doc.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
                       <Checkbox
                         checked={selectedIds.has(doc.id)}
                         onCheckedChange={() => toggleSelect(doc.id)}
+                        className="mt-0.5"
                       />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-indigo-400 flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-slate-900">{doc.nome}</p>
-                          {doc.numero_documento && (
-                            <p className="text-xs text-slate-400">{doc.numero_documento}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-900 text-sm leading-tight truncate">{doc.nome}</p>
+                            {doc.numero_documento && <p className="text-xs text-slate-400 mt-0.5">{doc.numero_documento}</p>}
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 -mr-1 -mt-1">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {doc.arquivo_url && (
+                                <DropdownMenuItem onClick={() => window.open(doc.arquivo_url, '_blank')}>
+                                  <Eye className="h-4 w-4 mr-2" /> Visualizar
+                                </DropdownMenuItem>
+                              )}
+                              {doc.arquivo_url && (
+                                <DropdownMenuItem onClick={() => {
+                                  const a = document.createElement('a');
+                                  a.href = doc.arquivo_url;
+                                  a.download = doc.arquivo_nome || doc.nome + '.pdf';
+                                  a.target = '_blank';
+                                  a.click();
+                                }}>
+                                  <Download className="h-4 w-4 mr-2" /> Baixar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => openEdit(doc)}>
+                                <FileText className="h-4 w-4 mr-2" /> Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openRenew(doc)}>
+                                <RefreshCw className="h-4 w-4 mr-2 text-indigo-600" /> Renovar
+                              </DropdownMenuItem>
+                              {(doc.historico_renovacoes?.length > 0) && (
+                                <DropdownMenuItem onClick={() => setHistoryDoc(doc)}>
+                                  <History className="h-4 w-4 mr-2 text-slate-500" /> Histórico ({doc.historico_renovacoes.length})
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => handleDelete(doc.id)} className="text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TIPO_COLORS[doc.tipo] || TIPO_COLORS.outro}`}>
+                            {TIPO_LABELS[doc.tipo] || doc.tipo}
+                          </span>
+                          <StatusChip doc={doc} />
+                        </div>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                          {doc.orgao_emissor && <span className="truncate">{doc.orgao_emissor}</span>}
+                          {!doc.sem_vencimento && doc.data_vencimento && (
+                            <span className={`flex items-center gap-1 ${dias !== null && dias < 0 ? 'text-red-500' : dias !== null && dias <= 30 ? 'text-amber-600' : 'text-slate-500'}`}>
+                              <Calendar className="h-3 w-3" />
+                              {format(parseISO(doc.data_vencimento), 'dd/MM/yyyy')}
+                              {dias !== null && ` · ${dias < 0 ? `venceu há ${Math.abs(dias)}d` : `${dias}d`}`}
+                            </span>
                           )}
                         </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TIPO_COLORS[doc.tipo] || TIPO_COLORS.outro}`}>
-                        {TIPO_LABELS[doc.tipo] || doc.tipo}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-slate-600 text-xs">{doc.orgao_emissor || '—'}</td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      {doc.sem_vencimento || !doc.data_vencimento ? (
-                        <span className="text-xs text-slate-400">Sem vencimento</span>
-                      ) : (
-                        <div>
-                          <p className="text-xs font-medium">{format(parseISO(doc.data_vencimento), 'dd/MM/yyyy')}</p>
-                          {dias !== null && (
-                            <p className={`text-xs ${dias < 0 ? 'text-red-500' : dias <= 30 ? 'text-amber-600' : 'text-slate-400'}`}>
-                              {dias < 0 ? `Venceu há ${Math.abs(dias)}d` : `${dias}d restantes`}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusChip doc={doc} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {doc.arquivo_url && (
-                            <DropdownMenuItem onClick={() => window.open(doc.arquivo_url, '_blank')}>
-                              <Eye className="h-4 w-4 mr-2" /> Visualizar
-                            </DropdownMenuItem>
-                          )}
-                          {doc.arquivo_url && (
-                            <DropdownMenuItem onClick={() => {
-                              const a = document.createElement('a');
-                              a.href = doc.arquivo_url;
-                              a.download = doc.arquivo_nome || doc.nome + '.pdf';
-                              a.target = '_blank';
-                              a.click();
-                            }}>
-                              <Download className="h-4 w-4 mr-2" /> Baixar
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => openEdit(doc)}>
-                            <FileText className="h-4 w-4 mr-2" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openRenew(doc)}>
-                            <RefreshCw className="h-4 w-4 mr-2 text-indigo-600" /> Renovar
-                          </DropdownMenuItem>
-                          {(doc.historico_renovacoes?.length > 0) && (
-                            <DropdownMenuItem onClick={() => setHistoryDoc(doc)}>
-                              <History className="h-4 w-4 mr-2 text-slate-500" /> Histórico ({doc.historico_renovacoes.length})
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => handleDelete(doc.id)} className="text-red-600">
-                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Desktop Table */}
+          <Card className="hidden md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="px-4 py-3 w-10">
+                      <Checkbox
+                        checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none" onClick={() => handleSort('nome')}>Documento<SortIcon col="nome" /></th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none" onClick={() => handleSort('tipo')}>Tipo<SortIcon col="tipo" /></th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600 hidden lg:table-cell cursor-pointer select-none" onClick={() => handleSort('emissor')}>Emissor<SortIcon col="emissor" /></th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none" onClick={() => handleSort('vencimento')}>Vencimento<SortIcon col="vencimento" /></th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600 cursor-pointer select-none" onClick={() => handleSort('status')}>Status<SortIcon col="status" /></th>
+                    <th className="px-4 py-3 w-12"></th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filtered.map(doc => {
+                    const dias = diasRestantes(doc);
+                    return (
+                      <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <Checkbox checked={selectedIds.has(doc.id)} onCheckedChange={() => toggleSelect(doc.id)} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-indigo-400 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium text-slate-900">{doc.nome}</p>
+                              {doc.numero_documento && <p className="text-xs text-slate-400">{doc.numero_documento}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TIPO_COLORS[doc.tipo] || TIPO_COLORS.outro}`}>
+                            {TIPO_LABELS[doc.tipo] || doc.tipo}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell text-slate-600 text-xs">{doc.orgao_emissor || '—'}</td>
+                        <td className="px-4 py-3">
+                          {doc.sem_vencimento || !doc.data_vencimento ? (
+                            <span className="text-xs text-slate-400">Sem vencimento</span>
+                          ) : (
+                            <div>
+                              <p className="text-xs font-medium">{format(parseISO(doc.data_vencimento), 'dd/MM/yyyy')}</p>
+                              {dias !== null && (
+                                <p className={`text-xs ${dias < 0 ? 'text-red-500' : dias <= 30 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                  {dias < 0 ? `Venceu há ${Math.abs(dias)}d` : `${dias}d restantes`}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3"><StatusChip doc={doc} /></td>
+                        <td className="px-4 py-3">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {doc.arquivo_url && (
+                                <DropdownMenuItem onClick={() => window.open(doc.arquivo_url, '_blank')}>
+                                  <Eye className="h-4 w-4 mr-2" /> Visualizar
+                                </DropdownMenuItem>
+                              )}
+                              {doc.arquivo_url && (
+                                <DropdownMenuItem onClick={() => {
+                                  const a = document.createElement('a');
+                                  a.href = doc.arquivo_url;
+                                  a.download = doc.arquivo_nome || doc.nome + '.pdf';
+                                  a.target = '_blank';
+                                  a.click();
+                                }}>
+                                  <Download className="h-4 w-4 mr-2" /> Baixar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => openEdit(doc)}>
+                                <FileText className="h-4 w-4 mr-2" /> Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openRenew(doc)}>
+                                <RefreshCw className="h-4 w-4 mr-2 text-indigo-600" /> Renovar
+                              </DropdownMenuItem>
+                              {(doc.historico_renovacoes?.length > 0) && (
+                                <DropdownMenuItem onClick={() => setHistoryDoc(doc)}>
+                                  <History className="h-4 w-4 mr-2 text-slate-500" /> Histórico ({doc.historico_renovacoes.length})
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => handleDelete(doc.id)} className="text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
 
       {/* Renew Dialog */}
       <Dialog open={!!renewDoc} onOpenChange={v => !v && setRenewDoc(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-full max-w-lg mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5 text-indigo-600" /> Renovar Documento
@@ -596,7 +674,7 @@ export default function Documents() {
                 {renewDoc.numero_documento && <p>Nº atual: <span className="font-medium">{renewDoc.numero_documento}</span></p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Novo Nº do Documento</Label>
                   <Input className="mt-1" placeholder="Deixe em branco para manter" value={renewForm.numero_documento} onChange={e => setRenewForm(f => ({ ...f, numero_documento: e.target.value }))} />
@@ -605,7 +683,7 @@ export default function Documents() {
                   <Label>Nova Data de Emissão</Label>
                   <Input type="date" className="mt-1" value={renewForm.data_emissao} onChange={e => setRenewForm(f => ({ ...f, data_emissao: e.target.value }))} />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <Label>Nova Data de Vencimento *</Label>
                   <Input type="date" className="mt-1" value={renewForm.data_vencimento} onChange={e => setRenewForm(f => ({ ...f, data_vencimento: e.target.value }))} />
                 </div>
@@ -652,7 +730,7 @@ export default function Documents() {
 
       {/* History Dialog */}
       <Dialog open={!!historyDoc} onOpenChange={v => !v && setHistoryDoc(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-lg mx-4 sm:mx-auto max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-5 w-5 text-slate-600" /> Histórico de Renovações
@@ -688,7 +766,7 @@ export default function Documents() {
 
       {/* Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-xl mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingDoc ? 'Editar Documento' : 'Novo Documento'}</DialogTitle>
           </DialogHeader>
@@ -725,8 +803,8 @@ export default function Documents() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
                 <Label>Nome do Documento *</Label>
                 <Input className="mt-1" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Certidão Negativa Federal" />
               </div>
@@ -743,7 +821,7 @@ export default function Documents() {
                 <Label>Nº do Documento</Label>
                 <Input className="mt-1" value={form.numero_documento} onChange={e => setForm(f => ({ ...f, numero_documento: e.target.value }))} />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <Label>Órgão Emissor</Label>
                 <Input className="mt-1" value={form.orgao_emissor} onChange={e => setForm(f => ({ ...f, orgao_emissor: e.target.value }))} placeholder="Ex: Receita Federal" />
               </div>
@@ -755,7 +833,7 @@ export default function Documents() {
                 <Label>Data de Vencimento</Label>
                 <Input type="date" className="mt-1" value={form.data_vencimento} onChange={e => setForm(f => ({ ...f, data_vencimento: e.target.value }))} disabled={form.sem_vencimento} />
               </div>
-              <div className="col-span-2 flex items-center gap-2">
+              <div className="sm:col-span-2 flex items-center gap-2">
                 <Checkbox
                   id="sem_venc"
                   checked={form.sem_vencimento}
@@ -763,7 +841,7 @@ export default function Documents() {
                 />
                 <label htmlFor="sem_venc" className="text-sm text-slate-700 cursor-pointer">Documento sem prazo de vencimento</label>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <Label>Observações</Label>
                 <textarea
                   className="mt-1 w-full border border-input rounded-md px-3 py-2 text-sm bg-transparent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
