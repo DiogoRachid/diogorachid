@@ -159,6 +159,18 @@
           }
         }
       }
+    },
+    "whatsapp_recipients": {
+      "type": "array",
+      "description": "N\u00fameros de telefone para receber alertas di\u00e1rios (formato: 55XXXXXXXXXXX)",
+      "items": {
+        "type": "string"
+      }
+    },
+    "whatsapp_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se automa\u00e7\u00e3o de WhatsApp est\u00e1 ativa"
     }
   },
   "required": []

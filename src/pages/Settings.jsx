@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings as SettingsIcon, User, Shield, Building2, Loader2, Check, Upload, ImageIcon, HardHat, Users, Globe, Hash, Briefcase, FolderOpen } from 'lucide-react';
+import { Settings as SettingsIcon, User, Shield, Building2, Loader2, Check, Upload, ImageIcon, HardHat, Users, Globe, Hash, Briefcase, FolderOpen, MessageCircle, Trash2, Plus } from 'lucide-react';
 import SiteServicosEditor from '@/components/settings/SiteServicosEditor';
 import SiteObrasEditor from '@/components/settings/SiteObrasEditor';
 import { Textarea } from "@/components/ui/textarea";
@@ -37,6 +37,8 @@ import {
 import { toast } from "sonner";
 import AdminProfileEditor from '@/components/settings/AdminProfileEditor';
 import SiteColorSchemeEditor from '@/components/settings/SiteColorSchemeEditor';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const DEFAULT_SERVICOS = [
   { titulo: 'Edificações Públicas', descricao: 'Construção de hospitais universitários, blocos acadêmicos, creches, escolas, delegacias e demais equipamentos públicos.', cor: 'bg-blue-50 text-blue-600' },
@@ -141,7 +143,9 @@ export default function Settings() {
     site_cta_texto: 'Acesse nosso ERP interno para gerenciar orçamentos, planejamento, medições, financeiro, RH e muito mais — tudo em um só lugar.',
     site_servicos: DEFAULT_SERVICOS,
     site_obras: DEFAULT_OBRAS,
-    site_color_scheme: 'blue'
+    site_color_scheme: 'blue',
+    whatsapp_recipients: [],
+    whatsapp_enabled: false
   });
 
   const [uploadingClara, setUploadingClara] = useState(false);
@@ -183,7 +187,9 @@ export default function Settings() {
         site_cta_texto: companySettings.site_cta_texto || 'Acesse nosso ERP interno para gerenciar orçamentos, planejamento, medições, financeiro, RH e muito mais — tudo em um só lugar.',
         site_servicos: companySettings.site_servicos?.length > 0 ? companySettings.site_servicos : DEFAULT_SERVICOS,
         site_obras: companySettings.site_obras?.length > 0 ? companySettings.site_obras : DEFAULT_OBRAS,
-        site_color_scheme: companySettings.site_color_scheme || 'blue'
+        site_color_scheme: companySettings.site_color_scheme || 'blue',
+        whatsapp_recipients: companySettings.whatsapp_recipients || [],
+        whatsapp_enabled: companySettings.whatsapp_enabled || false
       });
     }
   }, [companySettings.id]);
@@ -267,6 +273,7 @@ export default function Settings() {
         <TabsList>
           {isAdmin && <TabsTrigger value="empresa">Empresa</TabsTrigger>}
           {isAdmin && <TabsTrigger value="site">Site</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>}
           {isPortalAdmin && <TabsTrigger value="minha-conta">Minha Conta</TabsTrigger>}
           {!isPortalAdmin && <TabsTrigger value="profile">Meu Perfil</TabsTrigger>}
           {isAdmin && <TabsTrigger value="permissions">Permissões</TabsTrigger>}
@@ -420,6 +427,149 @@ export default function Settings() {
                     {saveCompanyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                     Salvar Configurações
                   </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
+
+        {/* ABA WHATSAPP */}
+        {isAdmin && (
+          <TabsContent value="whatsapp">
+            <div className="space-y-6">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Adicione números de telefone para receber alertas diários às 07:00 da manhã (Brasília) com informações sobre vencimentos, investimentos e documentos.
+                </AlertDescription>
+              </Alert>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5" />
+                    Configurar WhatsApp
+                  </CardTitle>
+                  <CardDescription>Gerencie destinatários e ative automação de alertas</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Habilitar automação */}
+                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                    <div>
+                      <p className="font-medium">Automação de Alertas</p>
+                      <p className="text-sm text-slate-500">Enviar alertas diários automaticamente</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setCompanyData(prev => ({
+                          ...prev,
+                          whatsapp_enabled: !prev.whatsapp_enabled
+                        }));
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        companyData.whatsapp_enabled ? 'bg-blue-600' : 'bg-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          companyData.whatsapp_enabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Lista de destinatários */}
+                  <div>
+                    <Label className="mb-3 block">Números de Destinatários</Label>
+                    <p className="text-xs text-slate-500 mb-3">
+                      Formato: 55XXXXXXXXXXX (ex: 5543999999999)
+                    </p>
+                    <div className="space-y-2">
+                      {(companyData.whatsapp_recipients || []).map((numero, idx) => (
+                        <div key={idx} className="flex items-center gap-2 p-3 border rounded-lg">
+                          <MessageCircle className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                          <span className="flex-1 font-mono text-sm">{numero}</span>
+                          <button
+                            onClick={() => {
+                              setCompanyData(prev => ({
+                                ...prev,
+                                whatsapp_recipients: (prev.whatsapp_recipients || []).filter((_, i) => i !== idx)
+                              }));
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <Input
+                        id="whatsapp-input"
+                        placeholder="55XXXXXXXXXXX"
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const input = document.getElementById('whatsapp-input');
+                          const numero = input.value.trim();
+                          if (numero && /^\d{13}$/.test(numero)) {
+                            setCompanyData(prev => ({
+                              ...prev,
+                              whatsapp_recipients: [...(prev.whatsapp_recipients || []), numero]
+                            }));
+                            input.value = '';
+                          } else {
+                            toast.error('Formato inválido. Use: 55XXXXXXXXXXX');
+                          }
+                        }}
+                        className="px-4"
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Adicionar
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => saveCompanyMutation.mutate(companyData)}
+                    disabled={saveCompanyMutation.isPending}
+                    className="bg-blue-600 hover:bg-blue-700 mt-4"
+                  >
+                    {saveCompanyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                    Salvar Configurações de WhatsApp
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Formato da Mensagem</CardTitle>
+                  <CardDescription>Esta é a mensagem que será enviada diariamente</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-slate-50 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap text-slate-700 text-xs leading-relaxed">
+{`🏢 Alerta Diário - Sua Empresa
+
+📅 [Data de Hoje]
+
+💰 Contas a Pagar/Receber:
+   • Hoje: [N] vencimento(s)
+   • Próximos 7 dias: [N] vencimento(s)
+
+💵 Investimentos:
+   • Valor Total Investido: R$ [Valor]
+
+📄 Documentos:
+   • Vencimento Hoje: [N] documento(s)
+   • Próximos 7 dias: [N] documento(s)
+
+👥 RH - Contratos de Experiência:
+   • Próximos 7 dias: [N] contrato(s)
+
+📦 Logística:
+   • Pedidos (Ontem): [N] solicitação(ões)`}
+                  </div>
                 </CardContent>
               </Card>
             </div>
