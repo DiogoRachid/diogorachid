@@ -211,7 +211,7 @@ export default function LandingPage() {
             className="w-full h-full object-cover" />
           
           <div className="absolute inset-0" style={{ 
-            backgroundImage: `linear-gradient(135deg, ${colorScheme.primary}da, ${colorScheme.primary}e6)`,
+            backgroundImage: `linear-gradient(135deg, ${colorScheme.footer}da, ${colorScheme.footer}e6)`,
             mixBlendMode: 'multiply'
           }} />
         </div>
