@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
-import { Shield, ArrowLeft, Eye, EyeOff, Loader2, AlertCircle, Settings as SettingsIcon } from 'lucide-react';
+import { Shield, ArrowLeft, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -105,12 +105,9 @@ export default function AdminLogin() {
           </Button>
         </form>
 
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-6 flex items-center">
           <Link to={createPageUrl('PortalSelect')} className="flex items-center gap-2 text-slate-500 hover:text-slate-300 text-sm transition-colors">
             <ArrowLeft className="h-4 w-4" /> Voltar
-          </Link>
-          <Link to={createPageUrl('Settings')} className="flex items-center gap-2 text-slate-500 hover:text-slate-300 text-sm transition-colors">
-            <SettingsIcon className="h-4 w-4" /> Configurações
           </Link>
         </div>
       </div>
