@@ -5,8 +5,8 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Buscar config da empresa
-    const settings = await base44.entities.CompanySettings.list();
+    // Buscar config da empresa com service role (sem autenticação)
+    const settings = await base44.asServiceRole.entities.CompanySettings.list();
     if (!settings || settings.length === 0) {
       return Response.json({ error: 'Configurações da empresa não encontradas' }, { status: 400 });
     }
