@@ -88,10 +88,10 @@ Deno.serve(async (req) => {
       `📦 *Logística:*\n` +
       `   • Pedidos (Ontem): ${pedidosOntem.length} solicitação(ões)`;
 
-    // Configuração da Evolution API
-    const evolutionUrl = 'http://localhost:8080';
-    const evolutionApiKey = 'minha-chave-secreta';
-    const instancia = 'teste2';
+    // Configuração da Evolution API (lê das settings ou usa padrão)
+    const evolutionUrl = config.evolution_api_url || 'http://localhost:8080';
+    const evolutionApiKey = config.evolution_api_key || 'minha-chave-secreta';
+    const instancia = config.evolution_api_instance || 'teste2';
 
     // Enviar mensagem para cada destinatário
     const resultados = [];

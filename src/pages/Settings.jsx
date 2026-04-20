@@ -145,7 +145,10 @@ export default function Settings() {
     site_obras: DEFAULT_OBRAS,
     site_color_scheme: 'blue',
     whatsapp_recipients: [],
-    whatsapp_enabled: false
+    whatsapp_enabled: false,
+    evolution_api_url: '',
+    evolution_api_key: '',
+    evolution_api_instance: ''
   });
 
   const [uploadingClara, setUploadingClara] = useState(false);
@@ -189,7 +192,10 @@ export default function Settings() {
         site_obras: companySettings.site_obras?.length > 0 ? companySettings.site_obras : DEFAULT_OBRAS,
         site_color_scheme: companySettings.site_color_scheme || 'blue',
         whatsapp_recipients: companySettings.whatsapp_recipients || [],
-        whatsapp_enabled: companySettings.whatsapp_enabled || false
+        whatsapp_enabled: companySettings.whatsapp_enabled || false,
+        evolution_api_url: companySettings.evolution_api_url || '',
+        evolution_api_key: companySettings.evolution_api_key || '',
+        evolution_api_instance: companySettings.evolution_api_instance || ''
       });
     }
   }, [companySettings.id]);
@@ -559,6 +565,45 @@ export default function Settings() {
                       {testWhatsAppMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                       Testar Agora
                     </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    ⚙️ Configuração da Evolution API
+                  </CardTitle>
+                  <CardDescription>Configure a conexão com sua instância Evolution API</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>URL da Evolution API</Label>
+                    <Input
+                      value={companyData.evolution_api_url}
+                      onChange={(e) => setCompanyData(prev => ({ ...prev, evolution_api_url: e.target.value }))}
+                      placeholder="https://galley-step-reptilian.ngrok-free.dev"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label>Chave de API (API Key)</Label>
+                    <Input
+                      type="password"
+                      value={companyData.evolution_api_key}
+                      onChange={(e) => setCompanyData(prev => ({ ...prev, evolution_api_key: e.target.value }))}
+                      placeholder="sua-chave-secreta"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label>Nome da Instância</Label>
+                    <Input
+                      value={companyData.evolution_api_instance}
+                      onChange={(e) => setCompanyData(prev => ({ ...prev, evolution_api_instance: e.target.value }))}
+                      placeholder="teste2"
+                      className="mt-1.5"
+                    />
                   </div>
                 </CardContent>
               </Card>
