@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings as SettingsIcon, User, Shield, Building2, Loader2, Check, Upload, ImageIcon, HardHat, Users, Globe, Hash, Briefcase, FolderOpen, MessageCircle, Trash2, Plus } from 'lucide-react';
+import { Settings as SettingsIcon, User, Shield, Building2, Loader2, Check, Upload, ImageIcon, HardHat, Users, Globe, Hash, Briefcase, FolderOpen, MessageCircle, Trash2, Plus, Send } from 'lucide-react';
 import SiteServicosEditor from '@/components/settings/SiteServicosEditor';
 import SiteObrasEditor from '@/components/settings/SiteObrasEditor';
 import { Textarea } from "@/components/ui/textarea";
@@ -220,6 +220,16 @@ export default function Settings() {
     mutationFn: (data) => base44.auth.updateMe(data),
     onSuccess: () => {
       toast.success('Perfil atualizado com sucesso');
+    }
+  });
+
+  const testWhatsAppMutation = useMutation({
+    mutationFn: () => base44.functions.invoke('sendWhatsAppViaEvolution', {}),
+    onSuccess: (res) => {
+      toast.success(`Teste enviado! ${res.data.destinatarios} número(s) processado(s)`);
+    },
+    onError: (err) => {
+      toast.error(`Erro ao enviar teste: ${err.message}`);
     }
   });
 
@@ -531,14 +541,25 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <Button
-                    onClick={() => saveCompanyMutation.mutate(companyData)}
-                    disabled={saveCompanyMutation.isPending}
-                    className="bg-blue-600 hover:bg-blue-700 mt-4"
-                  >
-                    {saveCompanyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-                    Salvar Configurações de WhatsApp
-                  </Button>
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={() => saveCompanyMutation.mutate(companyData)}
+                      disabled={saveCompanyMutation.isPending}
+                      className="bg-blue-600 hover:bg-blue-700 flex-1"
+                    >
+                      {saveCompanyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                      Salvar Configurações
+                    </Button>
+                    <Button
+                      onClick={() => testWhatsAppMutation.mutate()}
+                      disabled={testWhatsAppMutation.isPending || (companyData.whatsapp_recipients || []).length === 0}
+                      className="bg-green-600 hover:bg-green-700"
+                      title={(companyData.whatsapp_recipients || []).length === 0 ? 'Adicione destinatários primeiro' : 'Enviar mensagem de teste agora'}
+                    >
+                      {testWhatsAppMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                      Testar Agora
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
