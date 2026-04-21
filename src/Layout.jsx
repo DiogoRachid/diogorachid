@@ -171,19 +171,7 @@ export default function Layout({ children, currentPageName }) {
   const saveMenuOrder = async (order) => {
     setSavingOrder(true);
     try {
-      let settingsId = companySettings?.id;
-      if (!settingsId) {
-        const list = await base44.entities.CompanySettings.list();
-        if (list.length > 0) {
-          settingsId = list[0].id;
-          setCompanySettings(list[0]);
-        }
-      }
-      if (!settingsId) {
-        console.error('Erro ao salvar menu: settings não encontradas');
-        return;
-      }
-      await base44.entities.CompanySettings.update(settingsId, { site_menu_order: order });
+      await base44.functions.invoke('saveMenuOrder', { site_menu_order: order });
     } catch (e) {
       console.error('Erro ao salvar menu:', e);
     } finally {
