@@ -165,6 +165,7 @@ export default function Layout({ children, currentPageName }) {
       if (targetIndex < 0 || targetIndex >= newOrder.length) return prev;
       [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
       menuOrderRef.current = newOrder;
+      saveMenuOrder(newOrder);
       return newOrder;
     });
   };
@@ -172,7 +173,12 @@ export default function Layout({ children, currentPageName }) {
   const saveMenuOrder = async (order) => {
     setSavingOrder(true);
     try {
-      await base44.functions.invoke('saveMenuOrder', { site_menu_order: order });
+      const records = await base44.entities.MenuOrder.list();
+      if (records.length > 0) {
+        await base44.entities.MenuOrder.update(records[0].id, { order });
+      } else {
+        await base44.entities.MenuOrder.create({ order });
+      }
     } catch (e) {
       console.error('Erro ao salvar menu:', e);
     } finally {
@@ -212,22 +218,21 @@ export default function Layout({ children, currentPageName }) {
       base44.auth.me().then(setUser).catch(() => {});
     }
 
-    // Carrega settings e menu order — independente do auth
+    // Carrega settings (logo, nome) — independente do auth
     base44.entities.CompanySettings.list().then(settings => {
-      if (settings.length > 0) {
-        const s = settings[0];
-        setCompanySettings(s);
-        if (s.site_menu_order && Array.isArray(s.site_menu_order) && s.site_menu_order.length > 0) {
-          const saved = s.site_menu_order;
-          const finalOrder = [
-            ...saved.filter(t => DEFAULT_MENU_ORDER.includes(t)),
-            ...DEFAULT_MENU_ORDER.filter(t => !saved.includes(t))
-          ];
-          menuOrderRef.current = finalOrder;
-          setMenuOrder(finalOrder);
-        } else {
-          setMenuOrder(DEFAULT_MENU_ORDER);
-        }
+      if (settings.length > 0) setCompanySettings(settings[0]);
+    }).catch(() => {});
+
+    // Carrega ordem do menu da entidade dedicada
+    base44.entities.MenuOrder.list().then(records => {
+      if (records.length > 0 && Array.isArray(records[0].order) && records[0].order.length > 0) {
+        const saved = records[0].order;
+        const finalOrder = [
+          ...saved.filter(t => DEFAULT_MENU_ORDER.includes(t)),
+          ...DEFAULT_MENU_ORDER.filter(t => !saved.includes(t))
+        ];
+        menuOrderRef.current = finalOrder;
+        setMenuOrder(finalOrder);
       } else {
         setMenuOrder(DEFAULT_MENU_ORDER);
       }
@@ -345,9 +350,6 @@ export default function Layout({ children, currentPageName }) {
                 <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Menu</span>
                 <button
                   onClick={() => {
-                   if (reorderMode) {
-                     saveMenuOrder(menuOrderRef.current);
-                   }
                    setReorderMode(r => !r);
                  }}
                   disabled={savingOrder}

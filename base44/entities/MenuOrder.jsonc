@@ -1,0 +1,16 @@
+{
+  "name": "MenuOrder",
+  "type": "object",
+  "properties": {
+    "order": {
+      "type": "array",
+      "description": "Ordem dos itens do menu lateral",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "order"
+  ]
+}
