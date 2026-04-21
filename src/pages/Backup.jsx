@@ -103,6 +103,21 @@ export default function Backup() {
     setSelected(next);
   };
 
+  // Busca TODOS os registros usando paginação (lotes de 5000)
+  const fetchAll = async (entityKey) => {
+    const PAGE_SIZE = 5000;
+    let all = [];
+    let skip = 0;
+    while (true) {
+      const page = await base44.entities[entityKey].list('created_date', PAGE_SIZE, skip);
+      if (!page || page.length === 0) break;
+      all = all.concat(page);
+      if (page.length < PAGE_SIZE) break;
+      skip += PAGE_SIZE;
+    }
+    return all;
+  };
+
   const handleBackup = async () => {
     if (selected.size === 0) { toast.error('Selecione ao menos um módulo'); return; }
     setLoading(true);
@@ -112,7 +127,7 @@ export default function Backup() {
     for (const mod of MODULES.filter(m => selected.has(m.key))) {
       setProgress(p => [...p, { key: mod.key, label: mod.label, status: 'loading' }]);
       try {
-        const data = await base44.entities[mod.key].list();
+        const data = await fetchAll(mod.key);
         backup.modules[mod.key] = data;
         setProgress(p => p.map(x => x.key === mod.key ? { ...x, status: 'ok', count: data.length } : x));
       } catch {
@@ -157,8 +172,8 @@ export default function Backup() {
         setRestoreProgress(p => [...p, { key, label, status: 'loading' }]);
 
         try {
-          // Deletar registros existentes
-          const existing = await base44.entities[key].list();
+          // Deletar registros existentes (todos, com paginação)
+          const existing = await fetchAll(key);
           for (const rec of existing) {
             await base44.entities[key].delete(rec.id);
           }
