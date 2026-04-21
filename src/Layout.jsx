@@ -171,7 +171,6 @@ export default function Layout({ children, currentPageName }) {
   const saveMenuOrder = async (order) => {
     setSavingOrder(true);
     try {
-      // Busca o ID mais recente para garantir que está disponível
       let settingsId = companySettings?.id;
       if (!settingsId) {
         const list = await base44.entities.CompanySettings.list();
@@ -180,9 +179,11 @@ export default function Layout({ children, currentPageName }) {
           setCompanySettings(list[0]);
         }
       }
-      if (!settingsId) return;
-      const updated = await base44.entities.CompanySettings.update(settingsId, { site_menu_order: order });
-      setCompanySettings(updated);
+      if (!settingsId) {
+        console.error('Erro ao salvar menu: settings não encontradas');
+        return;
+      }
+      await base44.entities.CompanySettings.update(settingsId, { site_menu_order: order });
     } catch (e) {
       console.error('Erro ao salvar menu:', e);
     } finally {
@@ -212,32 +213,32 @@ export default function Layout({ children, currentPageName }) {
   }, [sidebarCollapsed]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const userData = await base44.auth.me();
-        setUser(userData);
-        const settings = await base44.entities.CompanySettings.list();
-        if (settings.length > 0) {
-          const s = settings[0];
-          setCompanySettings(s);
-          console.log('[Menu] site_menu_order do banco:', s.site_menu_order);
-          if (s.site_menu_order && Array.isArray(s.site_menu_order) && s.site_menu_order.length > 0) {
-            // Usa a ordem salva + adiciona ao final qualquer item novo não existente
-            const saved = s.site_menu_order;
-            const finalOrder = [
-              ...saved.filter(t => DEFAULT_MENU_ORDER.includes(t)),
-              ...DEFAULT_MENU_ORDER.filter(t => !saved.includes(t))
-            ];
-            console.log('[Menu] finalOrder aplicado:', finalOrder);
-            menuOrderRef.current = finalOrder;
-            setMenuOrder(finalOrder);
-          }
+    // Carrega usuário (portal admin via sessionStorage, ou plataforma Base44)
+    const portalAdminSession = (() => {
+      try { return JSON.parse(sessionStorage.getItem('portal_admin_auth')); } catch { return null; }
+    })();
+    if (portalAdminSession) {
+      setUser({ full_name: portalAdminSession.nome, permissao_financeiro: 'admin' });
+    } else {
+      base44.auth.me().then(setUser).catch(() => {});
+    }
+
+    // Carrega settings e menu order — independente do auth
+    base44.entities.CompanySettings.list().then(settings => {
+      if (settings.length > 0) {
+        const s = settings[0];
+        setCompanySettings(s);
+        if (s.site_menu_order && Array.isArray(s.site_menu_order) && s.site_menu_order.length > 0) {
+          const saved = s.site_menu_order;
+          const finalOrder = [
+            ...saved.filter(t => DEFAULT_MENU_ORDER.includes(t)),
+            ...DEFAULT_MENU_ORDER.filter(t => !saved.includes(t))
+          ];
+          menuOrderRef.current = finalOrder;
+          setMenuOrder(finalOrder);
         }
-      } catch (e) {
-        console.error('Erro ao carregar dados:', e);
       }
-    };
-    loadData();
+    }).catch(e => console.error('Erro ao carregar settings:', e));
   }, []);
 
   const logoClara = companySettings?.logo_url_clara || DEFAULT_LOGO_CLARA;
