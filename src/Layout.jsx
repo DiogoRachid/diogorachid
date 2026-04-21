@@ -220,12 +220,17 @@ export default function Layout({ children, currentPageName }) {
         if (settings.length > 0) {
           const s = settings[0];
           setCompanySettings(s);
+          console.log('[Menu] site_menu_order do banco:', s.site_menu_order);
           if (s.site_menu_order && Array.isArray(s.site_menu_order) && s.site_menu_order.length > 0) {
+            // Usa a ordem salva + adiciona ao final qualquer item novo não existente
             const saved = s.site_menu_order;
-            const merged = saved.filter(t => DEFAULT_MENU_ORDER.includes(t));
-            DEFAULT_MENU_ORDER.forEach(t => { if (!merged.includes(t)) merged.push(t); });
-            menuOrderRef.current = merged;
-            setMenuOrder(merged);
+            const finalOrder = [
+              ...saved.filter(t => DEFAULT_MENU_ORDER.includes(t)),
+              ...DEFAULT_MENU_ORDER.filter(t => !saved.includes(t))
+            ];
+            console.log('[Menu] finalOrder aplicado:', finalOrder);
+            menuOrderRef.current = finalOrder;
+            setMenuOrder(finalOrder);
           }
         }
       } catch (e) {
