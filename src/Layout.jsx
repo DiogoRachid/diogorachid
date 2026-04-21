@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { base44 } from '@/api/base44Client';
@@ -147,6 +147,7 @@ export default function Layout({ children, currentPageName }) {
   const [expandedMenus, setExpandedMenus] = useState([]);
   const [reorderMode, setReorderMode] = useState(false);
   const [menuOrder, setMenuOrder] = useState(DEFAULT_MENU_ORDER);
+  const menuOrderRef = useRef(DEFAULT_MENU_ORDER);
   const [user, setUser] = useState(null);
   const [companySettings, setCompanySettings] = useState(null);
   const [savingOrder, setSavingOrder] = useState(false);
@@ -162,15 +163,25 @@ export default function Layout({ children, currentPageName }) {
       const targetIndex = index + direction;
       if (targetIndex < 0 || targetIndex >= newOrder.length) return prev;
       [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
+      menuOrderRef.current = newOrder;
       return newOrder;
     });
   };
 
   const saveMenuOrder = async (order) => {
-    if (!companySettings?.id) return;
     setSavingOrder(true);
     try {
-      const updated = await base44.entities.CompanySettings.update(companySettings.id, { site_menu_order: order });
+      // Busca o ID mais recente para garantir que está disponível
+      let settingsId = companySettings?.id;
+      if (!settingsId) {
+        const list = await base44.entities.CompanySettings.list();
+        if (list.length > 0) {
+          settingsId = list[0].id;
+          setCompanySettings(list[0]);
+        }
+      }
+      if (!settingsId) return;
+      const updated = await base44.entities.CompanySettings.update(settingsId, { site_menu_order: order });
       setCompanySettings(updated);
     } catch (e) {
       console.error('Erro ao salvar menu:', e);
@@ -213,6 +224,7 @@ export default function Layout({ children, currentPageName }) {
             const saved = s.site_menu_order;
             const merged = saved.filter(t => DEFAULT_MENU_ORDER.includes(t));
             DEFAULT_MENU_ORDER.forEach(t => { if (!merged.includes(t)) merged.push(t); });
+            menuOrderRef.current = merged;
             setMenuOrder(merged);
           }
         }
@@ -334,11 +346,11 @@ export default function Layout({ children, currentPageName }) {
                 <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Menu</span>
                 <button
                   onClick={() => {
-                    if (reorderMode) {
-                      saveMenuOrder(menuOrder);
-                    }
-                    setReorderMode(r => !r);
-                  }}
+                   if (reorderMode) {
+                     saveMenuOrder(menuOrderRef.current);
+                   }
+                   setReorderMode(r => !r);
+                 }}
                   disabled={savingOrder}
                   className={cn(
                     "text-xs px-2 py-1 rounded-lg transition-colors",
