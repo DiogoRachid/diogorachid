@@ -136,6 +136,22 @@ const DEFAULT_LOGO_ESCURA = "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1
 
 const DEFAULT_MENU_ORDER = menuItems.map(m => m.title);
 
+const getInitialMenuOrder = () => {
+  try {
+    const cached = localStorage.getItem('menuOrder');
+    if (cached) {
+      const saved = JSON.parse(cached);
+      if (Array.isArray(saved) && saved.length > 0) {
+        return [
+          ...saved.filter(t => DEFAULT_MENU_ORDER.includes(t)),
+          ...DEFAULT_MENU_ORDER.filter(t => !saved.includes(t))
+        ];
+      }
+    }
+  } catch {}
+  return DEFAULT_MENU_ORDER;
+};
+
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -146,8 +162,9 @@ export default function Layout({ children, currentPageName }) {
   });
   const [expandedMenus, setExpandedMenus] = useState([]);
   const [reorderMode, setReorderMode] = useState(false);
-  const [menuOrder, setMenuOrder] = useState(DEFAULT_MENU_ORDER);
-  const menuOrderRef = useRef(DEFAULT_MENU_ORDER);
+  const initialOrder = getInitialMenuOrder();
+  const [menuOrder, setMenuOrder] = useState(initialOrder);
+  const menuOrderRef = useRef(initialOrder);
   const [user, setUser] = useState(null);
   const [companySettings, setCompanySettings] = useState(null);
   const [savingOrder, setSavingOrder] = useState(false);
@@ -171,6 +188,7 @@ export default function Layout({ children, currentPageName }) {
   const saveMenuOrder = async (order) => {
     setSavingOrder(true);
     try {
+      localStorage.setItem('menuOrder', JSON.stringify(order));
       await base44.functions.invoke('saveMenuOrder', { site_menu_order: order });
     } catch (e) {
       console.error('Erro ao salvar menu:', e);
@@ -222,6 +240,7 @@ export default function Layout({ children, currentPageName }) {
             ...saved.filter(t => DEFAULT_MENU_ORDER.includes(t)),
             ...DEFAULT_MENU_ORDER.filter(t => !saved.includes(t))
           ];
+          localStorage.setItem('menuOrder', JSON.stringify(finalOrder));
           menuOrderRef.current = finalOrder;
           setMenuOrder(finalOrder);
         }
