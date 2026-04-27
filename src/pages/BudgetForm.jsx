@@ -82,6 +82,7 @@ import {
 } from 'recharts';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import ServiceSelectorWithCatalog from '@/components/budgets/ServiceSelectorWithCatalog';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -195,7 +196,8 @@ export default function BudgetForm() {
   // Aux Data
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: () => base44.entities.Project.list() });
   const { data: costCenters = [] } = useQuery({ queryKey: ['costCenters'], queryFn: () => base44.entities.CostCenter.list() });
-  const { data: services = [] } = useQuery({ queryKey: ['services'], queryFn: () => base44.entities.Service.list() });
+  const { data: services = [], refetch: refetchServices } = useQuery({ queryKey: ['services'], queryFn: () => base44.entities.Service.list() });
+  const { data: inputs = [], refetch: refetchInputs } = useQuery({ queryKey: ['inputs'], queryFn: () => base44.entities.Input.list() });
 
   // Load Budget
   useEffect(() => {
@@ -282,34 +284,45 @@ export default function BudgetForm() {
     setItems(newItems);
   };
 
-  // Item Management
-  const handleAddService = (serviceId, stageId) => {
-    const service = services.find(s => s.id === serviceId);
-    if (!service) return;
-
+  // Item Management — suporta serviços e insumos, locais ou importados do catálogo
+  const handleAddItem = (item, tipo, stageId) => {
     const bdi = header.bdi_padrao;
-    const custoDireto = service.custo_total;
-    const custoComBDI = custoDireto * (1 + bdi / 100);
+    const custoUnit = item.custo_total || item.valor_unitario || 0;
+    const custoComBDI = custoUnit * (1 + bdi / 100);
 
     const newItem = {
       tempId: `item-${Date.now()}`,
       stage_id: stageId === 'uncategorized' ? null : stageId,
-      servico_id: service.id,
-      codigo: service.codigo,
-      descricao: service.descricao,
-      unidade: service.unidade,
+      servico_id: tipo === 'SERVICO' ? item.id : null,
+      insumo_id: tipo === 'INSUMO' ? item.id : null,
+      codigo: item.codigo,
+      descricao: item.descricao,
+      unidade: item.unidade || 'UN',
       quantidade: 1,
-      custo_unitario_material: service.custo_material,
-      custo_unitario_mao_obra: service.custo_mao_obra,
-      custo_unitario_total: service.custo_total,
-      custo_direto_total: service.custo_total * 1,
+      custo_unitario_material: tipo === 'INSUMO'
+        ? (item.categoria === 'MATERIAL' ? custoUnit : 0)
+        : (item.custo_material || 0),
+      custo_unitario_mao_obra: tipo === 'INSUMO'
+        ? (item.categoria === 'MAO_OBRA' ? custoUnit : 0)
+        : (item.custo_mao_obra || 0),
+      custo_unitario_total: custoUnit,
+      custo_direto_total: custoUnit,
       bdi_percentual: bdi,
       custo_com_bdi_unitario: custoComBDI,
-      subtotal: custoComBDI * 1
+      subtotal: custoComBDI,
+      _tipo: tipo,
     };
 
-    setItems([...items, newItem]);
-    toast.success('Serviço adicionado!');
+    setItems(prev => [...prev, newItem]);
+    toast.success(`${tipo === 'INSUMO' ? 'Insumo' : 'Serviço'} adicionado!`);
+  };
+
+  // Chamado pelo selector: item pode ser local ou recém-importado do catálogo
+  const handleSelectorSelect = (item, tipo, stageId) => {
+    // Após importação do catálogo, o item já existe no banco — forçar refetch
+    refetchServices();
+    refetchInputs();
+    handleAddItem(item, tipo, stageId);
   };
 
   const updateItem = (itemTempIdOrId, field, value) => {
@@ -598,10 +611,11 @@ export default function BudgetForm() {
                    <TableRow className="bg-slate-50/50">
                      <TableCell colSpan={10} className="p-2">
                        <div className="flex items-center gap-2">
-                         <ServiceSelector 
-                           services={services}
-                           selectedServices={selectedServiceIds}
-                           onSelect={(v) => handleAddService(v, isUncategorized ? 'uncategorized' : stageId)} 
+                         <ServiceSelectorWithCatalog
+                           localServices={services}
+                           localInputs={inputs}
+                           selectedIds={selectedServiceIds}
+                           onSelect={(item, tipo) => handleSelectorSelect(item, tipo, isUncategorized ? 'uncategorized' : stageId)}
                          />
                        </div>
                      </TableCell>

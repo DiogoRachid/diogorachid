@@ -162,17 +162,28 @@ Deno.serve(async (req) => {
     const { action } = body;
 
     if (action === 'importInput') {
-      const { masterInput } = body;
-      if (!masterInput) return Response.json({ error: 'masterInput é obrigatório' }, { status: 400 });
+      // Aceita masterInput (objeto) ou inputCodigo (string) para buscar no Supabase
+      let masterInput = body.masterInput;
+      if (!masterInput && body.inputCodigo) {
+        const found = await supabaseFetch('Input', { 'codigo': `eq.${body.inputCodigo}` });
+        if (!found.length) return Response.json({ error: `Insumo ${body.inputCodigo} não encontrado no catálogo` }, { status: 404 });
+        masterInput = found[0];
+      }
+      if (!masterInput) return Response.json({ error: 'masterInput ou inputCodigo é obrigatório' }, { status: 400 });
       const result = await importInput(base44, masterInput);
-      return Response.json({ success: true, result });
+      // Retorna o insumo local completo
+      const localInput = await base44.asServiceRole.entities.Input.filter({ codigo: masterInput.codigo });
+      return Response.json({ success: true, result, input: localInput[0] || null });
     }
 
     if (action === 'importService') {
-      const { serviceCode } = body;
+      // Aceita serviceCode ou masterServiceCodigo
+      const serviceCode = body.serviceCode || body.masterServiceCodigo;
       if (!serviceCode) return Response.json({ error: 'serviceCode é obrigatório' }, { status: 400 });
       const result = await importServiceWithItems(base44, serviceCode);
-      return Response.json({ success: true, result });
+      // Retorna o serviço local completo
+      const localService = await base44.asServiceRole.entities.Service.filter({ codigo: serviceCode });
+      return Response.json({ success: true, result, service: localService[0] || null });
     }
 
     if (action === 'importBulk') {
