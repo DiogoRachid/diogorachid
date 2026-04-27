@@ -10,7 +10,7 @@ import {
   Package, Layers, Calculator, UploadCloud, History, DollarSign,
   DatabaseBackup, Ruler, ChevronLeft, ChevronRight, Calendar,
   FileInput, Truck, ShoppingCart, Globe, BookOpen, GripVertical,
-  ArrowUp, ArrowDown
+  ArrowUp, ArrowDown, Gavel
 } from 'lucide-react';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,11 @@ const menuItems = [
       { title: 'Variação de Insumos', page: 'InputPriceVariationReport', icon: TrendingUp },
       { title: 'Variação de Serviços', page: 'ServicePriceVariationReport', icon: TrendingUp }
     ]
+  },
+  {
+    title: 'Licitações',
+    icon: Gavel,
+    page: 'Licitacoes'
   },
   {
     title: 'Backup',

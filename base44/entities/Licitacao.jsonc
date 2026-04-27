@@ -1,0 +1,100 @@
+{
+  "name": "Licitacao",
+  "type": "object",
+  "properties": {
+    "nome_obra": {
+      "type": "string",
+      "description": "Nome da obra ou objeto da licita\u00e7\u00e3o"
+    },
+    "orgao_licitante": {
+      "type": "string",
+      "description": "\u00d3rg\u00e3o ou entidade respons\u00e1vel pela licita\u00e7\u00e3o"
+    },
+    "numero_licitacao": {
+      "type": "string",
+      "description": "N\u00famero/c\u00f3digo da licita\u00e7\u00e3o"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "Concorr\u00eancia",
+        "Tomada de Pre\u00e7os",
+        "Convite",
+        "Preg\u00e3o Presencial",
+        "Preg\u00e3o Eletr\u00f4nico",
+        "RDC",
+        "Dispensa",
+        "Inexigibilidade"
+      ],
+      "description": "Modalidade da licita\u00e7\u00e3o"
+    },
+    "data_abertura": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de abertura das propostas"
+    },
+    "valor_maximo": {
+      "type": "number",
+      "description": "Valor m\u00e1ximo estimado (R$)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aguardando",
+        "participando",
+        "encerrada",
+        "cancelada"
+      ],
+      "default": "aguardando",
+      "description": "Status atual da licita\u00e7\u00e3o"
+    },
+    "participou": {
+      "type": "boolean",
+      "default": null,
+      "description": "Indica se a empresa participou"
+    },
+    "justificativa_nao_participacao": {
+      "type": "string",
+      "description": "Motivo de n\u00e3o participa\u00e7\u00e3o (caso participou = false)"
+    },
+    "qtd_empresas": {
+      "type": "integer",
+      "description": "Quantidade de empresas participantes"
+    },
+    "empresa_vencedora": {
+      "type": "string",
+      "description": "Nome da empresa vencedora"
+    },
+    "valor_vencedor": {
+      "type": "number",
+      "description": "Valor da proposta vencedora (R$)"
+    },
+    "nossa_proposta": {
+      "type": "number",
+      "description": "Valor da nossa proposta (R$)"
+    },
+    "percentual_desconto": {
+      "type": "number",
+      "description": "Percentual de desconto sobre o valor m\u00e1ximo (calculado automaticamente)"
+    },
+    "ganhou": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se nossa empresa foi a vencedora"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es gerais"
+    },
+    "link_edital": {
+      "type": "string",
+      "description": "URL do edital"
+    }
+  },
+  "required": [
+    "nome_obra",
+    "orgao_licitante",
+    "data_abertura",
+    "valor_maximo"
+  ]
+}
