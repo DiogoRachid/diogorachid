@@ -5,13 +5,14 @@ import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Calendar, TrendingUp, PieChart as PieChartIcon, Users, CheckSquare } from 'lucide-react';
+import { ArrowLeft, Calendar, TrendingUp, PieChart as PieChartIcon, Users, CheckSquare, BarChart2 } from 'lucide-react';
 import { toast } from "sonner";
 import ScheduleEditor from '@/components/planner/ScheduleEditor';
 import SCurveChart from '@/components/planner/SCurveChart';
 import ABCAnalysis from '@/components/planner/ABCAnalysis';
 import StaffingCalculator from '@/components/planner/StaffingCalculator';
 import RealizadoTab from '@/components/planner/RealizadoTab';
+import GanttChart from '@/components/planner/GanttChart';
 
 export default function BudgetPlanner() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -273,7 +274,7 @@ export default function BudgetPlanner() {
 
       {/* Tabs de Planejamento */}
       <Tabs defaultValue="schedule" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="schedule">
             <Calendar className="h-4 w-4 mr-2" />
             Cronograma Detalhado
@@ -289,6 +290,10 @@ export default function BudgetPlanner() {
           <TabsTrigger value="staffing">
             <Users className="h-4 w-4 mr-2" />
             Recursos e Equipes
+          </TabsTrigger>
+          <TabsTrigger value="gantt">
+            <BarChart2 className="h-4 w-4 mr-2" />
+            Gantt
           </TabsTrigger>
           <TabsTrigger value="realizado">
             <CheckSquare className="h-4 w-4 mr-2" />
@@ -332,6 +337,18 @@ export default function BudgetPlanner() {
             services={services}
             months={months}
             budget={budget}
+          />
+        </TabsContent>
+
+        <TabsContent value="gantt" className="mt-6">
+          <GanttChart
+            budget={budget}
+            stages={stages}
+            items={items}
+            onSaveSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['projectStages', budgetId] });
+              queryClient.invalidateQueries({ queryKey: ['budget', budgetId] });
+            }}
           />
         </TabsContent>
 
