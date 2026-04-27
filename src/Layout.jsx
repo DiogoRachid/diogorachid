@@ -10,7 +10,7 @@ import {
   Package, Layers, Calculator, UploadCloud, History, DollarSign,
   DatabaseBackup, Ruler, ChevronLeft, ChevronRight, Calendar,
   FileInput, Truck, ShoppingCart, Globe, BookOpen, GripVertical,
-  ArrowUp, ArrowDown, Gavel
+  ArrowUp, ArrowDown, Gavel, Database
 } from 'lucide-react';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,8 @@ const menuItems = [
       { title: 'Centros de Custo', page: 'CostCenters', icon: PieChart },
       { title: 'Insumos', page: 'Inputs', icon: Package },
       { title: 'Serviços (Composições)', page: 'Services', icon: Layers },
-      { title: 'Importação Tabelas', page: 'TableImport', icon: UploadCloud }
+      { title: 'Importação Tabelas', page: 'TableImport', icon: UploadCloud },
+      { title: 'Catálogo Mestre', page: 'CatalogImport', icon: Database }
       ]
       },
       {
