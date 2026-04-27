@@ -39,6 +39,7 @@ import AdminProfileEditor from '@/components/settings/AdminProfileEditor';
 import SiteColorSchemeEditor from '@/components/settings/SiteColorSchemeEditor';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import WhatsAppModulosSelector from '@/components/settings/WhatsAppModulosSelector';
 
 const DEFAULT_SERVICOS = [
   { titulo: 'Edificações Públicas', descricao: 'Construção de hospitais universitários, blocos acadêmicos, creches, escolas, delegacias e demais equipamentos públicos.', cor: 'bg-blue-50 text-blue-600' },
@@ -146,6 +147,7 @@ export default function Settings() {
     site_color_scheme: 'blue',
     whatsapp_recipients: [],
     whatsapp_enabled: false,
+    whatsapp_modulos: [],
     evolution_api_url: '',
     evolution_api_key: '',
     evolution_api_instance: ''
@@ -193,6 +195,7 @@ export default function Settings() {
         site_color_scheme: companySettings.site_color_scheme || 'blue',
         whatsapp_recipients: companySettings.whatsapp_recipients || [],
         whatsapp_enabled: companySettings.whatsapp_enabled || false,
+        whatsapp_modulos: companySettings.whatsapp_modulos || [],
         evolution_api_url: companySettings.evolution_api_url || '',
         evolution_api_key: companySettings.evolution_api_key || '',
         evolution_api_instance: companySettings.evolution_api_instance || ''
@@ -492,6 +495,14 @@ export default function Settings() {
                         }`}
                       />
                     </button>
+                  </div>
+
+                  {/* Módulos do alerta */}
+                  <div>
+                    <WhatsAppModulosSelector
+                      value={companyData.whatsapp_modulos}
+                      onChange={v => setCompanyData(prev => ({ ...prev, whatsapp_modulos: v }))}
+                    />
                   </div>
 
                   {/* Lista de destinatários */}

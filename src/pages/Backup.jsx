@@ -62,6 +62,7 @@ const MODULES = [
 
   // Documentos
   { key: 'Document',                   label: 'Documentos',                       group: 'Documentos' },
+  { key: 'Licitacao',                  label: 'Licitações',                       group: 'Documentos' },
 
   // Sistema
   { key: 'CompanySettings',            label: 'Configurações da Empresa',         group: 'Sistema' },

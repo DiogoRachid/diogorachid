@@ -125,8 +125,7 @@
             "type": "string"
           },
           "cor": {
-            "type": "string",
-            "description": "Ex: bg-blue-50 text-blue-600"
+            "type": "string"
           }
         }
       }
@@ -171,6 +170,13 @@
       "type": "boolean",
       "default": false,
       "description": "Se automa\u00e7\u00e3o de WhatsApp est\u00e1 ativa"
+    },
+    "whatsapp_modulos": {
+      "type": "array",
+      "description": "M\u00f3dulos selecionados para compor o alerta di\u00e1rio do WhatsApp",
+      "items": {
+        "type": "string"
+      }
     },
     "evolution_api_url": {
       "type": "string",

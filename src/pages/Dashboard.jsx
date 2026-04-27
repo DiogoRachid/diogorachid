@@ -21,7 +21,9 @@ import {
   Palmtree,
   Clock,
   FolderOpen,
-  FileText
+  FileText,
+  Gavel,
+  Trophy
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -106,6 +108,11 @@ export default function Dashboard() {
   const { data: allDocuments = [] } = useQuery({
     queryKey: ['documents-dashboard'],
     queryFn: () => base44.entities.Document.list('-created_date', 500)
+  });
+
+  const { data: licitacoes = [] } = useQuery({
+    queryKey: ['licitacoes-dashboard'],
+    queryFn: () => base44.entities.Licitacao.list('-data_abertura', 500)
   });
 
   // Alertas de RH
@@ -440,6 +447,62 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Card Licitações */}
+      {licitacoes.length > 0 && (() => {
+        const hoje = new Date();
+        const encerradas = licitacoes.filter(l => l.status === 'encerrada' && l.participou);
+        const ganhas = encerradas.filter(l => l.ganhou);
+        const proximas = licitacoes
+          .filter(l => l.data_abertura && new Date(l.data_abertura) > hoje && l.status !== 'cancelada')
+          .sort((a, b) => new Date(a.data_abertura) - new Date(b.data_abertura))
+          .slice(0, 3);
+        const participando = licitacoes.filter(l => l.status === 'participando');
+        return (
+          <Card className="mb-8 border-indigo-200">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-indigo-800 text-base">
+                <Gavel className="h-5 w-5 text-indigo-600" /> Licitações
+              </CardTitle>
+              <button className="text-xs text-indigo-600 hover:underline" onClick={() => window.location.href = createPageUrl('Licitacoes')}>
+                Ver todas →
+              </button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                {[
+                  { label: 'Total Cadastradas', value: licitacoes.length, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                  { label: 'Em Andamento', value: participando.length, color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { label: 'Participadas', value: encerradas.length, color: 'text-slate-600', bg: 'bg-slate-100' },
+                  { label: 'Ganhas', value: ganhas.length, color: 'text-green-600', bg: 'bg-green-50', icon: <Trophy className="h-4 w-4" /> },
+                ].map(({ label, value, color, bg, icon }) => (
+                  <div key={label} className={`rounded-xl p-3 ${bg} text-center`}>
+                    <div className={`flex items-center justify-center gap-1 text-2xl font-bold ${color}`}>
+                      {icon}{value}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">{label}</p>
+                  </div>
+                ))}
+              </div>
+              {proximas.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Próximas aberturas</p>
+                  <div className="space-y-2">
+                    {proximas.map(l => (
+                      <div key={l.id} className="flex items-center justify-between p-2 rounded-lg bg-indigo-50 border border-indigo-100">
+                        <span className="text-sm font-medium text-slate-800 truncate flex-1 mr-2">{l.nome_obra}</span>
+                        <span className="text-xs text-indigo-700 font-semibold flex-shrink-0">
+                          {new Date(l.data_abertura + 'T00:00:00').toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Alertas de RH */}
       {(alertasContratoExp.length > 0 || alertasProrrogacao.length > 0 || alertasFerias.length > 0) && (
