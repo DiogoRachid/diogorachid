@@ -47,11 +47,11 @@ export default function LicitacaoFormDialog({ open, onClose, onSubmit, initialDa
   const handleSubmit = (e) => {
     e.preventDefault();
     const payload = { ...form };
-    // Converte tipos
-    if (payload.valor_maximo) payload.valor_maximo = Number(payload.valor_maximo);
-    if (payload.nossa_proposta) payload.nossa_proposta = Number(payload.nossa_proposta);
-    if (payload.valor_vencedor) payload.valor_vencedor = Number(payload.valor_vencedor);
-    if (payload.qtd_empresas) payload.qtd_empresas = parseInt(payload.qtd_empresas);
+    // Converte tipos — campos vazios viram null (nunca string vazia)
+    payload.valor_maximo   = payload.valor_maximo   !== '' ? Number(payload.valor_maximo)   : null;
+    payload.nossa_proposta = payload.nossa_proposta !== '' ? Number(payload.nossa_proposta) : null;
+    payload.valor_vencedor = payload.valor_vencedor !== '' ? Number(payload.valor_vencedor) : null;
+    payload.qtd_empresas   = payload.qtd_empresas   !== '' ? parseInt(payload.qtd_empresas)   : null;
     onSubmit(payload);
   };
 
