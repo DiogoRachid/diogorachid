@@ -622,30 +622,40 @@ export default function Settings() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Formato da Mensagem</CardTitle>
-                  <CardDescription>Esta é a mensagem que será enviada diariamente</CardDescription>
+                  <CardDescription>Preview da mensagem com base nos módulos selecionados</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="bg-slate-50 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap text-slate-700 text-xs leading-relaxed">
-{`🏢 Alerta Diário - Sua Empresa
-
-📅 [Data de Hoje]
-
-💰 Contas a Pagar/Receber:
-   • Hoje: [N] vencimento(s)
-   • Próximos 7 dias: [N] vencimento(s)
-
-💵 Investimentos:
-   • Valor Total Investido: R$ [Valor]
-
-📄 Documentos:
-   • Vencimento Hoje: [N] documento(s)
-   • Próximos 7 dias: [N] documento(s)
-
-👥 RH - Contratos de Experiência:
-   • Próximos 7 dias: [N] contrato(s)
-
-📦 Logística:
-   • Pedidos (Ontem): [N] solicitação(ões)`}
+                  <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg font-mono whitespace-pre-wrap text-slate-700 dark:text-slate-300 text-xs leading-relaxed">
+                    {(() => {
+                      const modulos = companyData.whatsapp_modulos && companyData.whatsapp_modulos.length > 0
+                        ? companyData.whatsapp_modulos
+                        : ['contas_pagar_receber','patrimonio','documentos','rh_contratos','logistica','licitacoes'];
+                      const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                      const linhas = [
+                        `🏢 Alerta Diário - ${companyData.nome_empresa || 'Sua Empresa'}`,
+                        ``,
+                        `📅 ${hoje}`,
+                      ];
+                      if (modulos.includes('contas_pagar_receber')) {
+                        linhas.push(``, `💰 Contas a Pagar/Receber:`, `   • Hoje: [N] vencimento(s)`, `   • Próximos 7 dias: [N] vencimento(s)`);
+                      }
+                      if (modulos.includes('patrimonio')) {
+                        linhas.push(``, `💵 Patrimônio Total:`, `   • R$ [Valor]`);
+                      }
+                      if (modulos.includes('documentos')) {
+                        linhas.push(``, `📄 Documentos:`, `   • Vencimento Hoje: [N] documento(s)`, `   • Próximos 7 dias: [N] documento(s)`);
+                      }
+                      if (modulos.includes('rh_contratos')) {
+                        linhas.push(``, `👥 RH – Contratos de Experiência:`, `   • Próximos 7 dias: [N] contrato(s) a vencer`);
+                      }
+                      if (modulos.includes('logistica')) {
+                        linhas.push(``, `📦 Logística:`, `   • Pedidos (Ontem): [N] solicitação(ões)`);
+                      }
+                      if (modulos.includes('licitacoes')) {
+                        linhas.push(``, `🏛️ Licitações:`, `   • Em andamento: [N]`, `   • Próximas aberturas: [Lista]`);
+                      }
+                      return linhas.join('\n');
+                    })()}
                   </div>
                 </CardContent>
               </Card>
